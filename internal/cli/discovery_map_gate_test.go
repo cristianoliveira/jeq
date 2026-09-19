@@ -35,7 +35,7 @@ func TestMapAndGateRejectUnknownOutputFlagBeforeDependencies(t *testing.T) {
 	}
 }
 
-func TestHomeDiscoveryIncludesAvailableMapAndGate(t *testing.T) {
+func TestRootHelpIncludesAvailableMapAndGate(t *testing.T) {
 	deps := AskDeps{
 		ReadFile:  func(string, int64) ([]byte, *gev.Error) { return nil, nil },
 		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) { return nil, nil },
@@ -47,7 +47,7 @@ func TestHomeDiscoveryIncludesAvailableMapAndGate(t *testing.T) {
 	if code := RunWithDeps(nil, &out, &stderr, streamRenderer{}, deps); code != 0 {
 		t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
 	}
-	if !strings.Contains(out.String(), "Commands:") || !strings.Contains(out.String(), "map") || !strings.Contains(out.String(), "reduce") || !strings.Contains(out.String(), "gate") {
-		t.Fatalf("home=%q", out.String())
+	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "map") || !strings.Contains(out.String(), "reduce") || !strings.Contains(out.String(), "gate") {
+		t.Fatalf("root help=%q", out.String())
 	}
 }

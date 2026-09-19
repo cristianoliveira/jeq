@@ -200,7 +200,7 @@ func TestBlackBoxDiscoveryAndProseExceptions(t *testing.T) {
 		args  []string
 		prose bool
 	}{
-		{name: "home default", args: nil},
+		{name: "root help default", args: nil, prose: true},
 		{name: "version default", args: []string{"version"}},
 		{name: "help", args: []string{"--help"}, prose: true},
 		{name: "completion", args: []string{"completion", "bash"}, prose: true},

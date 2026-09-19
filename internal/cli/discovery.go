@@ -18,54 +18,11 @@ type versionDocument struct {
 	Commit  string `json:"commit"`
 }
 
-type homeDocument struct {
-	Identity           string   `json:"identity"`
-	Purpose            string   `json:"purpose"`
-	CredentialReady    bool     `json:"credential_ready"`
-	DefaultModel       string   `json:"default_model"`
-	DefaultModelSource string   `json:"default_model_source"`
-	Commands           []string `json:"commands"`
-	NextStep           string   `json:"next_step"`
-}
-
 func depsForRoot(deps ...AskDeps) AskDeps {
 	if len(deps) == 0 {
 		return AskDeps{}
 	}
 	return deps[0]
-}
-
-func renderHome(cmd *cobra.Command, deps AskDeps) error {
-	if deps.Getenv == nil {
-		deps.Getenv = func(string) string { return "" }
-	}
-	commands := []string{"examples", "version", "help"}
-	if deps.valid() {
-		commands = append([]string{"ask", "map", "reduce"}, commands...)
-	}
-	if deps.ReadStdin != nil && deps.Renderer != nil {
-		commands = append([]string{"gate"}, commands...)
-	}
-	if deps.modelsReady() {
-		commands = append([]string{"models"}, commands...)
-	}
-	if deps.sourceReady() {
-		commands = append([]string{"validate"}, commands...)
-	}
-	model, source, modelErr := ResolveConfiguredModelWithSource("", "", deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
-	if modelErr != nil {
-		return modelErr
-	}
-	doc := homeDocument{
-		Identity:           "gev",
-		Purpose:            "agent-first TypeSafe System One client",
-		CredentialReady:    strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY")) != "",
-		DefaultModel:       model,
-		DefaultModelSource: source,
-		Commands:           commands,
-		NextStep:           "run gev examples",
-	}
-	return writeHome(cmd.OutOrStdout(), doc)
 }
 
 // NewVersionCmdWithDeps creates the plain-text build-information command.

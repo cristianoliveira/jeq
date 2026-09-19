@@ -13,7 +13,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return renderHome(cmd, depsForRoot(deps...))
+			return cmd.Help()
 		},
 	}
 	// Flag parse failures are usage failures (exit 2), not generic errors.

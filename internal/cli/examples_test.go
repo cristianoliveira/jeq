@@ -63,14 +63,14 @@ func TestExamplesUnknownAndExtraArgsAreStructuredInputErrors(t *testing.T) {
 	}
 }
 
-func TestHomeAndCommandHelpPointToExamples(t *testing.T) {
+func TestRootAndCommandHelpPointToExamples(t *testing.T) {
 	r := &valueRenderer{}
 	var out, errOut bytes.Buffer
 	if code := cli.RunWithDeps(nil, &out, &errOut, r, cli.AskDeps{}); code != 0 {
 		t.Fatal(code)
 	}
-	if !strings.Contains(out.String(), "Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "Next: gev examples") {
-		t.Fatalf("home=%q", out.String())
+	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "gev examples map-reduce-gate") {
+		t.Fatalf("root help=%q", out.String())
 	}
 	for _, command := range []*cobra.Command{cli.NewExamplesCmd(cli.AskDeps{}), cli.NewAskCmd(cli.AskDeps{}), cli.NewValidateCmd(cli.AskDeps{}), cli.NewMapCmd(cli.AskDeps{}), cli.NewReduceCmd(cli.AskDeps{}), cli.NewGateCmd(cli.AskDeps{})} {
 		if command.Example == "" {

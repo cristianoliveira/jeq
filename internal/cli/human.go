@@ -8,18 +8,6 @@ import (
 	"github.com/cristianoliveira/gev/internal/domain/contract"
 )
 
-func writeHome(w io.Writer, doc homeDocument) error {
-	_, err := fmt.Fprintf(w, "gev\n%s\nCredentials: %s\nDefault model: %s (%s)\nCommands: %s\nNext: gev examples\n", doc.Purpose, readiness(doc.CredentialReady), doc.DefaultModel, doc.DefaultModelSource, strings.Join(doc.Commands, ", "))
-	return err
-}
-
-func readiness(ready bool) string {
-	if ready {
-		return "ready"
-	}
-	return "missing"
-}
-
 func writeVersion(w io.Writer, doc versionDocument) error {
 	_, err := fmt.Fprintf(w, "%s %s\nCommit: %s\n", doc.Name, doc.Version, doc.Commit)
 	return err

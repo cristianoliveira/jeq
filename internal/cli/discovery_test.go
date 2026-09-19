@@ -29,32 +29,32 @@ func (r *valueRenderer) RenderValue(w io.Writer, value any) error {
 	return err
 }
 
-func TestHomeIsOfflineAndReportsOnlyCredentialReadiness(t *testing.T) {
+func TestBareRootUsesCobraHelpWithoutDependencyWork(t *testing.T) {
 	r := &valueRenderer{}
 	var envReads, clientCreates int
 	deps := cli.AskDeps{
-		Getenv: func(key string) string {
-			envReads++
-			if key == "TYPESAFE_API_KEY" {
-				return "secret"
-			}
-			return "model-from-env"
+		Getenv:   func(string) string { envReads++; return "secret" },
+		Renderer: r,
+		NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient {
+			clientCreates++
+			return nil
 		},
-		Renderer:  r,
-		NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient { clientCreates++; return nil },
 	}
-	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps(nil, &out, &errOut, r, deps); code != 0 {
-		t.Fatalf("exit=%d", code)
+	var bareOut, helpOut, errOut bytes.Buffer
+	if code := cli.RunWithDeps(nil, &bareOut, &errOut, r, deps); code != 0 {
+		t.Fatalf("bare exit=%d stderr=%q", code, errOut.String())
 	}
-	if clientCreates != 0 || errOut.Len() != 0 || len(r.values) != 0 {
-		t.Fatalf("creates=%d stderr=%q renderer-values=%d", clientCreates, errOut.String(), len(r.values))
+	if code := cli.RunWithDeps([]string{"--help"}, &helpOut, &errOut, r, deps); code != 0 {
+		t.Fatalf("help exit=%d stderr=%q", code, errOut.String())
 	}
-	text := out.String()
-	for _, want := range []string{"Credentials: ready", "Default model: model-from-env", "Next: gev examples"} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("home output %q lacks %q; env reads=%d", text, want, envReads)
-		}
+	if bareOut.String() != helpOut.String() {
+		t.Fatalf("bare root differs from Cobra help\nbare=%q\nhelp=%q", bareOut.String(), helpOut.String())
+	}
+	if envReads != 0 || clientCreates != 0 || errOut.Len() != 0 || len(r.values) != 0 {
+		t.Fatalf("env=%d clients=%d stderr=%q renderer-values=%d", envReads, clientCreates, errOut.String(), len(r.values))
+	}
+	if !strings.Contains(bareOut.String(), "Usage:") || !strings.Contains(bareOut.String(), "Available Commands:") || !strings.Contains(bareOut.String(), "examples") || strings.Contains(bareOut.String(), "Credentials:") {
+		t.Fatalf("unexpected root help: %q", bareOut.String())
 	}
 }
 
