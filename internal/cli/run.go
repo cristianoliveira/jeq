@@ -21,14 +21,16 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	// Cobra rejects unknown commands during Find, before any flag parsing;
 	// classify that rejection as a usage failure and keep it self-correcting.
 	if _, _, err := root.Find(args); err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n%s", err, usageHint)
+		// Best-effort diagnostics: a write failure on stderr must not change
+		// the classified exit code.
+		_, _ = fmt.Fprintf(stderr, "Error: %v\n%s", err, usageHint)
 		return ExitCode(NewUsageError(err))
 	}
 
 	if err := root.Execute(); err != nil {
 		var usage *UsageError
 		if errors.As(err, &usage) {
-			fmt.Fprint(stderr, usageHint)
+			_, _ = fmt.Fprint(stderr, usageHint)
 		}
 		return ExitCode(err)
 	}
