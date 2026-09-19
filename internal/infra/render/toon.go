@@ -119,7 +119,8 @@ func semanticEqual(a, b any) bool {
 			return false
 		}
 		for key, value := range av {
-			if !semanticEqual(value, bv[key]) {
+			decodedValue, exists := bv[key]
+			if !exists || !semanticEqual(value, decodedValue) {
 				return false
 			}
 		}
