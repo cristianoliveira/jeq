@@ -1,7 +1,7 @@
 ---
 id: TASK-0012
 title: models, version, and home view
-status: doing
+status: done
 depends_on: [TASK-0002, TASK-0006]
 priority: normal
 tags: []

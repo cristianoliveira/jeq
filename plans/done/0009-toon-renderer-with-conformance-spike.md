@@ -1,7 +1,7 @@
 ---
 id: TASK-0009
 title: TOON conformance spike and safe fallback
-status: doing
+status: done
 depends_on: [TASK-0008]
 priority: normal
 tags: []
