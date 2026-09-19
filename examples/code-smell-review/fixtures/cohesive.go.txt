@@ -1,0 +1,15 @@
+// Fixture label: cohesive
+// Input evidence only. Do not treat model output as deterministic truth.
+package cohesive
+
+type Clock interface { Now() int64 }
+
+type Greeter struct {
+	clock Clock
+}
+
+func NewGreeter(clock Clock) Greeter { return Greeter{clock: clock} }
+
+func (g Greeter) Greeting(name string) string {
+	return "hello " + name
+}

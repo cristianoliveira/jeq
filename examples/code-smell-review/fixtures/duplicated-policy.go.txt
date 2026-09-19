@@ -1,0 +1,11 @@
+// Fixture label: duplicated-policy
+// Input evidence only. Do not treat model output as deterministic truth.
+package duplicatedpolicy
+
+func canRetry(status int) bool {
+	return status == 408 || status == 429
+}
+
+func shouldRetry(status int) bool {
+	return status == 408 || status == 429
+}
