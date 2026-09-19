@@ -24,6 +24,8 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reduce",
 		Short: "Aggregate JSON records with one named judgment",
+		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | gev reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
+  gev examples reduce-gate`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			source.fileSet = cmd.Flags().Changed("questions")
 			source.inlineSet = cmd.Flags().Changed("questions-json")

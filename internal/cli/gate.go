@@ -16,6 +16,8 @@ func NewGateCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gate",
 		Short: "Apply an offline probability policy to each JSON record",
+		Example: `  gev gate --as policy --value-pointer /_gev/risk/answers/risk/noul --pass-min 0.80 --reject-max 0.40
+  gev examples map-gate`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runGate(cmd, deps, gateFlags{
 				name: name, input: input, pointer: pointer, passMin: passMin, rejectMax: rejectMax,

@@ -19,6 +19,8 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 	var request, questions, state, stateFile, stateJSON, model string
 	cmd := &cobra.Command{
 		Use: "validate", Short: "Validate one request without network access",
+		Example: `  gev validate --questions questions.json --state-json state.json
+  gev examples ask-native`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			format, _ := cmd.Flags().GetString("output")
 			flags := askFlags{

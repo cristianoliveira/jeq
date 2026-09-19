@@ -32,6 +32,8 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "map",
 		Short: "Enrich each JSON record with one named judgment",
+		Example: `  printf '%s\n' '{"change":"small"}' | gev map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
+  gev examples map-gate`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
 				name: name, input: input, source: source, config: config, statePointer: statePointer,

@@ -1,5 +1,8 @@
 # Readable Unix pipelines
 
+Start with `gev examples` for installed, self-contained recipes. This repository
+contains expanded executable references for those workflows.
+
 These examples use the composable primitives from ADR 0004. `gev map` performs
 one named semantic judgment per record; `jq` projects, joins, and constructs
 native requests; `gev gate` applies an explicit offline numeric policy.

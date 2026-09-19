@@ -66,6 +66,8 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ask",
 		Short: "Send one System One request",
+		Example: `  gev ask --request request.json
+  gev examples ask-native`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,

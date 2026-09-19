@@ -59,7 +59,7 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 	if err != nil {
 		return err
 	}
-	commands := []string{"version", "help"}
+	commands := []string{"examples", "version", "help"}
 	if deps.valid() {
 		commands = append([]string{"ask", "map", "reduce"}, commands...)
 	}
@@ -83,7 +83,7 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 		DefaultModel:       model,
 		DefaultModelSource: source,
 		Commands:           commands,
-		NextStep:           "run gev ask --help",
+		NextStep:           "run gev examples",
 	}
 	return renderer.RenderValue(cmd.OutOrStdout(), doc)
 }

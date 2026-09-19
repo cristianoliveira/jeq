@@ -9,6 +9,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "gev",
 		Short:         "Agent-first CLI for TypeSafe System One",
+		Example:       "  gev examples\n  gev examples map-reduce-gate",
 		SilenceUsage:  true,
 		SilenceErrors: true, // errors render as structured documents, not Cobra prose
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -21,6 +22,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		return NewUsageError(err)
 	})
 	root.AddCommand(NewVersionCmdWithDeps(depsForRoot(deps...)))
+	root.AddCommand(NewExamplesCmd(depsForRoot(deps...)))
 	if len(deps) > 0 {
 		root.AddCommand(NewGateCmd(deps[0]))
 	}
