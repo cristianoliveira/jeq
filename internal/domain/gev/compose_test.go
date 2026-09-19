@@ -223,3 +223,18 @@ func TestComposeNeverTouchesNetwork(t *testing.T) {
 		t.Errorf("composition made %d network requests; it must be pure", hits.Load())
 	}
 }
+
+func TestComposeComposedPrettyEmptyStateJSONFails(t *testing.T) {
+	// F-D1-1: a pretty-printed empty object is semantically empty and must
+	// fail exactly like the compact form, regardless of whitespace.
+	for _, state := range []string{`{}`, "{\n}", `[]`, "[\n]"} {
+		_, err := gev.Compose(gev.ComposeInput{
+			QuestionsDoc: []byte(questionsDoc),
+			State:        gev.StateInput{Kind: gev.SourceStateJSON, JSON: []byte(state)},
+			Model:        "jev-latest",
+		})
+		if err == nil {
+			t.Errorf("pretty state %q must fail as semantically empty", state)
+		}
+	}
+}

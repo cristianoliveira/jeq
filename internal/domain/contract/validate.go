@@ -177,8 +177,9 @@ func knownType(t QuestionType) bool {
 	return t == TypeNoul || t == TypeChoice || t == TypeScore
 }
 
-// emptyJSONValue reports whether raw is absent, null, a blank string, or an
-// empty object/array.
+// emptyJSONValue reports whether raw is absent, null, a blank string, or a
+// semantically empty object/array. It parses the JSON shape, so formatting
+// and whitespace never change the verdict (F-D1-1).
 func emptyJSONValue(raw json.RawMessage) bool {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {
@@ -187,12 +188,16 @@ func emptyJSONValue(raw json.RawMessage) bool {
 	switch trimmed[0] {
 	case '"':
 		var s string
-		if err := json.Unmarshal(trimmed, &s); err != nil {
+		if json.Unmarshal(trimmed, &s) != nil {
 			return false
 		}
 		return strings.TrimSpace(s) == ""
-	case '{', '[':
-		return len(trimmed) == 2
+	case '{':
+		var m map[string]json.RawMessage
+		return json.Unmarshal(trimmed, &m) != nil || len(m) == 0
+	case '[':
+		var a []json.RawMessage
+		return json.Unmarshal(trimmed, &a) != nil || len(a) == 0
 	default:
 		return false
 	}
