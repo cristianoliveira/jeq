@@ -1,7 +1,7 @@
 ---
 id: TASK-0003
 title: Contract types with strict JSON decode
-status: doing
+status: done
 depends_on: [TASK-0001]
 priority: high
 tags: []
