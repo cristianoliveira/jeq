@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
 )
 
 // JSON is the version 1 renderer: lossless JSON documents with the
@@ -45,23 +44,4 @@ func writeJSON(w io.Writer, out []byte) error {
 	}
 	_, err := w.Write([]byte("\n"))
 	return err
-}
-
-// errorDoc is the stable error document shape: code, message, recovery.
-// The internal cause is deliberately unreachable from here.
-type errorDoc struct {
-	Code     gev.Code `json:"code"`
-	Message  string   `json:"message"`
-	Recovery string   `json:"recovery"`
-}
-
-// RenderError writes the error document. Only code, message, and recovery
-// are exposed: never the internal cause, secrets, stacks, or raw
-// dependency prose.
-func (JSON) RenderError(w io.Writer, e *gev.Error) error {
-	return json.NewEncoder(w).Encode(errorDoc{
-		Code:     e.Code,
-		Message:  e.Message,
-		Recovery: e.Recovery,
-	})
 }

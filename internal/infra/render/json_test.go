@@ -2,8 +2,6 @@ package render_test
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"flag"
 	"os"
 	"path/filepath"
@@ -12,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
 	"github.com/cristianoliveira/gev/internal/fixtures"
 	"github.com/cristianoliveira/gev/internal/infra/render"
 )
@@ -82,70 +79,6 @@ func TestRenderSuccessRoundTrips(t *testing.T) {
 	}
 	if !reflect.DeepEqual(resp, resp2) {
 		t.Error("render output does not round-trip to a semantically identical value")
-	}
-}
-
-func TestRenderErrorExposesOnlyCodeMessageRecovery(t *testing.T) {
-	// Given an error whose internal cause carries a secret
-	err := gev.WrapError(gev.CodeRateLimited, errors.New("cause with supersecret-material"), "slow down").
-		WithRecovery("retry after a delay")
-
-	var out bytes.Buffer
-	if err := (render.JSON{}).RenderError(&out, err); err != nil {
-		t.Fatal(err)
-	}
-
-	// Then the document carries only code/message/recovery
-	var doc map[string]any
-	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
-		t.Fatalf("error output is not valid JSON: %v", err)
-	}
-	if len(doc) != 3 {
-		t.Fatalf("error document must expose exactly code/message/recovery, got %v", doc)
-	}
-	for _, key := range []string{"code", "message", "recovery"} {
-		if _, ok := doc[key]; !ok {
-			t.Errorf("error document missing %q", key)
-		}
-	}
-
-	// And internal cause text never leaks
-	if strings.Contains(out.String(), "supersecret") {
-		t.Errorf("internal cause leaked into the error document: %q", out.String())
-	}
-	if !strings.Contains(out.String(), "GEV_RATE_LIMITED") {
-		t.Errorf("error document missing the stable code: %q", out.String())
-	}
-	if !strings.Contains(out.String(), "retry after a delay") {
-		t.Errorf("error document missing the recovery instruction: %q", out.String())
-	}
-}
-
-func TestRenderErrorGolden(t *testing.T) {
-	err := gev.NewError(gev.CodeAuthMissing, "TYPESAFE_API_KEY is not set").
-		WithRecovery("export TYPESAFE_API_KEY with the account key")
-
-	var out bytes.Buffer
-	if err := (render.JSON{}).RenderError(&out, err); err != nil {
-		t.Fatal(err)
-	}
-	assertGolden(t, "json_error_auth_missing.golden", out.Bytes())
-}
-
-func TestRenderEscapingStaysOneLine(t *testing.T) {
-	err := gev.NewError(gev.CodeInputInvalid, "bad value \"quoted\" <tag>\nsecond line").
-		WithRecovery("fix \"it\"")
-
-	var out bytes.Buffer
-	if err := (render.JSON{}).RenderError(&out, err); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Count(out.String(), "\n") != 1 {
-		t.Errorf("error output must be one line, got: %q", out.String())
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
-		t.Errorf("escaped output is not valid JSON: %v", err)
 	}
 }
 

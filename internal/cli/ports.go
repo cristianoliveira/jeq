@@ -11,16 +11,13 @@ import (
 // the composition root from importing the domain package directly.
 type CodedError = gev.Error
 
-// Renderer emits the machine output contract: exactly one deterministic
-// document plus one trailing newline, per stream. infra/render satisfies it
-// implicitly; cli never imports infra (ADR 0002 ports live with consumers).
+// Renderer emits successful machine result documents. Human output and errors
+// stay at the Cobra boundary; infra/render satisfies this result-only port.
 type Renderer interface {
 	RenderSuccess(w io.Writer, resp contract.Response) error
-	RenderError(w io.Writer, e *gev.Error) error
 }
 
-// ValueRenderer renders command documents that are not TypeSafe responses,
-// such as home, version, and models.
+// ValueRenderer renders structured map/reduce/gate result values.
 type ValueRenderer interface {
 	Renderer
 	RenderValue(w io.Writer, value any) error
