@@ -33,24 +33,7 @@ type Evaluator interface {
 // Enrich selects state from one strict JSON object, evaluates one normal
 // request, and appends the complete typed response under _gev.<name>.
 func Enrich(ctx context.Context, record []byte, config Config, evaluator Evaluator) ([]byte, *gev.Error) {
-	members, err := decodeObject(record, "record")
-	if err != nil {
-		return nil, inputError(err.Error())
-	}
-	if err := validateName(config.Name); err != nil {
-		return nil, inputError(err.Error())
-	}
-	if config.Model == "" || evaluator == nil {
-		return nil, inputError("model and evaluator are required")
-	}
-	gevMembers, err := existingEvidence(members)
-	if err != nil {
-		return nil, inputError(err.Error())
-	}
-	if _, exists := gevMembers[config.Name]; exists {
-		return nil, inputError(fmt.Sprintf("_gev.%s already exists; choose a new name", config.Name))
-	}
-	selected, err := resolvePointer(record, config.Pointer)
+	selected, err := Select(record, config.Pointer)
 	if err != nil {
 		return nil, inputError(err.Error())
 	}
@@ -58,6 +41,30 @@ func Enrich(ctx context.Context, record []byte, config Config, evaluator Evaluat
 		return nil, stateErr
 	}
 	request := contract.Request{Model: config.Model, State: selected, Questions: config.Questions}
+	return EnrichRequest(ctx, record, config.Name, request, evaluator)
+}
+
+// EnrichRequest appends a response for an already validated native request.
+// The request is never inferred from response data and the input envelope is
+// retained unchanged apart from _gev evidence.
+func EnrichRequest(ctx context.Context, record []byte, name string, request contract.Request, evaluator Evaluator) ([]byte, *gev.Error) {
+	members, err := decodeObject(record, "record")
+	if err != nil {
+		return nil, inputError(err.Error())
+	}
+	if err := validateName(name); err != nil {
+		return nil, inputError(err.Error())
+	}
+	if request.Model == "" || evaluator == nil {
+		return nil, inputError("model and evaluator are required")
+	}
+	gevMembers, err := existingEvidence(members)
+	if err != nil {
+		return nil, inputError(err.Error())
+	}
+	if _, exists := gevMembers[name]; exists {
+		return nil, inputError(fmt.Sprintf("_gev.%s already exists; choose a new name", name))
+	}
 	if violations := contract.ValidateRequest(request); len(violations) > 0 {
 		return nil, violations[0].Error
 	}
@@ -69,13 +76,22 @@ func Enrich(ctx context.Context, record []byte, config Config, evaluator Evaluat
 	if encodeErr != nil {
 		return nil, gev.WrapError(gev.CodeResponseInvalid, encodeErr, "encoding evaluator response")
 	}
-	gevMembers[config.Name] = encoded
+	gevMembers[name] = encoded
 	members["_gev"], _ = json.Marshal(gevMembers)
 	result, marshalErr := json.Marshal(members)
 	if marshalErr != nil {
 		return nil, gev.WrapError(gev.CodeResponseInvalid, marshalErr, "encoding enriched record")
 	}
 	return result, nil
+}
+
+// ValidateName checks an evidence name before reading or evaluating records.
+func ValidateName(name string) error { return validateName(name) }
+
+// ValidateRecord checks the strict object envelope without evaluating it.
+func ValidateRecord(record []byte) error {
+	_, err := decodeObject(record, "record")
+	return err
 }
 
 func validateName(name string) error {
@@ -169,7 +185,24 @@ func scanValue(decoder *json.Decoder) error {
 	}
 }
 
-func resolvePointer(document []byte, pointer string) (json.RawMessage, error) {
+// ValidatePointer checks RFC 6901 syntax without reading a record.
+func ValidatePointer(pointer string) error {
+	if pointer == "" {
+		return nil
+	}
+	if pointer[0] != '/' {
+		return fmt.Errorf("pointer %q must be empty or start with /", pointer)
+	}
+	for _, token := range strings.Split(pointer[1:], "/") {
+		if _, err := unescape(token); err != nil {
+			return fmt.Errorf("pointer %q: %w", pointer, err)
+		}
+	}
+	return nil
+}
+
+// Select resolves an RFC 6901 pointer while preserving the selected raw JSON.
+func Select(document []byte, pointer string) (json.RawMessage, error) {
 	if pointer == "" {
 		return append(json.RawMessage(nil), document...), nil
 	}

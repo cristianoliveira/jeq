@@ -25,3 +25,10 @@ type ValueRenderer interface {
 	Renderer
 	RenderValue(w io.Writer, value any) error
 }
+
+// RawRenderer writes a validated JSON document without decoding numeric
+// lexemes into floating point values.
+type RawRenderer interface {
+	Renderer
+	RenderRaw(w io.Writer, raw []byte) error
+}

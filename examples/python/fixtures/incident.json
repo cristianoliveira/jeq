@@ -1,5 +1,0 @@
-{
-  "incident_id": "INC-204",
-  "title": "API latency increased",
-  "details": "Requests are timing out for a subset of customers in one region."
-}

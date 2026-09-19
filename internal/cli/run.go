@@ -43,6 +43,14 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 	}
 
 	if err := root.Execute(); err != nil {
+		var policy *policyStatus
+		if errors.As(err, &policy) {
+			return policy.status
+		}
+		var alreadyRendered *renderedError
+		if errors.As(err, &alreadyRendered) {
+			return ExitCode(alreadyRendered.err)
+		}
 		var usage *UsageError
 		if errors.As(err, &usage) {
 			return renderUsageError(stdout, root, args, err, renderer)

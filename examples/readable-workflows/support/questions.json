@@ -1,0 +1,1 @@
+{"questions":{"route":{"type":"choice","instructions":"Which support queue should receive this ticket?","criteria":{"billing":"Billing","technical":"Technical support","sales":"Sales"}},"confidence_note":{"type":"noul","instructions":"Is the routing evidence sufficiently clear?"}}}

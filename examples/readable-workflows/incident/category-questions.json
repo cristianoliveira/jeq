@@ -1,0 +1,1 @@
+{"questions":{"category":{"type":"choice","instructions":"Which catalog category best describes this incident?","criteria":{"billing":"Billing","technical":"Technical","security":"Security"}}}}

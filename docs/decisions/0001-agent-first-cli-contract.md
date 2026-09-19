@@ -23,6 +23,8 @@ The CLI must preserve TypeSafe's native request capabilities while remaining det
 
 ```text
 gev ask        Send one System One request
+gev map        Enrich JSON/NDJSON records with one named judgment
+gev gate       Apply an offline numeric policy to JSON/NDJSON records
 gev validate   Validate request input without credentials or network access
 gev models     List models available to the account
 gev version    Return version information
@@ -84,15 +86,19 @@ Success and errors use the selected structured format on stdout. Debug diagnosti
 Use this stable exit classification:
 
 ```text
-0   Success, regardless of confidence or probability
+0   Success, regardless of confidence or probability (and all gate records pass)
 1   Authentication, API, network, timeout, or response failure
 2   Usage or locally invalid input
+10  Gate policy: at least one record is rejected
+11  Gate policy: no rejects, but at least one record is uncertain
 130 Interrupted
 ```
 
 Errors include a stable symbolic code and, when possible, one actionable recovery instruction. Unknown commands and flags identify valid alternatives.
 
-Low confidence is not an error. Thresholds and action policies belong to the calling application, not `gev`.
+Low confidence is not an error for `ask` or `map`. `gate` is the explicit offline
+policy primitive: it owns only numeric pass/reject/uncertain statuses (10/11),
+never calls the API, and does not reinterpret model text as an action.
 
 ## Consequences
 

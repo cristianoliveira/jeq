@@ -21,8 +21,12 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		return NewUsageError(err)
 	})
 	root.AddCommand(NewVersionCmdWithDeps(depsForRoot(deps...)))
+	if len(deps) > 0 {
+		root.AddCommand(NewGateCmd(deps[0]))
+	}
 	if len(deps) > 0 && deps[0].valid() {
 		root.AddCommand(NewAskCmd(deps[0]))
+		root.AddCommand(NewMapCmd(deps[0]))
 	}
 	if len(deps) > 0 && deps[0].modelsReady() {
 		root.AddCommand(NewModelsCmd(deps[0]))

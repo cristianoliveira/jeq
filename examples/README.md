@@ -1,71 +1,30 @@
-# Unix decision workflow examples
+# Readable Unix pipelines
 
-These examples treat `gev` as a semantic Unix filter. Python and Bash own
-composition, thresholds, exit policy, and side effects; `jq` owns JSON parsing
-for the low-level references. `gev` owns typed judgment requests and
-structured operational errors. No example adds a subcommand or workflow DSL.
+These examples use the composable primitives from ADR 0004. `gev map` performs
+one named semantic judgment per record; `jq` projects, joins, and constructs
+native requests; `gev gate` applies an explicit offline numeric policy.
 
-## Recommended start: readable Python
-
-The standard-library workflows in [`python/`](python/) show the decision story
-from top to bottom: named judgment, confidence policy, allowlists, and receipts.
-They are the learning path for multi-stage decisions. They invoke the compiled
-CLI only; they are not a package or workflow DSL.
+The same JSON record remains the transport envelope. Before logging or sharing
+it, project away sensitive state explicitly:
 
 ```sh
-python3 examples/python/support_router.py < examples/support-routing/fixtures/ticket.txt
+jq 'del(.customer_message, .details, ._gev.route)'
 ```
 
-## Low-level Unix references
+A live run needs `TYPESAFE_API_KEY` and spends account budget. Use a local fake
+endpoint for development. Model evidence is data: examples validate it as a
+catalog key or a numeric value, and never execute it.
 
-The Bash workflows below expose the same contracts with minimal shell tools.
-They are useful for pipelines and portability, but keep more transport mechanics
-visible.
+## Recommended pipelines
 
-| Directory | Input | Decision |
-| --- | --- | --- |
-| `support-routing` | One support ticket from stdin | Allowlisted queue or `human_review` |
-| `change-risk-gate` | One diff from stdin | Pass, review/block, or uncertain |
-| `issue-ranking` | Issue NDJSON from stdin | Correlated score NDJSON in input order |
+- [`readable-workflows/support`](readable-workflows/support/README.md): one
+  composed map followed by a confidence gate.
+- [`readable-workflows/release`](readable-workflows/release/README.md): one
+  release-risk map followed by an offline gate.
+- [`readable-workflows/incident`](readable-workflows/incident/README.md):
+  category map, `jq` catalog lookup into a native request field, second map,
+  then gate.
 
-Each directory contains a question document, representative fixture, executable
-script, and focused README. Use `GEV_BIN` to select the binary, `GEV_MODEL` to
-select the model, and `GEV_BASE_URL` to select an endpoint:
-
-```sh
-GEV_BIN=gev GEV_MODEL=jev-latest \
-  ./support-routing/route.sh < support-routing/fixtures/ticket.txt
-```
-
-`GEV_BASE_URL` is optional. Without it, the normal TypeSafe endpoint is used.
-Set it to a local `httptest` endpoint for development. A live run requires an
-exported `TYPESAFE_API_KEY`, spends account budget, and must remain opt-in. Do
-not put the key in a command argument, fixture, or output.
-
-## Safety and policy
-
-- Scripts use strict Bash mode and quoted argument arrays.
-- Model output is data. Scripts never `eval` it or construct shell commands from
-  it.
-- Routing maps only three route values to fixed labels. Low confidence and
-  unknown values go to `human_review`.
-- Gate thresholds are explicit demonstrations, not calibrated release policy.
-- Ranking uses fail-fast semantics so one valid line makes one request and a
-  first failure stops further spend while preserving prior output.
-- GEV exit `1`, `2`, and `130` remain operational statuses and their structured
-  JSON documents are forwarded unchanged. Policy exits belong only to the gate
-  (`0`, `10`, `11`).
-
-Successful receipts retain GEV `usage`; ranking receipts also retain both score
-confidence values. This keeps judgment and policy evidence available for audit
-and cost accounting without exposing raw state or keys. For example:
-
-```sh
-./issue-ranking/rank.sh < issue-ranking/fixtures/issues.ndjson |
-  jq -s '{requests:length, input_tokens:(map(.usage.input_tokens // 0) | add), output_tokens:(map(.usage.output_tokens // 0) | add), average_priority_confidence:(map(.priority_confidence) | add / length)}'
-```
-
-The examples are evidence for future `gev gate` and `gev map` primitives. They
-are not a proposal for a workflow language. Future primitives should preserve
-explicit thresholds, allowlists, stream correlation, bounded spend, and clear
-separation between model judgments and executable policy.
+The existing `support-routing`, `change-risk-gate`, and `issue-ranking`
+directories remain low-level Bash references. They expose transport mechanics
+for portability and are intentionally not workflow interpreters.

@@ -1,0 +1,1 @@
+{"billing":{"billing-payment-failure":"Investigate payment provider failures"},"technical":{"technical-api-outage":"Investigate API availability","technical-service-degraded":"Investigate service degradation"},"security":{"security-credential-leak":"Investigate credential exposure"}}

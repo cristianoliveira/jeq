@@ -36,6 +36,9 @@ func (JSON) RenderValue(w io.Writer, value any) error {
 	return writeJSON(w, out)
 }
 
+// RenderRaw preserves a command's already validated JSON document.
+func (JSON) RenderRaw(w io.Writer, raw []byte) error { return writeJSON(w, raw) }
+
 func writeJSON(w io.Writer, out []byte) error {
 	if _, err := w.Write(out); err != nil {
 		return err
