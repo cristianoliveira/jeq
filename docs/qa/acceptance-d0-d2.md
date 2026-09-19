@@ -4,6 +4,10 @@ Status: accepted for D1 verification — open questions OQ-1..OQ-7 resolved in c
 Ground truth: ADR 0001 (agent-first CLI contract), ADR 0002 (layered architecture), plans/todo TASK-0001..0011.
 Exit-class truth from ADR 0001: `0` success · `1` auth/API/network/timeout/response failure · `2` usage or locally invalid input · `130` interrupted. Low confidence is never an error.
 
+**Error motto (product rule): every failure is auto-discoverable — non-zero is never silent.** Every non-zero exit emits **exactly one structured error document on stdout** in the selected format (ADR 0001: success and errors use the selected structured format on stdout), carrying the stable `GEV_*` code, one actionable recovery instruction, and — for usage failures — the offending input plus the valid alternatives so the caller can self-correct without leaving the terminal. stderr remains diagnostics/retry-progress only: no raw Cobra prose, no duplicate error documents across channels.
+
+**Phase split (PO decision, final):** the D0 bootstrap **permits a temporary stderr prose fallback** (commits ff1db92 + 650f0a2: usage failures print `Error: …` + help hint on stderr instead of exiting silently). TASK-0017/D2 **must replace it** with exactly one structured stdout error document and **remove** the raw Cobra prose/duplicate stderr. D2-17 is the final ADR contract; the fallback is not a pass for it.
+
 ## How to read this plan
 
 - Every check is **Given / When / Then** plus the **exact local command** and/or **fixture** that verifies it.
@@ -40,6 +44,12 @@ Verify: `go test ./internal/cli/... -run TestInterruptClass`.
 **D0-7 Confidence never changes exit class.**
 Given any response with low probabilities or confidence, when classified, then the class is `0` (negative check: no confidence-based entry exists in the mapping table).
 Verify: `go test ./internal/cli/... -run TestExitClassMapping -run 'Confidence'` — fixture `contract/response_low_confidence.json`.
+
+**D0-8 Usage failures are never silent — bootstrap criterion (added post-verification, from finding F-1 in d0-verification.md).**
+Given an unknown command or unknown flag, when the binary runs, then exit is `2` AND the failure is discoverable. **D0 bootstrap pass condition (PO-approved, met by ff1db92 + 650f0a2):** non-empty stderr naming the offending input with a help/alternatives pointer; `version` unaffected; test-asserted (`TestUsageFailuresAreNotSilent`). Cobra's did-you-mean suggestion passthrough is preserved.
+**Final criterion (not met at D0, owned by TASK-0017, depends TASK-0008, blocks TASK-0011):** exactly one structured stdout error document — `GEV_INPUT_INVALID`, offending input, valid commands/flags as recovery, one trailing newline — with raw Cobra prose and duplicate stderr removed; help stays exit 0 on stdout.
+Verify (bootstrap): build `./cmd/gev`; probes `./gev badsubcommand`, `./gev --nope` exit 2 with discoverable stderr; `go test ./internal/cli/... -run TestUsageFailuresAreNotSilent`.
+Verify (final, via TASK-0017/D2-17): probes capture stdout = exactly one structured document (`jq -e .` parses, code present), stderr free of error prose; goldens per TASK-0017 (unknown command, unknown flag, misspelled-command suggestion, help).
 
 ## D1 — Contract types, validation, ask composition (TASK-0003..0005)
 
@@ -90,8 +100,8 @@ Given ask invoked with explicit non-stdin inputs while stdin is closed (not `-`)
 Verify: `go test ./internal/cli/... -run TestNoImplicitStdin` with injected closed stream; binary smoke: `gev ask --questions q.json --state "x" </dev/null`.
 
 **D1-12 Model resolution follows the documented chain.**
-Given none/each of `--model`, `TYPESAFE_DEFAULT_MODEL`, set, when composing, then the resolved model is respectively `jev-latest` → env → flag (flag wins).
-Verify: `go test ./internal/domain/gev/... -run TestModelPrecedence` with `t.Setenv`.
+Given none/each of `--model`, `TYPESAFE_DEFAULT_MODEL`, set, when composing, then the resolved model is respectively `jev-latest` → env → flag (flag wins). Resolution lives in `internal/cli` (os.Getenv containment per ADR 0002); the domain receives the resolved model explicitly.
+Verify: `go test ./internal/cli/... -run TestModelPrecedence` with `t.Setenv`.
 
 **D1-13 Base URL override is honored.**
 Given `TYPESAFE_BASE_URL` or `--base-url`, when the client is built, then requests target that root (flag precedence).
@@ -168,9 +178,9 @@ Fixtures: `sources/missing.txt` (absent), `sources/unreadable.txt`, `sources/emp
 Given the same response rendered twice, then bytes are identical (no timestamps, map-order or locale variance), document + single `\n`.
 Verify: `go test ./internal/infra/render/... -run TestRenderDeterminism` (render twice, byte-compare).
 
-**D2-17 Unknown flags name valid alternatives.**
-Given an unknown flag or command, when Cobra errors, then stderr identifies valid alternatives per ADR 0001, exit `2`.
-Verify: `go test ./internal/cli/... -run TestUnknownFlagSuggestions`.
+**D2-17 Every error names its way out (motto end-to-end; FINAL ADR contract).**
+Given any failure, when the command exits non-zero, then stdout carries exactly one structured document in the selected format: exit 2 → `GEV_INPUT_INVALID`-class code with offending input + valid alternatives; exit 1 → the matching code with a recovery instruction — never a bare code, never raw dependency prose. stderr holds diagnostics/retry progress only. **The D0 bootstrap stderr prose fallback (ff1db92/650f0a2) must be removed by this check.**
+Verify: `go test ./internal/cli/... -run TestUnknownFlagSuggestions`; binary probes capture stdout+stderr for one exit-2 and one exit-1 scenario, asserting single-document stdout and quiet stderr.
 
 **D2-18 ask end-to-end, composed mode.**
 Given `--questions q.json --state "..."` and `TYPESAFE_BASE_URL` pointing at the fixture server, when run, then request body matches the composed native document, stdout matches `render/json_200_full.golden`, exit `0`.

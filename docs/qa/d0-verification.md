@@ -97,6 +97,12 @@ exit=2    stderr=[]  stdout=[]
 
 Cause (code read, not modified): `internal/cli/run.go` calls `root.Find(args)` and returns `ExitCode(NewUsageError(err))` before `root.Execute()`, so Cobra never prints `Error: unknown command "badsubcommand" for "gev"` / `Run 'gev --help'...`. The unknown-*flag* path does print (`Error: unknown flag: --nope`). Exit code is correct; the message contract is violated — an agent gets no discovery information at all. Severity: medium; directly affects D2-17 ("Unknown flags name valid alternatives") when it runs. Suggested owner: Dave, D1/D2 window.
 
+Update (contract correction applied; superseded in part by the Final PO ruling below): the error motto stands — non-zero is never silent — but the channel is **stdout**: ADR 0001 requires the selected structured error document on stdout; stderr stays diagnostics/retry-progress only. F-1 is therefore v1/D2 acceptance-blocking via **TASK-0017** (depends on TASK-0008 renderer, blocks TASK-0011) — and D0 remains accepted as delivered. Re-verification criteria (final, unchanged): both probes (`badsubcommand`, `--nope`) exit 2 with exactly one structured stdout document (code, offending input, valid alternatives, one trailing newline), no raw Cobra prose, stderr quiet.
+
+Re-verification (interim fix ff1db92 + 650f0a2): silence is gone — probes exit 2 with stderr `Error: unknown command "badsubcommand" for "gev"` / `unknown flag: --nope` + `Run 'gev --help' for usage.`; near-miss `versionn` yields Cobra's `Did you mean this? version`; `version` unchanged (exit 0, one JSON line); TestUsageFailuresAreNotSilent green; gate `nix develop -c make check` → true.
+
+**Final PO ruling (phase split):** the interim stderr fallback is **kept** and approved as the D0 bootstrap behavior — development failures must not be silent in the meantime. D0-8 therefore **PASSES at the bootstrap criterion** (discoverable stderr, offending input named, alternatives pointer, test-asserted). The structured stdout document remains the final, unchanged criterion: TASK-0017 (depends TASK-0008, blocks TASK-0011) must replace the fallback with exactly one structured stdout error document and remove the raw Cobra prose/duplicate stderr; **D2-17 is the final ADR contract** and does not accept the fallback. F-1 status: closed at bootstrap level, open at contract level until TASK-0017.
+
 ## Observations (no action required)
 
 - `version` reports `commit: unknown` — expected until release `-ldflags` stamping (TASK-0015).
