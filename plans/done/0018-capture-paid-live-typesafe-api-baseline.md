@@ -1,7 +1,7 @@
 ---
 id: TASK-0018
 title: Capture paid live TypeSafe API baseline
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: []
