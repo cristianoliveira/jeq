@@ -21,7 +21,7 @@ func TestExamplesCatalogAndDetailsAreDeterministicAndOffline(t *testing.T) {
 	}
 	catalog := asMap(t, r.values[len(r.values)-1])
 	items := catalog["examples"].([]any)
-	want := []string{"ask-native", "map-gate", "reduce-gate", "map-reduce-gate"}
+	want := []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate"}
 	if len(items) != len(want) {
 		t.Fatalf("items=%#v", items)
 	}
@@ -39,8 +39,12 @@ func TestExamplesCatalogAndDetailsAreDeterministicAndOffline(t *testing.T) {
 				t.Fatalf("detail %s missing %s", id, key)
 			}
 		}
-		if !strings.Contains(detail["shell"].(string), "GEV_BIN=${GEV_BIN:-gev}") || strings.Contains(detail["shell"].(string), "examples/") {
+		shell := detail["shell"].(string)
+		if !strings.Contains(shell, "GEV_BIN=${GEV_BIN:-gev}") || !strings.Contains(shell, "set -euo pipefail") || strings.Contains(shell, "examples/") || strings.Contains(shell, "eval ") {
 			t.Fatalf("not self-contained: %s", id)
+		}
+		if strings.Contains(id, "gate") && !strings.Contains(shell, "jq -c 'del(") {
+			t.Fatalf("gate recipe lacks safe final projection: %s", id)
 		}
 	}
 }

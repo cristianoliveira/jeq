@@ -36,8 +36,18 @@ type examplesCatalog struct {
 
 var exampleRecipes = []exampleRecipe{
 	{
+		ID: "validate-native", Purpose: "Validate one native request locally before spending a network call.", Covers: []string{"validate"},
+		Requirements: []string{"installed gev", "bash"}, Cost: "0 API requests; validation is offline",
+		Shell: `GEV_BIN=${GEV_BIN:-gev}
+set -euo pipefail
+printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
+  "$GEV_BIN" validate --request -`,
+		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "validation receipt: {valid,mode,model,question_count}",
+		Privacy: "validation is local and sends no state to TypeSafe.", NextStep: "run gev examples ask-native",
+	},
+	{
 		ID: "ask-native", Purpose: "Send one native request from stdin.", Covers: []string{"ask"},
-		Requirements: []string{"installed gev", "TYPESAFE_API_KEY"}, Cost: "1 API request",
+		Requirements: []string{"installed gev", "bash", "TYPESAFE_API_KEY"}, Cost: "1 API request",
 		Shell: `GEV_BIN=${GEV_BIN:-gev}
 set -euo pipefail
 printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
@@ -47,33 +57,35 @@ printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"u
 	},
 	{
 		ID: "map-gate", Purpose: "Judge each record and apply an offline threshold.", Covers: []string{"map", "gate"},
-		Requirements: []string{"installed gev", "TYPESAFE_API_KEY"}, Cost: "N API requests for N records; gate is offline",
+		Requirements: []string{"installed gev", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N API requests for N records; jq and gate are offline",
 		Shell: `GEV_BIN=${GEV_BIN:-gev}
 set -euo pipefail
 printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
   "$GEV_BIN" map --as risk --input ndjson --state-pointer /change \
     --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}' |
   "$GEV_BIN" gate --as policy --value-pointer /_gev/risk/answers/risk/noul \
-    --pass-min 0.80 --reject-max 0.40`,
-		InputShape: "NDJSON records containing change", OutputShape: "each record retains state and gains _gev/risk and _gev/policy",
-		Privacy: "map sends each selected record; delete sensitive state before logging.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.", NextStep: "run gev examples reduce-gate",
+    --pass-min 0.80 --reject-max 0.40 |
+  jq -c 'del(.change)'`,
+		InputShape: "NDJSON records containing change", OutputShape: "source-free records with _gev/risk and _gev/policy",
+		Privacy: "map sends each selected record; final jq removes change before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.", NextStep: "run gev examples reduce-gate",
 	},
 	{
 		ID: "reduce-gate", Purpose: "Judge one complete collection and gate its aggregate signal.", Covers: []string{"reduce", "gate"},
-		Requirements: []string{"installed gev", "TYPESAFE_API_KEY"}, Cost: "1 API request for the complete collection; gate is offline",
+		Requirements: []string{"installed gev", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request for the complete collection; jq and gate are offline",
 		Shell: `GEV_BIN=${GEV_BIN:-gev}
 set -euo pipefail
 printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
   "$GEV_BIN" reduce --as coherent --input ndjson \
     --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this collection coherent?"}}}' |
   "$GEV_BIN" gate --as policy --value-pointer /_gev/coherent/answers/coherent/noul \
-    --pass-min 0.80 --reject-max 0.40`,
-		InputShape: "ordered NDJSON records; reduce evaluates the complete array", OutputShape: "aggregate response retains items and adds _gev/coherent and _gev/policy",
-		Privacy: "the complete collection is sent in one request; delete .items before sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.", NextStep: "run gev examples map-reduce-gate",
+    --pass-min 0.80 --reject-max 0.40 |
+  jq -c 'del(.items)'`,
+		InputShape: "ordered NDJSON records; reduce evaluates the complete array", OutputShape: "source-free aggregate with _gev/coherent and _gev/policy",
+		Privacy: "the complete collection is sent in one request; final jq removes .items before sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.", NextStep: "run gev examples map-reduce-gate",
 	},
 	{
 		ID: "map-reduce-gate", Purpose: "Compose local per-record judgments with one relational aggregate gate.", Covers: []string{"map", "reduce", "gate"},
-		Requirements: []string{"installed gev", "TYPESAFE_API_KEY", "jq"}, Cost: "N map requests plus 1 reduce request; jq and gate are offline",
+		Requirements: []string{"installed gev", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N map requests plus 1 reduce request; jq and gate are offline",
 		Shell: `GEV_BIN=${GEV_BIN:-gev}
 set -euo pipefail
 printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","content":"two"}}' |
@@ -86,7 +98,7 @@ printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","cont
     --pass-min 0.80 --reject-max 0.40 |
   jq -c 'del(.items)'`,
 		InputShape: "NDJSON records with file:{path,content}", OutputShape: "source-free aggregate/gate evidence after del(.items)",
-		Privacy: "source crosses map and reduce; final jq removes .items before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain; pipefail preserves it.", NextStep: "run gev examples ask-native",
+		Privacy: "source crosses map and reduce; final jq removes .items before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain; pipefail preserves it.", NextStep: "run gev examples validate-native",
 	},
 }
 
