@@ -26,11 +26,11 @@ jobs:
   - name: validate-agents-links
     run_on_init: true
     parallel: checks
-    run: python /Users/cristianoliveira/.pi/agent/skills/agentsmd-creator/scripts/validate_links.py .
+    run: python3 scripts/validate_agents_links.py .
   - name: validate-agents-landmarks
     run_on_init: true
     parallel: checks
-    run: python /Users/cristianoliveira/.pi/agent/skills/agentsmd-creator/scripts/validate_landmarks.py .
+    run: python3 scripts/validate_agents_landmarks.py .
   - name: nixfmt
     run_on_init: true
     parallel: checks

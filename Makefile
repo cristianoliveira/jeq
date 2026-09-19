@@ -12,6 +12,8 @@ check:
 	fi
 
 check-internal:
+	@python3 scripts/validate_agents_links.py .
+	@python3 scripts/validate_agents_landmarks.py .
 	@nixfmt --check flake.nix
 	@nix flake check
 	@fzz check
