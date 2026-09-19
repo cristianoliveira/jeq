@@ -15,3 +15,6 @@ check-internal:
 	@nixfmt --check flake.nix
 	@nix flake check
 	@fzz check
+	@go build ./...
+	@golangci-lint run
+	@go test ./...

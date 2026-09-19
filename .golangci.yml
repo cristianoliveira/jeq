@@ -1,0 +1,56 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - depguard
+    - revive
+  settings:
+    depguard:
+      rules:
+        # ADR 0002: domain -> standard library only.
+        domain-stdlib-only:
+          files:
+            - "**/internal/domain/**"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/cristianoliveira/gev/internal/domain
+        # ADR 0002: infra -> domain; never cli or cmd.
+        infra-never-cli-or-main:
+          files:
+            - "**/internal/infra/**"
+          deny:
+            - pkg: github.com/cristianoliveira/gev/internal/cli
+              desc: infra must not depend on cli (ADR 0002)
+            - pkg: github.com/cristianoliveira/gev/cmd
+              desc: infra must not depend on cmd (ADR 0002)
+        # ADR 0002: cli -> domain; infra is injected by main through ports.
+        cli-never-infra-or-main:
+          files:
+            - "**/internal/cli/**"
+          deny:
+            - pkg: github.com/cristianoliveira/gev/internal/infra
+              desc: cli depends on domain ports; infra is injected by main (ADR 0002)
+            - pkg: github.com/cristianoliveira/gev/cmd
+              desc: no package imports cmd (ADR 0002)
+        # ADR 0002: main -> cli + infra only.
+        main-wires-cli-and-infra:
+          files:
+            - "**/cmd/**"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/cristianoliveira/gev/internal/cli
+            - github.com/cristianoliveira/gev/internal/infra
+        # ADR 0002: no package imports the composition root.
+        nobody-imports-main:
+          files:
+            - $all
+          deny:
+            - pkg: github.com/cristianoliveira/gev/cmd
+              desc: no package imports cmd/gev (ADR 0002)
+
+formatters:
+  enable:
+    - gofumpt
