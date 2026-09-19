@@ -1,0 +1,1 @@
+{ "state": "s", "model": "m", "questions": { "f": { "type": "score", "instructions": "rate it", "criteria": "Calm" } } }

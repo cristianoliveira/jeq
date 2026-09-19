@@ -1,0 +1,7 @@
+{
+  "models": [
+    { "name": "jev-latest", "description": "Most recent stable release", "release_date": "2026-09-01" },
+    { "name": "jev-preview", "description": "Most recent release", "release_date": "2026-09-01" }
+  ],
+  "x_account": "acct-42"
+}

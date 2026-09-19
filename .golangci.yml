@@ -8,14 +8,24 @@ linters:
   settings:
     depguard:
       rules:
-        # ADR 0002: domain -> standard library only.
+        # ADR 0002: domain -> standard library only (production files).
         domain-stdlib-only:
           files:
             - "**/internal/domain/**"
+            - "!**/*_test.go"
           list-mode: strict
           allow:
             - $gostd
             - github.com/cristianoliveira/gev/internal/domain
+        # Domain test files may additionally load the shared fixtures package.
+        domain-tests-fixtures-allowed:
+          files:
+            - "**/internal/domain/**/*_test.go"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/cristianoliveira/gev/internal/domain
+            - github.com/cristianoliveira/gev/internal/fixtures
         # ADR 0002: infra -> domain; never cli or cmd.
         infra-never-cli-or-main:
           files:

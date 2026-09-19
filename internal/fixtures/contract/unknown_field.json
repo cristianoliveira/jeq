@@ -1,0 +1,8 @@
+{
+  "state": "customer message",
+  "model": "jev-latest",
+  "questions": {
+    "is_urgent": { "type": "noul", "instructions": "Does this convey urgency?", "vendor_meta": 42 }
+  },
+  "x_extra": [1, 2, 3]
+}
