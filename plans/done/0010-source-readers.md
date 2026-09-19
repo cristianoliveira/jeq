@@ -1,7 +1,7 @@
 ---
 id: TASK-0010
 title: Source readers
-status: doing
+status: done
 depends_on: [TASK-0005]
 priority: normal
 tags: []

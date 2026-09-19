@@ -1,7 +1,7 @@
 ---
 id: TASK-0008
 title: JSON renderer
-status: doing
+status: done
 depends_on: [TASK-0003]
 priority: normal
 tags: []
