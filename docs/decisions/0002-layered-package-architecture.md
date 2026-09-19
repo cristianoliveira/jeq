@@ -32,7 +32,7 @@ internal/
 │   ├── render/            deterministic JSON writer
 │   └── source/            explicit file/stdin readers
 └── cli/
-    ├── root.go            home view
+    ├── root.go            Cobra root/help wiring
     ├── ask.go, models.go, validate.go
     └── exit.go            error code → exit class
 ```

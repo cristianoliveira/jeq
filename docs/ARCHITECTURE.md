@@ -67,7 +67,8 @@ composed request construction. Stable error codes live in
 
 | Command | Network | Output |
 | --- | --- | --- |
-| `gev` / `gev examples` | No | Plain discovery text |
+| `gev` | No | Standard Cobra help |
+| `gev examples` | No | Plain workflow discovery text |
 | `gev version` | No | Plain build information |
 | `gev models` | Yes | Plain model list |
 | `gev validate` | No | Plain validation receipt |
