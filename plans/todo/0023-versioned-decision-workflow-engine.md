@@ -1,7 +1,7 @@
 ---
 id: TASK-0023
 title: Versioned decision workflow engine
-status: todo
+status: doing
 depends_on: [TASK-0022]
 priority: high
 tags: []
