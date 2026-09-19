@@ -1,7 +1,7 @@
 ---
 id: TASK-0004
 title: Contract validation rules
-status: todo
+status: doing
 depends_on: [TASK-0003]
 priority: normal
 tags: []

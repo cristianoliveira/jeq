@@ -1,7 +1,7 @@
 ---
 id: TASK-0005
 title: Ask modes and composition
-status: todo
+status: doing
 depends_on: [TASK-0004]
 priority: high
 tags: []
