@@ -1,7 +1,7 @@
 ---
 id: TASK-0007
 title: Bounded retry policy
-status: doing
+status: done
 depends_on: [TASK-0006]
 priority: normal
 tags: []
