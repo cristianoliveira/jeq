@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -18,5 +19,17 @@ func TestReduceCollectionBoundsRejectEmptyAndExcessItems(t *testing.T) {
 	}
 	if _, err := reduceItems([]byte(`[{"x":1,"x":2}]`), "json"); err == nil {
 		t.Fatal("recursive duplicate keys must fail")
+	}
+	for _, tc := range []struct{ name, framing, input string }{
+		{"bad framing", "yaml", `[]`},
+		{"non array", "json", `{"x":1}`},
+		{"malformed item", "ndjson", `{"x":`},
+		{"item byte limit", "ndjson", strings.Repeat("x", MapMaxRecordBytes+1)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := reduceItems([]byte(tc.input), tc.framing); err == nil {
+				t.Fatal("invalid collection accepted")
+			}
+		})
 	}
 }

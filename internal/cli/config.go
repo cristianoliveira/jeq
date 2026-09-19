@@ -28,15 +28,15 @@ func ResolveConfiguredModel(flagModel, explicitPath string, getenv func(string) 
 
 // ResolveConfiguredModelWithSource also reports which precedence layer won.
 func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *gev.Error), readOptional func(string, int64) ([]byte, *gev.Error, bool)) (string, string, *gev.Error) {
-	configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
-	if err != nil {
-		return "", "", err
-	}
 	if flagModel != "" {
 		return flagModel, "flag", nil
 	}
 	if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
 		return envModel, "environment", nil
+	}
+	configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
+	if err != nil {
+		return "", "", err
 	}
 	if configModel != "" {
 		return configModel, "config", nil
@@ -89,6 +89,9 @@ func readUserConfig(explicitPath string, getenv func(string) string, readFile fu
 }
 
 func decodeUserConfig(path string, data []byte) (string, *gev.Error) {
+	if len(data) > configMaxBytes {
+		return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s exceeds the %d byte limit", path, configMaxBytes))
+	}
 	if err := contract.ValidateJSON(data); err != nil {
 		return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s: %v", path, err))
 	}

@@ -63,16 +63,35 @@ func ReadFile(path string, limit int64, open Opener, forbidEmpty bool) ([]byte, 
 
 // ReadOptionalFile reads a user config without treating absence as an error.
 func ReadOptionalFile(path string, limit int64) ([]byte, *gev.Error, bool) {
-	f, err := OSOpen(path)
+	return ReadOptionalFileWithOpener(path, limit, OSOpen)
+}
+
+// ReadOptionalFileWithOpener is the injectable one-open implementation used by tests.
+func ReadOptionalFileWithOpener(path string, limit int64, open Opener) ([]byte, *gev.Error, bool) {
+	if limit <= 0 {
+		return nil, misuse("byte limit must be positive"), true
+	}
+	f, err := open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil, false
 		}
 		return nil, sourceError(path, fmt.Sprintf("cannot be opened: %v", err), "check the path and try again"), true
 	}
-	_ = f.Close()
-	data, readErr := ReadFile(path, limit, OSOpen, true)
-	return data, readErr, true
+	defer func() { _ = f.Close() }()
+	if s, ok := f.(interface{ Stat() (fs.FileInfo, error) }); ok {
+		if info, statErr := s.Stat(); statErr == nil && info.IsDir() {
+			return nil, sourceError(path, "is a directory", "provide a file path, not a directory"), true
+		}
+	}
+	data, over, readErr := readBounded(f, limit)
+	if readErr != nil {
+		return nil, sourceError(path, fmt.Sprintf("cannot be read: %v", readErr), "check the path and try again"), true
+	}
+	if over {
+		return nil, sourceError(path, fmt.Sprintf("exceeds the %d byte limit", limit), "split or trim the content; gev reads at most the configured byte limit"), true
+	}
+	return data, nil, true
 }
 
 // ReadStdin reads explicit '-' stdin content. A terminal fails fast

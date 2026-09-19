@@ -31,6 +31,7 @@ func Reduce(ctx context.Context, items []byte, name string, request contract.Req
 	if len(values) == 0 {
 		return nil, inputError("reduce collection is empty")
 	}
+	request.State = append(json.RawMessage(nil), trimmed...)
 	if request.Model == "" || evaluator == nil {
 		return nil, inputError("model and evaluator are required")
 	}

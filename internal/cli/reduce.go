@@ -123,6 +123,9 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 }
 
 func reduceItems(input []byte, framing string) ([]byte, *gev.Error) {
+	if framing != "json" && framing != "ndjson" {
+		return nil, gev.NewError(gev.CodeInputInvalid, "--input must be json or ndjson")
+	}
 	if framing == "json" {
 		trimmed := bytes.TrimSpace(input)
 		if len(trimmed) > MapMaxRecordBytes {
