@@ -76,7 +76,7 @@ Request modes and state sources never merge implicitly. Conflicts fail before cr
 - `ask`, `map`, `reduce`, and `gate` success output is lossless JSON/NDJSON with one trailing newline per document/record.
 - Home, `examples`, `version`, `models`, and successful `validate` output is concise deterministic plain text on stdout.
 - Help is standard Cobra plain text on stdout. There is no global output-format flag.
-- Errors and diagnostics are concise plain text on stderr; stdout remains empty on failure. Errors preserve symbolic codes, actionable recovery, and exit classification without exposing credentials, stack traces, or raw dependency failures.
+- Errors and diagnostics use Cobra's standard concise plain text on stderr; stdout remains empty on failure. Domain failures preserve symbolic codes and exit classification without exposing credentials, stack traces, or raw dependency failures.
 - Keep output deterministic: no TTY-dependent layout, timestamps, locale-dependent values, or color.
 - Preserve the resolved model, every answer, probabilities, confidence where available, score legends, and token usage in result streams.
 

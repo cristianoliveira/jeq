@@ -97,7 +97,6 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 		mode = "native"
 	}
 	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)}
-	recordHuman(deps.Renderer, doc)
 	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.QuestionCount)
 	if writeErr != nil {
 		return gev.WrapError(gev.CodeResponseInvalid, writeErr, "writing validation output")

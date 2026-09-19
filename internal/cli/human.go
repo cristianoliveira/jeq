@@ -3,21 +3,14 @@ package cli
 import (
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
+
+	"github.com/cristianoliveira/gev/internal/domain/contract"
 )
 
 func writeHome(w io.Writer, doc homeDocument) error {
 	_, err := fmt.Fprintf(w, "gev\n%s\nCredentials: %s\nDefault model: %s (%s)\nCommands: %s\nNext: gev examples\n", doc.Purpose, readiness(doc.CredentialReady), doc.DefaultModel, doc.DefaultModelSource, strings.Join(doc.Commands, ", "))
 	return err
-}
-
-func recordHuman(renderer Renderer, value any) {
-	if renderer != nil {
-		if vr, ok := renderer.(ValueRenderer); ok {
-			_ = vr.RenderValue(io.Discard, value)
-		}
-	}
 }
 
 func readiness(ready bool) string {
@@ -60,32 +53,11 @@ func writeRecipe(w io.Writer, recipe exampleRecipe) error {
 	return nil
 }
 
-func writeModels(w io.Writer, value any) error {
-	// Models are intentionally rendered from the stable public fields only.
-	v := reflect.ValueOf(value)
-	if v.Kind() == reflect.Map {
-		entry := v.MapIndex(reflect.ValueOf("models"))
-		if entry.IsValid() {
-			if models, ok := entry.Interface().([]any); ok {
-				for _, model := range models {
-					if err := writeModel(w, model); err != nil {
-						return err
-					}
-				}
-				return nil
-			}
+func writeModels(w io.Writer, models contract.Models) error {
+	for _, model := range models.Models {
+		if _, err := fmt.Fprintf(w, "%s: %s (%s)\n", model.Name, model.Description, model.ReleaseDate); err != nil {
+			return err
 		}
 	}
-	_, err := fmt.Fprintln(w, value)
-	return err
-}
-
-func writeModel(w io.Writer, value any) error {
-	m, ok := value.(map[string]any)
-	if !ok {
-		_, err := fmt.Fprintln(w, value)
-		return err
-	}
-	_, err := fmt.Fprintf(w, "%s: %s (%s)\n", m["name"], m["description"], m["release_date"])
-	return err
+	return nil
 }

@@ -42,7 +42,7 @@ var exampleRecipes = []exampleRecipe{
 set -euo pipefail
 printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
   "$GEV_BIN" validate --request -`,
-		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "validation receipt: {valid,mode,model,question_count}",
+		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "plain validation receipt with valid, mode, model, and question_count lines",
 		Privacy: "validation is local and sends no state to TypeSafe.", NextStep: "run gev examples ask-native",
 	},
 	{
@@ -119,12 +119,10 @@ func NewExamplesCmd(deps AskDeps) *cobra.Command {
 					items = append(items, exampleSummary{ID: recipe.ID, Purpose: recipe.Purpose, Covers: recipe.Covers, Cost: recipe.Cost})
 				}
 				doc := examplesCatalog{Examples: items, NextStep: "run gev examples map-reduce-gate"}
-				recordHuman(deps.Renderer, doc)
 				return writeExamples(cmd.OutOrStdout(), doc)
 			}
 			for _, recipe := range exampleRecipes {
 				if recipe.ID == args[0] {
-					recordHuman(deps.Renderer, recipe)
 					return writeRecipe(cmd.OutOrStdout(), recipe)
 				}
 			}

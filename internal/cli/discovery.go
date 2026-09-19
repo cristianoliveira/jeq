@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -66,19 +65,15 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 		Commands:           commands,
 		NextStep:           "run gev examples",
 	}
-	recordHuman(deps.Renderer, doc)
 	return writeHome(cmd.OutOrStdout(), doc)
 }
 
-// NewVersionCmdWithDeps is the renderer-aware version command. NewVersionCmd
-// remains the small JSON-only constructor used by its package-level contract
-// test.
+// NewVersionCmdWithDeps creates the plain-text build-information command.
 func NewVersionCmdWithDeps(deps AskDeps) *cobra.Command {
 	return &cobra.Command{
 		Use: "version", Short: "Print build information",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			doc := versionDocument{Name: "gev", Version: Version, Commit: Commit}
-			recordHuman(deps.Renderer, doc)
 			return writeVersion(cmd.OutOrStdout(), doc)
 		},
 	}
@@ -118,27 +113,10 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if callErr != nil {
 				return callErr
 			}
-			raw, encodeErr := models.Encode()
-			if encodeErr != nil {
-				return gev.WrapError(gev.CodeResponseInvalid, encodeErr, "encoding models document").WithRecovery("retry the request; if it persists, report the response shape")
-			}
-			value, decodeErr := decodeDocument(raw)
-			if decodeErr != nil {
-				return gev.WrapError(gev.CodeResponseInvalid, decodeErr, "preparing models document").WithRecovery("retry the request; if it persists, report the response shape")
-			}
-			recordHuman(deps.Renderer, value)
-			return writeModels(cmd.OutOrStdout(), value)
+			return writeModels(cmd.OutOrStdout(), models)
 		},
 	}
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	cmd.Flags().StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	return cmd
-}
-
-func decodeDocument(raw []byte) (any, error) {
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-	return value, nil
 }

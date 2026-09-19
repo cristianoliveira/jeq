@@ -2,7 +2,6 @@ package cli_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -48,14 +47,14 @@ func TestHomeIsOfflineAndReportsOnlyCredentialReadiness(t *testing.T) {
 	if code := cli.RunWithDeps(nil, &out, &errOut, r, deps); code != 0 {
 		t.Fatalf("exit=%d", code)
 	}
-	if clientCreates != 0 || errOut.Len() != 0 || len(r.values) != 1 {
-		t.Fatalf("creates=%d stderr=%q values=%d", clientCreates, errOut.String(), len(r.values))
+	if clientCreates != 0 || errOut.Len() != 0 || len(r.values) != 0 {
+		t.Fatalf("creates=%d stderr=%q renderer-values=%d", clientCreates, errOut.String(), len(r.values))
 	}
-	raw, _ := json.Marshal(r.values[0])
-	var doc map[string]any
-	_ = json.Unmarshal(raw, &doc)
-	if doc["credential_ready"] != true || doc["default_model"] != "model-from-env" || doc["next_step"] == "" {
-		t.Fatalf("home=%#v reads=%d", r.values[0], envReads)
+	text := out.String()
+	for _, want := range []string{"Credentials: ready", "Default model: model-from-env", "Next: gev examples"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("home output %q lacks %q; env reads=%d", text, want, envReads)
+		}
 	}
 }
 
@@ -83,8 +82,8 @@ func TestVersionUsesInjectedBuildValuesAndModelsUseAuth(t *testing.T) {
 		Renderer: r,
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps); code != 0 || len(r.values) != 1 {
-		t.Fatalf("version code=%d values=%d", code, len(r.values))
+	if code := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps); code != 0 || !strings.Contains(out.String(), "gev v-test\nCommit: abc123\n") || len(r.values) != 0 {
+		t.Fatalf("version code=%d output=%q renderer-values=%d", code, out.String(), len(r.values))
 	}
 	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 0 || gotURL != "https://env-url" || client.call != 0 {
 		t.Fatalf("models code=%d url=%q errors=%v out=%q", code, gotURL, r.errors, out.String())
@@ -160,8 +159,8 @@ func TestValidateNeverCreatesClientAndDoesNotExposeState(t *testing.T) {
 		Stdin:    strings.NewReader(""),
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"validate", "--questions", "q.json", "--state", "SECRET STATE"}, &out, &errOut, r, deps); code != 0 || created || len(r.values) != 1 {
-		t.Fatalf("code=%d created=%v values=%d", code, created, len(r.values))
+	if code := cli.RunWithDeps([]string{"validate", "--questions", "q.json", "--state", "SECRET STATE"}, &out, &errOut, r, deps); code != 0 || created || len(r.values) != 0 {
+		t.Fatalf("code=%d created=%v renderer-values=%d", code, created, len(r.values))
 	}
 	if strings.Contains(out.String(), "SECRET STATE") {
 		t.Fatal("validation output disclosed state")

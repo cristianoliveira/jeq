@@ -1,6 +1,6 @@
 # 0003. Defer TOON until v4 conformance
 
-- Status: Superseded by 0030
+- Status: Superseded by the ADR 0001 output-boundary revision (2026-09-19)
 - Date: 2026-09-19
 
 ## Context
