@@ -59,3 +59,20 @@ func CheckSources(s Sources) *Error {
 	}
 	return nil
 }
+
+// CheckStdin rejects configurations that would need stdin twice (for
+// example --questions - --state-json -) before any read happens. It is pure
+// and must run before source readers are invoked.
+func CheckStdin(forRequest, forQuestions, forState bool) *Error {
+	uses := 0
+	for _, b := range []bool{forRequest, forQuestions, forState} {
+		if b {
+			uses++
+		}
+	}
+	if uses >= 2 {
+		return NewError(CodeSourceConflict,
+			fmt.Sprintf("stdin ('-') can serve only one source, got %d; pipe one document or use file paths for the rest", uses))
+	}
+	return nil
+}
