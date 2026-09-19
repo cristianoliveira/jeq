@@ -1,7 +1,7 @@
 ---
 id: TASK-0032
 title: Make all CLI discovery native Cobra
-status: todo
+status: done
 depends_on: [TASK-0033]
 priority: high
 tags: []
