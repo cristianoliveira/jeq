@@ -24,19 +24,28 @@ execution:
 jobs:
   - name: nixfmt
     run_on_init: true
+    parallel: checks
     run: nixfmt --check flake.nix
   - name: flake-check
     run_on_init: true
+    parallel: checks
     run: nix flake check
   - name: fzz-check
     run_on_init: true
+    parallel: checks
     run: fzz check
   - name: go-build
     run_on_init: true
+    parallel: checks
     run: go build ./...
   - name: lint
     run_on_init: true
+    parallel: checks
     run: golangci-lint run
   - name: go-test
     run_on_init: true
+    parallel: checks
     run: go test ./...
+  - name: install-cli
+    run_on_init: true
+    run: go install ./cmd/gev
