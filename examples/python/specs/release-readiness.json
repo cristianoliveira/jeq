@@ -2,8 +2,8 @@
   "questions": {
     "risk": {
       "type": "score",
-      "instructions": "Score release risk from 0 (safe) to 1 (unsafe).",
-      "criteria": ["safe", "low risk", "material risk", "unsafe"]
+      "instructions": "Score release risk using ordered levels: 0 safe, 1 low risk, 2 material risk, 3 unsafe.",
+      "criteria": ["safe (0)", "low risk (1)", "material risk (2)", "unsafe (3)"]
     },
     "manual_review": {
       "type": "noul",

@@ -141,8 +141,33 @@ func TestPythonReleaseReadinessBlockPolicyAndUncertainty(t *testing.T) {
 			t.Fatalf("receipt=%#v", receipt)
 		}
 		assertUsage(t, receipt)
+		trace := receipt["policy_trace"].(map[string]any)
+		if trace["risk_raw_score"] != float64(0.2) || trace["risk_normalized"] != float64(0.066667) {
+			t.Fatalf("policy trace=%#v", trace)
+		}
 		assertNoRawInput(t, result.stdout, "ready-release")
 		assertPythonRequest(t, api.body(t, 0), map[string]any{"change_id": "ready-release", "tests_passed": true, "known_vulnerabilities": []any{}}, "risk", "manual_review", "rollout")
+	})
+	t.Run("raw high risk score blocks after normalization", func(t *testing.T) {
+		api := newFakeAPI(t, func(int) (int, []byte) {
+			return http.StatusOK, responseDocument(map[string]any{
+				"risk":          pythonScore(2.4, 0.9),
+				"manual_review": answerNoul(0.1),
+				"rollout":       choiceAnswer("full", 0.9, "full", "canary", "hold"),
+			})
+		})
+		result := runPython(t, "examples/python/release_readiness.py", `{"tests_passed":true}`, api.server.URL, nil)
+		if result.exit != 10 || result.stderr != "" {
+			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
+		}
+		receipt := oneJSON(t, result.stdout)
+		if receipt["decision"] != "block" {
+			t.Fatalf("receipt=%#v", receipt)
+		}
+		trace := receipt["policy_trace"].(map[string]any)
+		if trace["risk_raw_score"] != 2.4 || trace["risk_normalized"] != 0.8 {
+			t.Fatalf("policy trace=%#v", trace)
+		}
 	})
 	t.Run("low confidence is uncertain", func(t *testing.T) {
 		api := newFakeAPI(t, func(int) (int, []byte) {
@@ -172,7 +197,7 @@ func TestPythonIncidentCascadeAndCandidateValidation(t *testing.T) {
 			if count == 1 {
 				return http.StatusOK, responseDocument(map[string]any{
 					"category": choiceAnswer("technical", 0.9, "billing", "technical", "security"),
-					"severity": pythonScore(0.8, 0.9),
+					"severity": pythonScore(2.4, 0.9),
 					"page":     answerNoul(0.9),
 				})
 			}
@@ -239,6 +264,10 @@ func TestPythonIncidentCascadeAndCandidateValidation(t *testing.T) {
 		receipt := oneJSON(t, result.stdout)
 		if receipt["decision"].(map[string]any)["action"] != "human_review" || receipt["stage_count"] != float64(2) {
 			t.Fatalf("receipt=%#v", receipt)
+		}
+		usage := receipt["usage"].(map[string]any)
+		if usage["input_tokens"] != float64(20) || usage["output_tokens"] != float64(4) {
+			t.Fatalf("review usage=%#v", receipt["usage"])
 		}
 	})
 }

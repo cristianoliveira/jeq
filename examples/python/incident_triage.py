@@ -24,6 +24,7 @@ STAGE_ONE_QUESTIONS = ROOT / "specs" / "incident-stage-one.json"
 RUNBOOKS = ROOT / "specs" / "incident-runbooks.json"
 MIN_CONFIDENCE = 0.70
 PAGE_AMBIGUITY = (0.30, 0.70)
+MAX_SEVERITY_LEVEL = 3
 
 
 def load_runbooks() -> dict[str, list[dict[str, str]]]:
@@ -42,6 +43,15 @@ def bounded(answer_value: dict[str, Any], field: str, name: str) -> float:
     return float(value)
 
 
+def score_level(answer_value: dict[str, Any], name: str) -> float:
+    """Validate a four-level Score position without flattening its evidence."""
+
+    value = answer_value.get("score")
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= MAX_SEVERITY_LEVEL:
+        raise InputFailure(f"{name} score must be numeric in [0,{MAX_SEVERITY_LEVEL}]")
+    return float(value)
+
+
 def stage_one(response: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
     """Validate stage-one evidence and return the chosen category if confident."""
 
@@ -49,7 +59,7 @@ def stage_one(response: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
     severity = answer(response, "severity")
     page = answer(response, "page")
     category_confidence = bounded(category, "confidence", "category")
-    severity_score = bounded(severity, "score", "severity")
+    score_level(severity, "severity")
     severity_confidence = bounded(severity, "confidence", "severity")
     page_probability = bounded(page, "noul", "page")
     if category_confidence < MIN_CONFIDENCE or severity_confidence < MIN_CONFIDENCE:
@@ -59,24 +69,31 @@ def stage_one(response: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
     selected = category.get("choice")
     if not isinstance(selected, str) or not selected:
         raise InputFailure("category choice is missing")
-    if severity_score < 0 or severity_score > 1:
-        raise InputFailure("severity score is outside [0,1]")
     return {"category": category, "severity": severity, "page": page}, selected
 
 
 def review_receipt(
-    response: dict[str, Any], reason: str, stage_count: int = 1, extra: dict[str, Any] | None = None
+    response: dict[str, Any],
+    reason: str,
+    stage_count: int = 1,
+    extra: dict[str, Any] | None = None,
+    second: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     answers = response.get("answers", {})
     if extra:
         answers = {**answers, **extra}
+    total_usage = usage(response)
+    model = response.get("model")
+    if second is not None:
+        total_usage = add_usage(total_usage, usage(second))
+        model = second.get("model", model)
     return (
         {
             "workflow": "incident-triage-python",
             "decision": {"action": "human_review", "reason": reason},
             "answers": answers,
-            "model": response.get("model"),
-            "usage": usage(response),
+            "model": model,
+            "usage": total_usage,
             "stage_count": stage_count,
         },
         11,
@@ -147,6 +164,7 @@ def workflow() -> tuple[dict[str, Any], int]:
             error.reason,
             stage_count=2,
             extra={"stage_two": second.get("answers", {})},
+            second=second,
         )
     return happy_receipt(first, second, stage_answers, runbook_id)
 

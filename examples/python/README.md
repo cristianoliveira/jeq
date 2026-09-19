@@ -49,7 +49,10 @@ runs.
 | risk `>= 0.80`, manual review `>= 0.80`, or hold rollout | block | 10 |
 | Low confidence or unsupported evidence | uncertain | 11 |
 
-Thresholds are demonstrations, not calibrated release controls.
+Score answers use the ordered level index `0..3` for the four criteria. Release
+policy normalizes `raw_score / 3` before applying the thresholds above; receipts
+retain both raw answers and the `policy_trace`. Thresholds are demonstrations,
+not calibrated release controls.
 
 ### Incident cascade
 
@@ -70,9 +73,10 @@ stage 2: choice criteria = only candidate IDs
          human_review (11)
 ```
 
-The selected runbook is reported, never invoked. A receipt keeps typed answer
-evidence, model, usage, and stage count but never copies raw incident or ticket
-state. Operational gev failures retain gev's structured stdout and exit `1`,
+The selected runbook is reported, never invoked. Score severity uses its raw
+ordered level index (`0..3`) and is not flattened in the receipt. A receipt keeps
+typed answer evidence, model, usage, and stage count but never copies raw
+incident or ticket state. Operational gev failures retain gev's structured stdout and exit `1`,
 `2`, or `130`; stderr remains diagnostics.
 
 ## Commands
