@@ -8,16 +8,25 @@ import (
 	"unicode/utf8"
 )
 
+// scanError distinguishes syntax failures from duplicate-key failures so
+// each can map to its own local rule.
+type scanError struct {
+	duplicate bool
+	msg       string
+}
+
+func (e *scanError) Error() string { return e.msg }
+
 // scanDoc performs the raw-document checks that encoding/json cannot:
 // valid UTF-8, no BOM, well-formed JSON, no duplicate keys, no trailing
-// data. It returns a plain *scanError; callers wrap it with the stable code
-// for their document kind.
+// data. It returns a *scanError; callers wrap it with the stable code for
+// their document kind.
 func scanDoc(data []byte) error {
 	if !utf8.Valid(data) {
-		return fmt.Errorf("document is not valid UTF-8")
+		return &scanError{msg: "document is not valid UTF-8"}
 	}
 	if bytes.HasPrefix(data, []byte("\xEF\xBB\xBF")) {
-		return fmt.Errorf("document starts with a UTF-8 BOM; strip it before decoding")
+		return &scanError{msg: "document starts with a UTF-8 BOM; strip it before decoding"}
 	}
 
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -43,7 +52,7 @@ func scanDoc(data []byte) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("malformed JSON at byte %d: %v", dec.InputOffset(), err)
+			return &scanError{msg: fmt.Sprintf("malformed JSON at byte %d: %v", dec.InputOffset(), err)}
 		}
 
 		switch t := tok.(type) {
@@ -55,14 +64,14 @@ func scanDoc(data []byte) error {
 				stack = append(stack, &frame{})
 			default: // '}' or ']'
 				if len(stack) == 0 {
-					return fmt.Errorf("malformed JSON: unexpected closing delimiter at byte %d", dec.InputOffset())
+					return &scanError{msg: fmt.Sprintf("malformed JSON: unexpected closing delimiter at byte %d", dec.InputOffset())}
 				}
 				stack = stack[:len(stack)-1]
 				closeValue()
 			}
 		default:
 			if len(stack) == 0 {
-				return fmt.Errorf("malformed JSON: value outside a document at byte %d", dec.InputOffset())
+				return &scanError{msg: fmt.Sprintf("malformed JSON: value outside a document at byte %d", dec.InputOffset())}
 			}
 			top := stack[len(stack)-1]
 			switch {
@@ -72,7 +81,7 @@ func scanDoc(data []byte) error {
 					return fmt.Errorf("malformed JSON: non-string object key at byte %d", dec.InputOffset())
 				}
 				if _, dup := top.keys[key]; dup {
-					return fmt.Errorf("duplicate object key %q at byte %d", key, dec.InputOffset())
+					return &scanError{duplicate: true, msg: fmt.Sprintf("duplicate object key %q at byte %d", key, dec.InputOffset())}
 				}
 				top.keys[key] = struct{}{}
 				top.expectKey = false
@@ -85,7 +94,7 @@ func scanDoc(data []byte) error {
 	}
 
 	if len(stack) != 0 {
-		return fmt.Errorf("malformed JSON: unclosed container")
+		return &scanError{msg: "malformed JSON: unclosed container"}
 	}
 	return nil
 }

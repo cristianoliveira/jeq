@@ -1,14 +1,62 @@
 [
-  { "fixture": "bom.json", "rule": "json_wellformed", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "choice_no_options.json", "rule": "choice_criteria_non_empty", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "dup_key.json", "rule": "no_duplicate_keys", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "empty_questions.json", "rule": "questions_non_empty", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "empty_state.json", "rule": "state_non_empty", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "malformed_trailing_comma.json", "rule": "json_wellformed", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "malformed_truncated.json", "rule": "json_wellformed", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "missing_instructions.json", "rule": "instructions_non_empty", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "noul_criteria_wrong_shape.json", "rule": "noul_criteria_shape", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "score_no_levels.json", "rule": "score_criteria_min_levels", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "type_mismatch.json", "rule": "score_criteria_min_levels", "code": "GEV_REQUEST_INVALID" },
-  { "fixture": "unknown_primitive.json", "rule": "question_type_known", "code": "GEV_REQUEST_INVALID" }
+  {
+    "fixture": "bom.json",
+    "rule": "json_wellformed",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "choice_no_options.json",
+    "rule": "choice_criteria_non_empty",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "dup_key.json",
+    "rule": "no_duplicate_keys",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "empty_questions.json",
+    "rule": "questions_non_empty",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "empty_state.json",
+    "rule": "state_non_empty",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "malformed_trailing_comma.json",
+    "rule": "json_wellformed",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "malformed_truncated.json",
+    "rule": "json_wellformed",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "missing_instructions.json",
+    "rule": "instructions_non_empty",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "noul_criteria_wrong_shape.json",
+    "rule": "noul_criteria_shape",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "score_no_levels.json",
+    "rule": "score_criteria_min_levels",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "type_mismatch.json",
+    "rule": "request_schema",
+    "code": "GEV_REQUEST_INVALID"
+  },
+  {
+    "fixture": "unknown_primitive.json",
+    "rule": "question_type_known",
+    "code": "GEV_REQUEST_INVALID"
+  }
 ]
