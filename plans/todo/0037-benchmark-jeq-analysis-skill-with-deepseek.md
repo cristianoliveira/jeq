@@ -19,7 +19,8 @@ The new skill is structurally valid, but we do not yet have measured evidence th
 - Repetitions: one per condition (six agent runs)
 - Concurrency: sequential
 - Timeout: 300 seconds per run
-- TypeSafe: loopback deterministic fake only; no live service calls
+- TypeSafe: paid live service against synthetic fixtures; existing environment credential
+- JEQ budget: exactly 16 maximum HTTP attempts across all runs; `--max-retries 0`
 - Iterations: one; analyze results before deciding whether to revise
 
 ## Acceptance criteria
@@ -29,5 +30,5 @@ The new skill is structurally valid, but we do not yet have measured evidence th
 - [ ] Grade every declared expectation with transcript/output evidence and state grader independence limits.
 - [ ] Aggregate pass rate, duration, and authoritative token usage; identify non-discriminating assertions and limitations of one repetition.
 - [ ] Generate the standard static review report and preserve all raw artifacts outside the skill directory.
-- [ ] No request reaches the real TypeSafe endpoint and no production credential is read or copied.
+- [ ] Live JEQ calls use only synthetic fixtures, read the existing credential from environment, never print/copy it, disable retries, and stay within 16 total HTTP attempts.
 
