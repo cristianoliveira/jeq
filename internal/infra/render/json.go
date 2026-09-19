@@ -24,10 +24,23 @@ func (JSON) RenderSuccess(w io.Writer, resp contract.Response) error {
 	if err != nil {
 		return fmt.Errorf("rendering success document: %w", err)
 	}
+	return writeJSON(w, out)
+}
+
+// RenderValue writes an arbitrary structured command document as JSON.
+func (JSON) RenderValue(w io.Writer, value any) error {
+	out, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("rendering value: %w", err)
+	}
+	return writeJSON(w, out)
+}
+
+func writeJSON(w io.Writer, out []byte) error {
 	if _, err := w.Write(out); err != nil {
 		return err
 	}
-	_, err = w.Write([]byte("\n"))
+	_, err := w.Write([]byte("\n"))
 	return err
 }
 

@@ -45,8 +45,16 @@ type AskDeps struct {
 	RendererFor func(format string) Renderer
 }
 
+func (d AskDeps) sourceReady() bool {
+	return d.ReadFile != nil && d.ReadStdin != nil && d.Getenv != nil
+}
+
+func (d AskDeps) modelsReady() bool {
+	return d.Getenv != nil && d.NewClient != nil
+}
+
 func (d AskDeps) valid() bool {
-	return d.ReadFile != nil && d.ReadStdin != nil && d.NewClient != nil && d.Getenv != nil
+	return d.sourceReady() && d.NewClient != nil
 }
 
 // NewAskCmd creates the ask command with native and composed source flags.

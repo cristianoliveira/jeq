@@ -39,6 +39,10 @@ func (c *fakeClient) Evaluate(_ context.Context, req contract.Request) (contract
 	return c.resp, c.err
 }
 
+func (c *fakeClient) Models(context.Context) (contract.Models, *gev.Error) {
+	return contract.Models{Models: []contract.ModelInfo{{Name: "jev-latest"}, {Name: "jev-preview"}}}, c.err
+}
+
 func testDeps(t *testing.T, client *fakeClient, getenv func(string) string) (cli.AskDeps, *bytes.Buffer, *int) {
 	t.Helper()
 	var stdin bytes.Buffer
@@ -151,7 +155,7 @@ func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
 }
 
 func TestAskMaxRetriesAndInputConfigErrors(t *testing.T) {
-	for _, args := range [][]string{{"--max-retries", "6"}, {"--max-retries", "-1"}, {"--timeout", "nope"}, {"--output", "toon"}} {
+	for _, args := range [][]string{{"--max-retries", "6"}, {"--max-retries", "-1"}, {"--timeout", "nope"}, {"--output", "yaml"}} {
 		t.Run(strings.Join(args, "-"), func(t *testing.T) {
 			client := &fakeClient{}
 			deps, _, _ := testDeps(t, client, func(string) string { return "secret" })

@@ -18,3 +18,10 @@ type Renderer interface {
 	RenderSuccess(w io.Writer, resp contract.Response) error
 	RenderError(w io.Writer, e *gev.Error) error
 }
+
+// ValueRenderer renders command documents that are not TypeSafe responses,
+// such as home, version, and models.
+type ValueRenderer interface {
+	Renderer
+	RenderValue(w io.Writer, value any) error
+}

@@ -27,6 +27,15 @@ func (TOON) RenderSuccess(w io.Writer, resp contract.Response) error {
 	return writeTOON(w, raw)
 }
 
+// RenderValue writes a structured non-response document as TOON.
+func (TOON) RenderValue(w io.Writer, value any) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("encoding value: %w", err)
+	}
+	return writeTOON(w, raw)
+}
+
 // RenderError writes a lossless TOON error document plus one newline.
 func (TOON) RenderError(w io.Writer, e *gev.Error) error {
 	doc := struct {

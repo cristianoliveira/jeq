@@ -23,6 +23,9 @@ func Run(args []string, stdout, stderr io.Writer, renderer Renderer) int {
 // streams and adapters, and returns the process exit code.
 func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, deps AskDeps) int {
 	deps.Renderer = renderer
+	if deps.Getenv == nil {
+		deps.Getenv = os.Getenv
+	}
 	root := NewRootCmd(deps)
 	root.SetOut(stdout)
 	root.SetErr(stderr)
