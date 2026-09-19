@@ -1,7 +1,7 @@
 ---
 id: TASK-0022
 title: Readable multi-stage decision workflow examples
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: []
