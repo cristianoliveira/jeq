@@ -167,6 +167,7 @@ type fakeAPI struct {
 	closeOnce sync.Once
 	bodyMu    sync.Mutex
 	lastBody  []byte
+	bodies    [][]byte
 }
 
 func newFakeAPI(t *testing.T, handler func(http.ResponseWriter, *http.Request, int)) *fakeAPI {
@@ -178,6 +179,7 @@ func newFakeAPI(t *testing.T, handler func(http.ResponseWriter, *http.Request, i
 		body, _ := io.ReadAll(r.Body)
 		api.bodyMu.Lock()
 		api.lastBody = append([]byte(nil), body...)
+		api.bodies = append(api.bodies, append([]byte(nil), body...))
 		api.bodyMu.Unlock()
 		handler(w, r, count)
 	}))
@@ -186,6 +188,15 @@ func newFakeAPI(t *testing.T, handler func(http.ResponseWriter, *http.Request, i
 }
 
 func (a *fakeAPI) count() int { return int(a.requests.Load()) }
+
+func (a *fakeAPI) bodyAt(index int) []byte {
+	a.bodyMu.Lock()
+	defer a.bodyMu.Unlock()
+	if index < 0 || index >= len(a.bodies) {
+		return nil
+	}
+	return append([]byte(nil), a.bodies[index]...)
+}
 
 func (a *fakeAPI) body() []byte {
 	a.bodyMu.Lock()
@@ -352,6 +363,23 @@ func TestBlackBoxRateUsesScoreAndComposesWithJQ(t *testing.T) {
 	result := runBinary(t, input, map[string]string{"TYPESAFE_API_KEY": "rate-secret"}, "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High", "--base-url", api.server.URL)
 	if result.exit != 0 || result.stderr != "" || api.count() != 2 {
 		t.Fatalf("exit=%d stderr=%q requests=%d", result.exit, result.stderr, api.count())
+	}
+	for i, wantState := range []string{"minor", "outage"} {
+		var request map[string]any
+		if err := json.Unmarshal(api.bodyAt(i), &request); err != nil {
+			t.Fatal(err)
+		}
+		if request["state"] != wantState {
+			t.Fatalf("request %d state=%v", i, request["state"])
+		}
+		question := request["questions"].(map[string]any)["severity"].(map[string]any)
+		if question["type"] != "score" || question["instructions"] != "How severe?" {
+			t.Fatalf("request %d question=%#v", i, question)
+		}
+		criteria := question["criteria"].([]any)
+		if len(criteria) != 2 || criteria[0] != "Low" || criteria[1] != "High" {
+			t.Fatalf("request %d criteria=%#v", i, criteria)
+		}
 	}
 	jq := exec.Command("jq", "-s", "sort_by(._jeq.severity.answers.severity.score) | reverse | length")
 	jq.Stdin = strings.NewReader(result.stdout)
