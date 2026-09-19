@@ -16,6 +16,7 @@ const (
 	CodeAuthMissing     = codes.CodeAuthMissing
 	CodeAuthRejected    = codes.CodeAuthRejected
 	CodeRequestInvalid  = codes.CodeRequestInvalid
+	CodeRequestRejected = codes.CodeRequestRejected
 	CodeSourceConflict  = codes.CodeSourceConflict
 	CodeInputInvalid    = codes.CodeInputInvalid
 	CodeRateLimited     = codes.CodeRateLimited

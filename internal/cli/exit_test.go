@@ -25,6 +25,7 @@ func TestExitCodeMapping(t *testing.T) {
 
 		// Class 1: authentication, API, network, timeout, response failures.
 		{"auth missing is API-side", gev.NewError(gev.CodeAuthMissing, "x"), 1},
+		{"server 422 is API-side", gev.NewError(gev.CodeRequestRejected, "x"), 1},
 		{"auth rejected is API-side", gev.NewError(gev.CodeAuthRejected, "x"), 1},
 		{"rate limited is API-side", gev.NewError(gev.CodeRateLimited, "x"), 1},
 		{"server error is API-side", gev.NewError(gev.CodeServerError, "x"), 1},
@@ -76,6 +77,7 @@ func TestEveryStableCodeHasAnExitClass(t *testing.T) {
 	want := map[gev.Code]int{
 		gev.CodeAuthMissing:     1,
 		gev.CodeAuthRejected:    1,
+		gev.CodeRequestRejected: 1,
 		gev.CodeRateLimited:     1,
 		gev.CodeServerError:     1,
 		gev.CodeResponseInvalid: 1,

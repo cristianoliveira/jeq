@@ -14,7 +14,8 @@ type Code string
 const (
 	CodeAuthMissing     Code = "GEV_AUTH_MISSING"
 	CodeAuthRejected    Code = "GEV_AUTH_REJECTED"
-	CodeRequestInvalid  Code = "GEV_REQUEST_INVALID" // local document validation only; server 422 rejections get their own code (TASK-0006)
+	CodeRequestInvalid  Code = "GEV_REQUEST_INVALID"  // local document validation only (exit 2)
+	CodeRequestRejected Code = "GEV_REQUEST_REJECTED" // server 422: the server rejected fields gev cannot check locally
 	CodeSourceConflict  Code = "GEV_SOURCE_CONFLICT"
 	CodeInputInvalid    Code = "GEV_INPUT_INVALID"
 	CodeRateLimited     Code = "GEV_RATE_LIMITED"
@@ -31,6 +32,7 @@ func Codes() []Code {
 		CodeAuthMissing,
 		CodeAuthRejected,
 		CodeRequestInvalid,
+		CodeRequestRejected,
 		CodeSourceConflict,
 		CodeInputInvalid,
 		CodeRateLimited,
@@ -48,6 +50,9 @@ func Codes() []Code {
 type Error struct {
 	Code    Code
 	Message string
+	// Recovery is one actionable instruction for the caller. Renderers must
+	// emit it; it never contains secrets or raw dependency prose.
+	Recovery string
 
 	cause error
 }
@@ -55,6 +60,13 @@ type Error struct {
 // NewError builds a coded error without a cause.
 func NewError(code Code, message string) *Error {
 	return &Error{Code: code, Message: message}
+}
+
+// WithRecovery attaches the actionable instruction and returns the error
+// for fluent construction.
+func (e *Error) WithRecovery(recovery string) *Error {
+	e.Recovery = recovery
+	return e
 }
 
 // WrapError builds a coded error that preserves one internal cause.

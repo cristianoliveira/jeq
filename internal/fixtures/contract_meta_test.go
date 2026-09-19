@@ -42,6 +42,7 @@ func TestFixtureCodeCoverage(t *testing.T) {
 	// to the local request gate.
 	nonRequest := map[string]bool{
 		"models.json":                  true,
+		"response_200_full.json":       true,
 		"response_unknown_fields.json": true,
 	}
 	for _, name := range names {
