@@ -34,6 +34,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 	root.AddCommand(NewExamplesCmd(depsForRoot(deps...)))
 	if len(deps) > 0 && deps[0].valid() {
 		root.AddCommand(NewRankCmd(deps[0]))
+		root.AddCommand(NewRateCmd(deps[0]))
 	}
 	if len(deps) > 0 {
 		root.AddCommand(NewGateCmd(deps[0]))

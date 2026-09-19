@@ -16,7 +16,7 @@ Calling a model directly for each case creates repeated integration work and unc
 - reusable judgment questions;
 - per-record `map` and collection-level `reduce`;
 - deterministic, offline policy enforcement with `gate`;
-- Choice-based candidate ranking with `rank`, leaving pick-one and top-k policy to `jq`;
+- Choice-based candidate ranking with `rank`, and independent Score rubrics with `rate`, leaving pick-one, sorting, and policy to `jq`;
 - stable exit classes and bounded input, retry, and privacy behavior.
 
 JEQ is designed for autonomous agents, shell scripts, and developers who need model evidence inside a visible pipeline.
@@ -80,11 +80,12 @@ Do not put credentials in request files, command arguments, fixtures, or Git.
 | `jeq map` | Add one named judgment to each JSON record | Yes, once per record | JSON/NDJSON |
 | `jeq reduce` | Judge one bounded collection as a whole | Yes, once | JSON |
 | `jeq rank` | Rank bounded candidates with Choice probabilities | Yes, once | JSON envelope |
+| `jeq rate` | Rate each record against ordered Score levels | Yes, per record | JSON/NDJSON |
 | `jeq gate` | Apply explicit numeric pass/reject thresholds | No | JSON/NDJSON |
 | `jeq validate` | Validate a request before sending it | No | Plain text receipt |
 | `jeq models` | List models available to the account | Yes | Plain text |
 
-`map`, `reduce`, and `rank` store evidence under `_jeq.<name>`. `rank` returns every candidate as `{id, probability, candidate}`; pick one with `jq '.items[0].candidate'` or top-k with `jq '.items[:N] | map(.candidate)'`. Choice probabilities are relative, so include an explicit fallback candidate when absolute suitability matters. `gate` stores evidence under `_jeq.<name>` and applies deterministic policy. Low confidence is evidence, not a process failure. Only `gate` converts a numeric value into a deterministic policy exit.
+`map`, `reduce`, `rank`, and `rate` store evidence under `_jeq.<name>`. `rank` returns every candidate as `{id, probability, candidate}`; pick one with `jq '.items[0].candidate'` or top-k with `jq '.items[:N] | map(.candidate)'`. Choice probabilities are relative, so include an explicit fallback candidate when absolute suitability matters. `gate` stores evidence under `_jeq.<name>` and applies deterministic policy. Low confidence is evidence, not a process failure. Only `gate` converts a numeric value into a deterministic policy exit.
 
 Run a bare action command for its Cobra help:
 
@@ -93,6 +94,7 @@ jeq ask
 jeq map
 jeq gate
 jeq rank --help
+jeq rate --help
 ```
 
 Discover self-contained workflow recipes without credentials or repository files:

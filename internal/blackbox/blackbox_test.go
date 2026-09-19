@@ -339,6 +339,28 @@ func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
 	}
 }
 
+func TestBlackBoxRateUsesScoreAndComposesWithJQ(t *testing.T) {
+	t.Parallel()
+	api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request, _ int) {
+		if r.URL.Path != "/v1/systemone" {
+			http.Error(w, "wrong endpoint", http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"model":"m","answers":{"severity":{"type":"score","score":2,"legend":{"0":"low","1":"high"},"probabilities":{"0":0.1,"1":0.9},"confidence":0.9}},"usage":{"input_tokens":1,"output_tokens":1}}`))
+	})
+	input := "{\"description\":\"minor\"}\n{\"description\":\"outage\"}\n"
+	result := runBinary(t, input, map[string]string{"TYPESAFE_API_KEY": "rate-secret"}, "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High", "--base-url", api.server.URL)
+	if result.exit != 0 || result.stderr != "" || api.count() != 2 {
+		t.Fatalf("exit=%d stderr=%q requests=%d", result.exit, result.stderr, api.count())
+	}
+	jq := exec.Command("jq", "-s", "sort_by(._jeq.severity.answers.severity.score) | reverse | length")
+	jq.Stdin = strings.NewReader(result.stdout)
+	top, err := jq.Output()
+	if err != nil || strings.TrimSpace(string(top)) != "2" {
+		t.Fatalf("jq=%q err=%v stdout=%q", top, err, result.stdout)
+	}
+}
+
 func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 	t.Parallel()
 	t.Run("models success", func(t *testing.T) {
