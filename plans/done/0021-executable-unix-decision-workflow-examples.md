@@ -1,7 +1,7 @@
 ---
 id: TASK-0021
 title: Executable Unix decision workflow examples
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: []
