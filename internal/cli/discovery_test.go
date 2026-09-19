@@ -112,6 +112,30 @@ func TestModelsMissingCredentialDoesNotCreateClient(t *testing.T) {
 	}
 }
 
+func TestValidateConflictsAndFailuresAreUsageErrors(t *testing.T) {
+	r := &valueRenderer{}
+	reads := 0
+	deps := cli.AskDeps{
+		Getenv:    func(string) string { t.Fatal("validate conflict read environment"); return "" },
+		ReadFile:  func(string, int64) ([]byte, *gev.Error) { reads++; return nil, nil },
+		ReadStdin: func(io.Reader, int64, bool) ([]byte, *gev.Error) { reads++; return nil, nil },
+		Renderer:  r, RendererFor: func(string) cli.Renderer { return r },
+	}
+	var out, errOut bytes.Buffer
+	if code := cli.RunWithDeps([]string{"validate", "--request", "a", "--questions", "b"}, &out, &errOut, r, deps); code != 2 || reads != 0 {
+		t.Fatalf("code=%d reads=%d errors=%v", code, reads, r.errors)
+	}
+
+	deps.Getenv = func(string) string { return "" }
+	deps.ReadFile = func(string, int64) ([]byte, *gev.Error) {
+		reads++
+		return []byte(`{"state":"s","model":"m","questions":{}}`), nil
+	}
+	if code := cli.RunWithDeps([]string{"validate", "--request", "bad.json"}, &out, &errOut, r, deps); code != 2 || reads != 1 {
+		t.Fatalf("invalid code=%d reads=%d errors=%v", code, reads, r.errors)
+	}
+}
+
 func TestValidateNeverCreatesClientAndDoesNotExposeState(t *testing.T) {
 	r := &valueRenderer{}
 	created := false
