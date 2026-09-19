@@ -24,6 +24,8 @@ endpoint for development. Model evidence is data: examples validate it as a cata
 - [`readable-workflows/incident`](readable-workflows/incident/README.md):
   category map, `jq` catalog lookup into a native request field, second map,
   then gate.
+- [`code-smell-review`](code-smell-review/README.md): explicit bounded source
+  files, one aggregate judgment, and an optional offline cohesion gate.
 
 The existing `support-routing`, `change-risk-gate`, and `issue-ranking`
 directories remain low-level Bash references. They expose transport mechanics

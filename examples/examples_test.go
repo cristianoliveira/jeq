@@ -57,11 +57,12 @@ type processResult struct {
 	exit   int
 }
 
-func runScript(t *testing.T, script, input, endpoint string, extra map[string]string) processResult {
+func runScript(t *testing.T, script, input, endpoint string, extra map[string]string, args ...string) processResult {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", filepath.Join(repoRoot, script))
+	commandArgs := append([]string{filepath.Join(repoRoot, script)}, args...)
+	cmd := exec.CommandContext(ctx, "bash", commandArgs...)
 	cmd.Dir = repoRoot
 	cmd.Env = envWith(map[string]string{
 		"GEV_BIN":          gevBin,
