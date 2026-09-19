@@ -1,6 +1,6 @@
 # GEV QA acceptance plan — D0–D2 (TASK-0016)
 
-Status: plan for review — no code, no board changes.
+Status: accepted for D1 verification — open questions OQ-1..OQ-7 resolved in commit 92926aa and folded into the checks below.
 Ground truth: ADR 0001 (agent-first CLI contract), ADR 0002 (layered architecture), plans/todo TASK-0001..0011.
 Exit-class truth from ADR 0001: `0` success · `1` auth/API/network/timeout/response failure · `2` usage or locally invalid input · `130` interrupted. Low confidence is never an error.
 
@@ -22,7 +22,7 @@ Given every symbolic error code in the registry, when mapped to exit classes, th
 Verify: `go test ./internal/cli/... -run TestExitClassMapping` — table-driven, domain-owned table.
 
 **D0-3 Symbolic codes are a stable registry.**
-Given the code registry, when a code is added/removed/renamed, then a golden snapshot test fails until the change is explicit.
+Given the code registry, when a code is added/removed/renamed, then a golden snapshot test fails until the change is explicit. Format locked to `GEV_<AREA>_<REASON>`; initial registry per TASK-0002 (GEV_AUTH_MISSING, GEV_AUTH_REJECTED, GEV_REQUEST_INVALID, GEV_SOURCE_CONFLICT, GEV_INPUT_INVALID, GEV_RATE_LIMITED, GEV_SERVER_ERROR, GEV_RESPONSE_INVALID, GEV_NETWORK_ERROR, GEV_TIMEOUT, GEV_INTERRUPTED).
 Verify: `go test ./internal/domain/gev/... -run TestErrorCodeRegistryGolden` — fixture `contract/error_codes.golden`.
 
 **D0-4 Error documents follow the output contract.**
@@ -53,9 +53,9 @@ Fixture: `contract/malformed_truncated.json`, `contract/malformed_trailing_comma
 Given a document with a duplicate object key, when strictly decoded, then exit `2` with a duplicate-key code.
 Fixture: `contract/dup_key.json` (`{"state":"a","state":"b"}` shape analog in questions).
 
-**D1-3 Unknown fields fail strict decode (composed mode).**
-Given `--questions` JSON containing an unrecognized field, when decoded, then exit `2` naming the offending field. *(Scope limit vs native passthrough — see open questions OQ-1.)*
-Fixture: `contract/unknown_field.json`.
+**D1-3 Unknown fields pass through in both modes (OQ-1 resolved).**
+Given `--questions` or `--state-json` JSON containing an unrecognized field, when decoded and re-encoded, then the unknown field survives byte-semantically — never rejected, in composed and native mode alike. Strictness covers only duplicate keys and types of *known* fields.
+Fixture: `contract/unknown_field.json`; verify: `go test ./internal/domain/contract/... -run TestUnknownFieldPassthrough`.
 
 **D1-4 Type mismatches fail strict decode.**
 Given a probability supplied as a string or levels as a scalar, when decoded, then exit `2`.
@@ -69,9 +69,9 @@ Fixture: `contract/response_unknown_fields.json`; verify: `go test ./internal/do
 Given a question whose primitive is not `noul|choice|score`, when validated, then exit `2` pre-network.
 Fixture: `contract/unknown_primitive.json`.
 
-**D1-7 Primitive shape rules fail locally.**
-Given `choice` without options or `score` without levels, when validated, then exit `2`. *(Exact rule list — see open question OQ-2.)*
-Fixtures: `contract/choice_no_options.json`, `contract/score_no_levels.json`.
+**D1-7 Local rules are exactly the client-owned invariants (OQ-2 resolved).**
+Given valid UTF-8 JSON, no duplicate keys, non-empty state, ≥1 question, known `type`, non-empty `instructions`, choice `criteria` non-empty map, score `criteria` ≥ 2 levels, noul `criteria` (if present) an object — each violated invariant exits `2` locally; everything semantic defers to server 422 (exit `1`).
+Fixtures: `contract/choice_no_options.json`, `contract/score_no_levels.json`, `contract/missing_instructions.json`, `contract/noul_criteria_wrong_shape.json`.
 
 **D1-8 Empty required sections fail locally.**
 Given empty `questions`, or composed mode resolving to an empty state, then exit `2`.
@@ -110,7 +110,7 @@ Given `TYPESAFE_API_KEY` set, when a request is sent, then `Authorization: Beare
 Verify: `go test ./internal/infra/typesafeapi/... -run TestBearerAuth`; `go test ./internal/cli/... -run TestNoKeyFlag`.
 
 **D2-2 200 success renders losslessly.**
-Given a recorded 200 response, when ask completes, then exit `0` and stdout is exactly the golden JSON (resolved model, every answer, probabilities, confidence, score legends, usage) plus one trailing newline.
+Given a recorded 200 response, when ask completes, then exit `0` and stdout is exactly the golden JSON (resolved model, every answer, probabilities, confidence, score legends, usage) plus one trailing newline. JSON is the interim default for D2; the TOON default flips in D3 (TASK-0009, OQ-5 resolved).
 Fixture: `contract/response_200_full.json` → golden `render/json_200_full.golden`; verify: `go test ./internal/infra/render/... -run TestJSONGolden`.
 
 **D2-3 401 classifies as auth failure, exit 1.**
@@ -126,7 +126,7 @@ Given 429 with `Retry-After` then 200, when ask runs, then exit `0` with recorde
 Fixture: `http/429_once.json`.
 
 **D2-6 429 exhausts its bound, exit 1.**
-Given 429 on every attempt, then exit `1` with attempt count == configured bound (value per OQ-3).
+Given 429 on every attempt, then exit `1` with exactly 3 requests (default 2 retries) and recorded backoff 250ms, 500ms — doubling per attempt, single wait capped at 10s; `--max-retries` accepts 0–5.
 Fixture: `http/429_exhaust.json`.
 
 **D2-7 529 behaves like 429 (retry then classify).**
@@ -149,8 +149,8 @@ Given an HTML/text error body, then exit `1` and stdout carries only the stable 
 Fixture: `http/nonjson_error.html`.
 
 **D2-12 Timeout classifies as exit 1.**
-Given a server exceeding the timeout (short injected timeout in tests), then exit `1`, timeout code.
-Verify: `go test ./internal/infra/typesafeapi/... -run TestTimeout` (override mechanism per OQ-4).
+Given a server exceeding the timeout (short injected timeout in tests), then exit `1` with GEV_TIMEOUT.
+Verify: `go test ./internal/infra/typesafeapi/... -run TestTimeout`; binary-level override uses `--timeout` (OQ-4 resolved).
 
 **D2-13 Missing key fails pre-network.**
 Given valid input and no `TYPESAFE_API_KEY`, when ask runs, then exit `1` (auth class) with the fake server counting `0` requests.
@@ -176,16 +176,16 @@ Verify: `go test ./internal/cli/... -run TestUnknownFlagSuggestions`.
 Given `--questions q.json --state "..."` and `TYPESAFE_BASE_URL` pointing at the fixture server, when run, then request body matches the composed native document, stdout matches `render/json_200_full.golden`, exit `0`.
 Fixtures: `requests/composed_questions.json`, `contract/response_200_full.json`.
 
-**D2-19 ask end-to-end, native passthrough.**
-Given `--request native.json`, when run, then the server receives the document byte-preserved (unknown fields intact) and exit `0`.
-Fixture: `requests/native_with_unknown_fields.json`.
+**D2-19 ask end-to-end, passthrough in both modes.**
+Given `--request native.json` or `--questions/--state-json` documents containing unknown fields, when run, then the server receives the documents byte-preserved (unknown fields intact in both modes per OQ-1) and exit `0`.
+Fixtures: `requests/native_with_unknown_fields.json`, `requests/composed_with_unknown_fields.json`.
 
-## Open questions (not decided here — product/contract calls)
+## Resolved questions (recorded in task files, commit 92926aa)
 
-- **OQ-1** Does strict unknown-field rejection apply to `--request` native passthrough, or only to composed mode? Passthrough implies losslessness; strictness implies rejection. Both cannot hold for unknown fields. (Surfaced in D1-3/D2-19.)
-- **OQ-2** Which field-level rules does local validation enforce (e.g., required question `instructions`/`criteria` per TypeSafe docs) versus deferring to server 422? D1-7 scope depends on this.
-- **OQ-3** Retry bound is unspecified in ADR 0001 ("bounded"): exact max attempts and backoff base needed to assert D2-6.
-- **OQ-4** Timeout override surface: ADR fixes a 10s default but names no flag/env to change it; D2-12 tests inject internally, but binary-level verification needs a knob.
-- **OQ-5** Default output in D2: ADR 0001 makes lossless TOON the default, but the TOON renderer (TASK-0009) is not in D0–D2. Is JSON the interim default until 0009 lands, and is that an acceptable temporary contract?
-- **OQ-6** Are `models`/`version`/home-view client behaviors (TASK-0006 "two endpoints", TASK-0012) accepted in D2 or deferred to D3 acceptance?
-- **OQ-7** Symbolic code namespace and registry format (e.g., `GEV-E-*` tokens) are referenced but not specified; D0-3 golden needs a chosen format.
+- **OQ-1** → TASK-0003: unknown fields pass through in both modes; strictness = duplicate keys + known-field types only. (D1-3, D2-19 updated.)
+- **OQ-2** → TASK-0004: local rules are exactly the client-owned invariants; server is semantic authority (422 → exit 1). (D1-7 updated.)
+- **OQ-3** → TASK-0007: default 2 retries (3 attempts max), `--max-retries` 0–5, 250ms base doubling, single wait capped 10s. (D2-6 updated.)
+- **OQ-4** → existing `--timeout` flag; no new knob. (D2-12 updated.)
+- **OQ-5** → JSON is the interim default in D2; TOON default flips in D3 with TASK-0009. (D2-2 noted.)
+- **OQ-6** → `models`/`version`/home-view accepted in D3; out of D2 acceptance scope.
+- **OQ-7** → code format `GEV_<AREA>_<REASON>`, registry frozen in TASK-0002. (D0-3 updated.)
