@@ -39,4 +39,4 @@ done
 
 questions_json='{"questions":{"primary_smell":{"type":"choice","instructions":"Which single design smell is most material in this reviewed set?","criteria":{"none":"No material smell beyond routine maintenance","mixed_responsibilities":"One unit owns unrelated reasons to change","duplicated_policy":"The same policy is duplicated across locations","hidden_ambient_state":"Behavior depends on implicit global or ambient state","leaky_abstraction":"An abstraction exposes details callers must know","unnecessary_complexity":"The design is more complex than its stated behavior requires"}},"cohesive":{"type":"noul","instructions":"Is this reviewed set cohesive enough to pass an optional policy gate? Answer high=yes and safe to pass; answer low=no or not safe to pass."}}}'
 
-exec "$GEV_BIN" reduce --as code_smells --input ndjson --questions-json "$questions_json" <"$tmp"
+"$GEV_BIN" reduce --as code_smells --input ndjson --questions-json "$questions_json" <"$tmp"

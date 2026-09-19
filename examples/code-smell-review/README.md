@@ -22,7 +22,10 @@ For changed files, use NUL-delimited Git output so spaces and newlines in paths
 are not split by the shell:
 
 ```sh
-mapfile -d '' changed < <(
+changed=()
+while IFS= read -r -d '' path; do
+  changed+=("$path")
+done < <(
   git diff --name-only -z --diff-filter=ACMR -- '*.go' '*.sh'
 )
 if ((${#changed[@]})); then

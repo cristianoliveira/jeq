@@ -64,6 +64,46 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 	}
 }
 
+func TestCodeSmellReviewCleansTemporaryBundleAfterSuccessAndFailure(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "source.go")
+	if err := os.WriteFile(source, []byte("package source\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		tmpdir := t.TempDir()
+		api := newFakeAPI(t, func(int) (int, []byte) { return 200, codeSmellResponse() })
+		result := runScript(t, "examples/code-smell-review/review.sh", "", api.server.URL, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TMPDIR": tmpdir}, source)
+		if result.exit != 0 {
+			t.Fatalf("exit=%d stdout=%q stderr=%q", result.exit, result.stdout, result.stderr)
+		}
+		assertNoCodeSmellBundles(t, tmpdir)
+	})
+
+	t.Run("api failure", func(t *testing.T) {
+		tmpdir := t.TempDir()
+		api := newFakeAPI(t, func(int) (int, []byte) { return 500, []byte(`{"error":"failed"}`) })
+		result := runScript(t, "examples/code-smell-review/review.sh", "", api.server.URL, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TMPDIR": tmpdir}, source)
+		if result.exit == 0 {
+			t.Fatalf("expected failure: stdout=%q stderr=%q", result.stdout, result.stderr)
+		}
+		assertNoCodeSmellBundles(t, tmpdir)
+	})
+}
+
+func assertNoCodeSmellBundles(t *testing.T, directory string) {
+	t.Helper()
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "gev-code-smells.") {
+			t.Fatalf("temporary bundle remains: %s", entry.Name())
+		}
+	}
+}
+
 func TestCodeSmellReviewRejectsInvalidInputsWithoutAPI(t *testing.T) {
 	api := newFakeAPI(t, func(int) (int, []byte) { return 200, codeSmellResponse() })
 	cases := []struct {
@@ -98,7 +138,7 @@ func TestCodeSmellReviewInlineQuestionsWithoutQuestionFile(t *testing.T) {
 	api := newFakeAPI(t, func(int) (int, []byte) { return 200, codeSmellResponse() })
 	input := "{\"path\":\"space name.go\",\"content\":\"package p\\n\"}\n"
 	questions := `{"questions":{"primary_smell":{"type":"choice","instructions":"Which smell?","criteria":{"none":"none","mixed_responsibilities":"mixed","duplicated_policy":"duplicated","hidden_ambient_state":"ambient","leaky_abstraction":"leaky","unnecessary_complexity":"complex"}},"cohesive":{"type":"noul","instructions":"Answer high=yes and safe to pass; low=no."}}}`
-	result := runGev(t, input, api.server.URL, []string{"reduce", "--as", "code_smells", "--input", "ndjson", "--questions-json", questions, "--model", "jev-latest"})
+	result := runGev(t, input, api.server.URL, []string{"reduce", "--as", "code_smells", "--input", "ndjson", "--questions-json", questions})
 	if result.exit != 0 || api.count() != 1 {
 		t.Fatalf("exit=%d requests=%d stdout=%q stderr=%q", result.exit, api.count(), result.stdout, result.stderr)
 	}
@@ -111,7 +151,8 @@ func runGev(t *testing.T, stdin, endpoint string, args []string) processResult {
 	t.Helper()
 	cmd := exec.Command(gevBin, args...)
 	cmd.Dir = repoRoot
-	cmd.Env = envWith(map[string]string{"TYPESAFE_API_KEY": "examples-test-key", "TYPESAFE_BASE_URL": endpoint, "TYPESAFE_DEFAULT_MODEL": "", "NO_COLOR": "1", "TERM": "dumb"}, nil)
+	home := t.TempDir()
+	cmd.Env = envWith(map[string]string{"TYPESAFE_API_KEY": "examples-test-key", "TYPESAFE_BASE_URL": endpoint, "TYPESAFE_DEFAULT_MODEL": "", "HOME": home, "XDG_CONFIG_HOME": filepath.Join(home, "config"), "NO_COLOR": "1", "TERM": "dumb"}, nil)
 	cmd.Stdin = strings.NewReader(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
