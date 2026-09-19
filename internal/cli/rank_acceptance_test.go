@@ -69,12 +69,3 @@ func TestRankAcceptanceUnknownSelectedChoice(t *testing.T) {
 		t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
 	}
 }
-
-func contains(values []string, wanted string) bool {
-	for _, value := range values {
-		if value == wanted {
-			return true
-		}
-	}
-	return false
-}
