@@ -172,7 +172,6 @@ Errors go to stderr. Result data goes to stdout. Gate status is preserved throug
 - [Workflow examples](examples/README.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Development and verification](docs/DEVELOPMENT.md)
-- [Design decisions](docs/decisions/)
 
 ## Development
 

@@ -1,7 +1,7 @@
 # jeq delivery plan
 
 Board: `plans/todo/` and `plans/done/` (kanban: folder is truth, `TASK-NNNN` ids are stable).
-Decisions: `docs/decisions/0001-agent-first-cli-contract.md`, `docs/decisions/0002-layered-package-architecture.md`.
+Guides: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) and [`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md).
 
 ## Deliveries
 
