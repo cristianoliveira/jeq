@@ -14,5 +14,5 @@ import (
 var _ cli.Renderer = render.JSON{}
 
 func main() {
-	os.Exit(cli.Run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(cli.Run(os.Args[1:], os.Stdout, os.Stderr, render.JSON{}))
 }

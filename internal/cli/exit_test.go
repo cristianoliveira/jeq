@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/cristianoliveira/gev/internal/cli"
+	"github.com/cristianoliveira/gev/internal/domain/contract"
 	"github.com/cristianoliveira/gev/internal/domain/gev"
 )
 
@@ -114,41 +116,67 @@ func TestRunExitCodesEndToEnd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			if got := cli.Run(tt.args, &stdout, &stderr); got != tt.want {
+			renderer := &stubRenderer{}
+			if got := cli.Run(tt.args, &stdout, &stderr, renderer); got != tt.want {
 				t.Errorf("Run(%q) exit = %d, want %d (stderr: %q)", tt.args, got, tt.want, stderr.String())
 			}
 		})
 	}
 }
 
-// D0-8: usage failures are never silent — exit 2 with self-correcting
-// stderr that names the offending input and points at valid alternatives.
-func TestUsageFailuresAreNotSilent(t *testing.T) {
+// TASK-0017: usage failures emit exactly one structured error document on
+// stdout (GEV_INPUT_INVALID + offending input + recovery); stderr stays
+// empty — the interim prose fallback is gone.
+func TestUsageFailuresAreStructuredAndStderrEmpty(t *testing.T) {
 	tests := []struct {
-		name      string
-		args      []string
-		wantNamed string
+		name        string
+		args        []string
+		wantNamed   string
+		wantSuggest string
 	}{
-		{"unknown command", []string{"badsubcommand"}, "badsubcommand"},
-		{"unknown flag", []string{"--nope"}, "--nope"},
+		{"unknown command", []string{"badsubcommand"}, `unknown command "badsubcommand"`, ""},
+		{"unknown flag", []string{"--nope"}, "unknown flag: --nope", ""},
+		{"misspelled command suggests closest", []string{"versionn"}, `unknown command "versionn"`, "did you mean \"version\"?"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			if got := cli.Run(tt.args, &stdout, &stderr); got != 2 {
+			renderer := &stubRenderer{}
+			if got := cli.Run(tt.args, &stdout, &stderr, renderer); got != 2 {
 				t.Fatalf("exit = %d, want 2", got)
 			}
 
-			if strings.TrimSpace(stderr.String()) == "" {
-				t.Fatal("stderr is silent; a non-zero exit must be auto-discoverable")
+			if strings.TrimSpace(stderr.String()) != "" {
+				t.Errorf("stderr must be empty, got %q", stderr.String())
 			}
-			if !strings.Contains(stderr.String(), tt.wantNamed) {
-				t.Errorf("stderr %q does not name the offending input %q", stderr.String(), tt.wantNamed)
+			if renderer.errDoc == nil {
+				t.Fatal("renderer did not receive an error document")
 			}
-			if !strings.Contains(stderr.String(), "--help") {
-				t.Errorf("stderr %q does not point at valid alternatives", stderr.String())
+			doc := *renderer.errDoc
+			if doc.Code != gev.CodeInputInvalid {
+				t.Errorf("code = %q, want %q", doc.Code, gev.CodeInputInvalid)
+			}
+			if !strings.Contains(doc.Message, tt.wantNamed) {
+				t.Errorf("message %q does not name the offending input %q", doc.Message, tt.wantNamed)
+			}
+			if tt.wantSuggest != "" && !strings.Contains(doc.Recovery, "version") {
+				t.Errorf("recovery %q lacks the closest alternative", doc.Recovery)
+			}
+			if !strings.Contains(doc.Recovery, "--help") {
+				t.Errorf("recovery %q does not point at the command list", doc.Recovery)
 			}
 		})
 	}
+}
+
+// stubRenderer records the error document passed through the injected port.
+type stubRenderer struct {
+	errDoc *gev.Error
+}
+
+func (r *stubRenderer) RenderSuccess(_ io.Writer, _ contract.Response) error { return nil }
+func (r *stubRenderer) RenderError(_ io.Writer, e *gev.Error) error {
+	r.errDoc = e
+	return nil
 }
