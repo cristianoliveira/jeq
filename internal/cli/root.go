@@ -16,7 +16,6 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 			return renderHome(cmd, depsForRoot(deps...))
 		},
 	}
-	root.PersistentFlags().String("output", "json", "output format (json)")
 	// Flag parse failures are usage failures (exit 2), not generic errors.
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return NewUsageError(err)

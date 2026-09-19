@@ -15,7 +15,7 @@ The CLI must preserve TypeSafe's native request capabilities while remaining det
 
 - Name the executable `gev`.
 - Build it in Go with Cobra.
-- Design primarily for LLM agents, not interactive human use.
+- Serve both humans and agents: concise human discovery/diagnostics, lossless JSON for composable result streams.
 - Accept JSON documents only in version 1.
 - Never prompt or read stdin implicitly.
 
@@ -34,7 +34,7 @@ gev completion Generate Cobra shell completions
 
 Noul, Choice, and Score remain question types in request data. They are not separate version 1 commands. `gev ask --request` is the native passthrough, so a separate API command is unnecessary.
 
-With no arguments, `gev` returns a compact, structured, offline home view containing its identity, purpose, credential readiness, default model, available commands, and one relevant next step.
+With no arguments, `gev` returns a compact, deterministic offline plain-text home view containing its identity, purpose, credential readiness, default model, available commands, and one relevant next step. `gev examples [id]` is the primary self-contained workflow discovery path.
 
 ### Request modes
 
@@ -73,15 +73,12 @@ Request modes and state sources never merge implicitly. Conflicts fail before cr
 
 ### Output
 
-- Emit lossless JSON by default.
-- Support explicit JSON through `--output json`.
-- Reject other output formats in version 1.
-- Do not provide a human text renderer in version 1.
-- Emit exactly one structured document and one trailing newline.
+- `ask`, `map`, `reduce`, and `gate` success output is lossless JSON/NDJSON with one trailing newline per document/record.
+- Home, `examples`, `version`, `models`, and successful `validate` output is concise deterministic plain text on stdout.
+- Help is standard Cobra plain text on stdout. There is no global output-format flag.
+- Errors and diagnostics are concise plain text on stderr; stdout remains empty on failure. Errors preserve symbolic codes, actionable recovery, and exit classification without exposing credentials, stack traces, or raw dependency failures.
 - Keep output deterministic: no TTY-dependent layout, timestamps, locale-dependent values, or color.
-- Preserve the resolved model, every answer, probabilities, confidence where available, score legends, and token usage.
-
-Success and errors use the selected structured format on stdout. Debug diagnostics and retry progress use stderr. Output must never expose credentials, stack traces, or raw dependency failures.
+- Preserve the resolved model, every answer, probabilities, confidence where available, score legends, and token usage in result streams.
 
 ### Errors
 
@@ -107,5 +104,5 @@ never calls the API, and does not reinterpret model text as an action.
 - Agents can use the complete TypeSafe request contract without an SDK integration.
 - Reusable question files separate stable judgments from changing application state.
 - Explicit input sources prevent blocking and ambiguous precedence.
-- The CLI must maintain strict structured-output and backwards-compatibility tests.
+- The CLI must maintain strict result-stream JSON tests and stable human-output/error tests.
 - YAML, interactive credential storage, and a TUI remain outside version 1; `map`, one-call `reduce`, and offline numeric `gate` are the supported primitives.

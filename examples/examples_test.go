@@ -195,9 +195,12 @@ func ndjson(t *testing.T, output string) []map[string]any {
 	if output == "" || !strings.HasSuffix(output, "\n") {
 		t.Fatalf("want NDJSON with trailing newline, got %q", output)
 	}
-	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+	lines := strings.Split(strings.TrimSpace(output), "\n")
 	result := make([]map[string]any, 0, len(lines))
 	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
 		var document map[string]any
 		if err := json.Unmarshal([]byte(line), &document); err != nil {
 			t.Fatalf("invalid NDJSON line %q: %v", line, err)
@@ -326,23 +329,15 @@ func TestChangeRiskGatePolicyAndOperationalStatus(t *testing.T) {
 	t.Run("gev status 1 is unchanged", func(t *testing.T) {
 		api := newFakeAPI(t, func(int) (int, []byte) { return http.StatusUnauthorized, []byte(`{"message":"denied"}`) })
 		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", api.server.URL, nil)
-		if result.exit != 1 || result.stderr != "" {
+		if result.exit != 1 || strings.TrimSpace(result.stdout) != "" || !strings.Contains(result.stderr, "GEV_AUTH_REJECTED") {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
-		}
-		doc := oneJSON(t, result.stdout)
-		if doc["code"] != "GEV_AUTH_REJECTED" {
-			t.Fatalf("error=%#v", doc)
 		}
 	})
 	t.Run("gev status 2 is unchanged", func(t *testing.T) {
-		wrapper := writeWrapper(t, `exec "$GEV_REAL" "$@" --output toon`)
+		wrapper := writeWrapper(t, `exec "$GEV_REAL" "$@" --unknown-flag`)
 		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"GEV_BIN": wrapper, "GEV_REAL": gevBin})
-		if result.exit != 2 || result.stderr != "" {
+		if result.exit != 2 || strings.TrimSpace(result.stdout) != "" || !strings.Contains(result.stderr, "GEV_INPUT_INVALID") {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
-		}
-		doc := oneJSON(t, result.stdout)
-		if doc["code"] != "GEV_INPUT_INVALID" {
-			t.Fatalf("error=%#v", doc)
 		}
 	})
 	t.Run("gev status 130 is unchanged", func(t *testing.T) {
@@ -400,11 +395,11 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 			return http.StatusInternalServerError, []byte("server detail")
 		})
 		failed := runScript(t, "examples/issue-ranking/rank.sh", input, failAPI.server.URL, nil)
-		if failed.exit != 1 || failAPI.count() != 2 || failed.stderr != "" {
+		if failed.exit != 1 || failAPI.count() != 2 || !strings.Contains(failed.stderr, "GEV_SERVER_ERROR") {
 			t.Fatalf("exit=%d requests=%d stderr=%q stdout=%q", failed.exit, failAPI.count(), failed.stderr, failed.stdout)
 		}
 		lines := ndjson(t, failed.stdout)
-		if len(lines) != 2 || lines[0]["id"] != "ISSUE-101" || lines[1]["code"] != "GEV_SERVER_ERROR" {
+		if len(lines) != 1 || lines[0]["id"] != "ISSUE-101" {
 			t.Fatalf("partial output=%#v", lines)
 		}
 	})

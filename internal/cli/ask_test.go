@@ -129,7 +129,7 @@ func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--request", "a", "--questions", "b"}, deps)
-	if code != 2 || renderer.err == nil || renderer.err.Code != gev.CodeSourceConflict || *reads != 0 || client.call != 0 || stderr != "" {
+	if code != 2 || renderer.err == nil || renderer.err.Code != gev.CodeSourceConflict || *reads != 0 || client.call != 0 || !strings.Contains(stderr, "GEV_SOURCE_CONFLICT") {
 		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, *reads, client.call, stderr)
 	}
 }
@@ -155,7 +155,7 @@ func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
 }
 
 func TestAskMaxRetriesAndInputConfigErrors(t *testing.T) {
-	for _, args := range [][]string{{"--max-retries", "6"}, {"--max-retries", "-1"}, {"--timeout", "nope"}, {"--output", "toon"}} {
+	for _, args := range [][]string{{"--max-retries", "6"}, {"--max-retries", "-1"}, {"--timeout", "nope"}} {
 		t.Run(strings.Join(args, "-"), func(t *testing.T) {
 			client := &fakeClient{}
 			deps, _, _ := testDeps(t, client, func(string) string { return "secret" })

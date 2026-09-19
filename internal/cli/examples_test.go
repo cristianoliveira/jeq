@@ -56,7 +56,7 @@ func TestExamplesUnknownAndExtraArgsAreStructuredInputErrors(t *testing.T) {
 	for _, args := range [][]string{{"examples", "missing"}, {"examples", "ask-native", "extra"}} {
 		r := &valueRenderer{}
 		var out, errOut bytes.Buffer
-		if code := cli.RunWithDeps(args, &out, &errOut, r, cli.AskDeps{}); code != 2 || errOut.Len() != 0 || len(r.errors) != 1 {
+		if code := cli.RunWithDeps(args, &out, &errOut, r, cli.AskDeps{}); code != 2 || !strings.Contains(errOut.String(), "Error:") || len(r.errors) != 1 {
 			t.Fatalf("args=%v code=%d stderr=%q errors=%v", args, code, errOut.String(), r.errors)
 		}
 		if !strings.Contains(r.errors[0].Message, "example") {

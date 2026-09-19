@@ -55,9 +55,6 @@ type reduceFlags struct {
 }
 
 func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
-	if output, err := commandOutput(cmd); err != nil || output != "json" {
-		return unsupportedOutput(output)
-	}
 	if !f.nameSet || f.name == "" {
 		return gev.NewError(gev.CodeInputInvalid, "--as is required")
 	}

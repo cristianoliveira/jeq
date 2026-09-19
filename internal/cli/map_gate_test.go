@@ -113,7 +113,7 @@ not-json
 `, `{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`)
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"map", "--as", "route", "--input", "ndjson", "--questions", "questions.json", "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 2 || client.calls != 1 || strings.Count(out.String(), "\n") != 2 || strings.Count(out.String(), `"code"`) != 1 {
+	if code != 2 || client.calls != 1 || !strings.Contains(stderr.String(), "GEV_REQUEST_INVALID") || strings.Contains(out.String(), `"code"`) {
 		t.Fatalf("code=%d calls=%d out=%q stderr=%q", code, client.calls, out.String(), stderr.String())
 	}
 }

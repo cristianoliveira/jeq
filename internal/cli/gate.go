@@ -47,9 +47,6 @@ type policyStatus struct{ status int }
 func (e *policyStatus) Error() string { return fmt.Sprintf("gate policy status %d", e.status) }
 
 func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
-	if output, err := commandOutput(cmd); err != nil || output != "json" {
-		return unsupportedOutput(output)
-	}
 	if !f.nameSet || f.name == "" {
 		return gev.NewError(gev.CodeInputInvalid, "--as is required")
 	}
@@ -87,10 +84,7 @@ func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
 		output, decision, err := pipeline.Gate(record, f.name, f.pointer, pipeline.GatePolicy{PassMin: f.passMin, RejectMax: f.rejectMax})
 		if err != nil {
 			if f.input == "ndjson" {
-				if renderErr := deps.Renderer.RenderError(cmd.OutOrStdout(), err.WithRecovery("fix this record and retry the stream")); renderErr != nil {
-					return gev.WrapError(gev.CodeResponseInvalid, renderErr, "writing gate error")
-				}
-				return &renderedError{err: err}
+				return err.WithRecovery("fix this record and retry the stream")
 			}
 			return err
 		}

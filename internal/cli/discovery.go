@@ -36,28 +36,9 @@ func depsForRoot(deps ...AskDeps) AskDeps {
 	return deps[0]
 }
 
-func outputRenderer(cmd *cobra.Command, deps AskDeps) (ValueRenderer, error) {
-	format, err := cmd.Flags().GetString("output")
-	if err != nil {
-		return nil, gev.WrapError(gev.CodeInputInvalid, err, "reading --output")
-	}
-	if format != "json" {
-		return nil, gev.NewError(gev.CodeInputInvalid,
-			fmt.Sprintf("unsupported output format %q", format)).WithRecovery("set --output json")
-	}
-	if renderer, ok := deps.Renderer.(ValueRenderer); ok {
-		return renderer, nil
-	}
-	return nil, gev.NewError(gev.CodeResponseInvalid, "no value renderer configured").WithRecovery("run gev through its standard composition root")
-}
-
 func renderHome(cmd *cobra.Command, deps AskDeps) error {
 	if deps.Getenv == nil {
 		deps.Getenv = func(string) string { return "" }
-	}
-	renderer, err := outputRenderer(cmd, deps)
-	if err != nil {
-		return err
 	}
 	commands := []string{"examples", "version", "help"}
 	if deps.valid() {
@@ -85,7 +66,8 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 		Commands:           commands,
 		NextStep:           "run gev examples",
 	}
-	return renderer.RenderValue(cmd.OutOrStdout(), doc)
+	recordHuman(deps.Renderer, doc)
+	return writeHome(cmd.OutOrStdout(), doc)
 }
 
 // NewVersionCmdWithDeps is the renderer-aware version command. NewVersionCmd
@@ -95,11 +77,9 @@ func NewVersionCmdWithDeps(deps AskDeps) *cobra.Command {
 	return &cobra.Command{
 		Use: "version", Short: "Print build information",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			renderer, err := outputRenderer(cmd, deps)
-			if err != nil {
-				return err
-			}
-			return renderer.RenderValue(cmd.OutOrStdout(), versionDocument{Name: "gev", Version: Version, Commit: Commit})
+			doc := versionDocument{Name: "gev", Version: Version, Commit: Commit}
+			recordHuman(deps.Renderer, doc)
+			return writeVersion(cmd.OutOrStdout(), doc)
 		},
 	}
 }
@@ -110,10 +90,6 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "models", Short: "List models available to the account",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			renderer, err := outputRenderer(cmd, deps)
-			if err != nil {
-				return err
-			}
 			timeout, parseErr := time.ParseDuration(timeoutText)
 			if parseErr != nil || timeout <= 0 {
 				return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", timeoutText)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
@@ -150,7 +126,8 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if decodeErr != nil {
 				return gev.WrapError(gev.CodeResponseInvalid, decodeErr, "preparing models document").WithRecovery("retry the request; if it persists, report the response shape")
 			}
-			return renderer.RenderValue(cmd.OutOrStdout(), value)
+			recordHuman(deps.Renderer, value)
+			return writeModels(cmd.OutOrStdout(), value)
 		},
 	}
 	cmd.Flags().StringVar(&baseURL, "base-url", "", "TypeSafe API root")

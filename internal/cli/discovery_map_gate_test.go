@@ -2,8 +2,8 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,17 +47,7 @@ func TestHomeDiscoveryIncludesAvailableMapAndGate(t *testing.T) {
 	if code := RunWithDeps(nil, &out, &stderr, streamRenderer{}, deps); code != 0 {
 		t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
 	}
-	var doc struct {
-		Commands []string `json:"commands"`
-	}
-	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &doc); err != nil {
-		t.Fatal(err)
-	}
-	seen := map[string]bool{}
-	for _, command := range doc.Commands {
-		seen[command] = true
-	}
-	if !seen["map"] || !seen["reduce"] || !seen["gate"] {
-		t.Fatalf("commands=%v", doc.Commands)
+	if !strings.Contains(out.String(), "Commands:") || !strings.Contains(out.String(), "map") || !strings.Contains(out.String(), "reduce") || !strings.Contains(out.String(), "gate") {
+		t.Fatalf("home=%q", out.String())
 	}
 }

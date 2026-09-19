@@ -1,6 +1,6 @@
 # 0003. Defer TOON until v4 conformance
 
-- Status: Accepted
+- Status: Superseded by 0030
 - Date: 2026-09-19
 
 ## Context
@@ -34,14 +34,11 @@ cannot be excluded from GEV's supported value domain.
 
 ## Decision
 
-Version 1 is **JSON-only**:
+Version 1 result streams remain **JSON-only**:
 
-- JSON is the default and only supported renderer;
-- `--output json` is accepted for explicitness;
-- other output values, including `toon`, are rejected and the recovery message
-  lists only `json`;
-- the Renderer port and exactly-one-document/one-trailing-newline contract stay
-  in place;
+- `ask`, `map`, `reduce`, and `gate` emit JSON/NDJSON result data;
+- human discovery, validation, models, version, and errors use deterministic plain text;
+- there is no global `--output` selector;
 - no TOON runtime code or dependency is shipped.
 
 This is a forward correction to the earlier TOON adoption. History is not

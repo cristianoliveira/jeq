@@ -70,9 +70,6 @@ type mapFlags struct {
 }
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
-	if output, err := commandOutput(cmd); err != nil || output != "json" {
-		return unsupportedOutput(output)
-	}
 	if !f.nameSet || f.name == "" {
 		return gev.NewError(gev.CodeInputInvalid, "--as is required")
 	}
@@ -288,12 +285,9 @@ func renderRaw(renderer Renderer, w io.Writer, raw []byte) error {
 	return renderer.(ValueRenderer).RenderValue(w, value)
 }
 
-func renderStreamError(renderer Renderer, w io.Writer, err *gev.Error, framed bool) error {
+func renderStreamError(_ Renderer, _ io.Writer, err *gev.Error, framed bool) error {
 	if framed {
-		if renderErr := renderer.RenderError(w, err.WithRecovery("fix this record and retry the stream")); renderErr != nil {
-			return gev.WrapError(gev.CodeResponseInvalid, renderErr, "writing map error")
-		}
-		return &renderedError{err: err}
+		return err.WithRecovery("fix this record and retry the stream")
 	}
 	return err
 }

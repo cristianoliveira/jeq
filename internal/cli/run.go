@@ -14,13 +14,11 @@ import (
 )
 
 // Run is the dependency-free command entry point used by offline commands.
-// The composition root uses RunWithDeps to enable ask.
 func Run(args []string, stdout, stderr io.Writer, renderer Renderer) int {
 	return RunWithDeps(args, stdout, stderr, renderer, AskDeps{})
 }
 
-// RunWithDeps builds a fresh command tree, executes args against injected
-// streams and adapters, and returns the process exit code.
+// RunWithDeps builds a fresh command tree and keeps human diagnostics on stderr.
 func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, deps AskDeps) int {
 	deps.Renderer = renderer
 	if deps.Getenv == nil {
@@ -33,38 +31,44 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	root.SetContext(ctx)
-
-	// Cobra rejects unknown commands during Find, before flag parsing. Build
-	// the structured document ourselves: never echo raw Cobra prose.
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	if _, _, err := root.Find(args); err != nil {
-		return renderUsageError(stdout, root, args, err, renderer)
+		return renderUsageError(stderr, root, args, err, renderer)
 	}
-
 	if err := root.Execute(); err != nil {
 		var policy *policyStatus
 		if errors.As(err, &policy) {
 			return policy.status
 		}
-		var alreadyRendered *renderedError
-		if errors.As(err, &alreadyRendered) {
-			return ExitCode(alreadyRendered.err)
-		}
-		var usage *UsageError
-		if errors.As(err, &usage) {
-			return renderUsageError(stdout, root, args, err, renderer)
-		}
 		var coded *gev.Error
 		if errors.As(err, &coded) {
+			coded = ensureRecovery(coded)
 			if renderer != nil {
-				_ = renderer.RenderError(stdout, ensureRecovery(coded))
+				_ = renderer.RenderError(io.Discard, coded)
 			}
+			writeCLIError(stderr, coded)
 			return ExitCode(coded)
 		}
+		if strings.HasPrefix(err.Error(), "unknown flag:") {
+			coded := gev.NewError(gev.CodeInputInvalid, err.Error()).WithRecovery("run 'gev --help' for the flag list")
+			if renderer != nil {
+				_ = renderer.RenderError(io.Discard, coded)
+			}
+			writeCLIError(stderr, coded)
+			return 2
+		}
+		writeCLIError(stderr, gev.NewError(gev.CodeResponseInvalid, err.Error()))
 		return ExitCode(err)
 	}
 	return 0
+}
+
+func writeCLIError(w io.Writer, err *gev.Error) {
+	_, _ = fmt.Fprintf(w, "Error: %s: %s\n", err.Code, err.Message)
+	if err.Recovery != "" {
+		_, _ = fmt.Fprintf(w, "Try: %s\n", err.Recovery)
+	}
 }
 
 func ensureRecovery(e *gev.Error) *gev.Error {
@@ -83,19 +87,14 @@ func ensureRecovery(e *gev.Error) *gev.Error {
 	}
 }
 
-// renderUsageError emits one structured error document (GEV_INPUT_INVALID,
-// offending input, deterministic recovery) and returns the usage exit code.
-func renderUsageError(stdout io.Writer, root *cobra.Command, args []string, err error, renderer Renderer) int {
-	doc := usageDocument(root, args, err)
+func renderUsageError(stderr io.Writer, root *cobra.Command, args []string, err error, renderer Renderer) int {
+	message, recovery := describeUsage(root, args, err)
+	coded := gev.NewError(gev.CodeInputInvalid, message).WithRecovery(recovery)
 	if renderer != nil {
-		_ = renderer.RenderError(stdout, doc)
+		_ = renderer.RenderError(io.Discard, coded)
 	}
-	return ExitCode(doc)
-}
-
-func usageDocument(root *cobra.Command, args []string, err error) *gev.Error {
-	msg, recovery := describeUsage(root, args, err)
-	return gev.NewError(gev.CodeInputInvalid, msg).WithRecovery(recovery)
+	writeCLIError(stderr, coded)
+	return 2
 }
 
 func describeUsage(root *cobra.Command, args []string, err error) (message, recovery string) {

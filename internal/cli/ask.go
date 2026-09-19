@@ -59,7 +59,7 @@ func (d AskDeps) valid() bool {
 func NewAskCmd(deps AskDeps) *cobra.Command {
 	var (
 		request, questions, state, stateFile, stateJSON string
-		model, baseURL, timeoutText, output             string
+		model, baseURL, timeoutText                     string
 		maxRetries                                      int
 	)
 
@@ -71,7 +71,7 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,
-				model: model, baseURL: baseURL, timeout: timeoutText, output: output, maxRetries: maxRetries,
+				model: model, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
 				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"),
 				baseURLSet: cmd.Flags().Changed("base-url"),
@@ -88,13 +88,12 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
-	flags.StringVar(&output, "output", "json", "output format (json)")
 	return cmd
 }
 
 type askFlags struct {
 	request, questions, state, stateFile, stateJSON                            string
-	model, baseURL, timeout, output                                            string
+	model, baseURL, timeout                                                    string
 	maxRetries                                                                 int
 	requestSet, questionsSet, stateSet, stateFileSet, stateJSONSet, baseURLSet bool
 }
@@ -166,9 +165,6 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
 		return gev.NewError(gev.CodeInputInvalid,
 			fmt.Sprintf("--max-retries must be between 0 and %d, got %d", MaxRetriesLimit, f.maxRetries)).WithRecovery("set --max-retries to an integer from 0 through 5")
-	}
-	if f.output != "json" {
-		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unsupported output format %q", f.output)).WithRecovery("set --output json")
 	}
 	timeout, parseErr := time.ParseDuration(f.timeout)
 	if parseErr != nil || timeout <= 0 {

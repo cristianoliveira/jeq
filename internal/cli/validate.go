@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/cristianoliveira/gev/internal/domain/gev"
 	"github.com/spf13/cobra"
 )
@@ -22,10 +24,9 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 		Example: `  gev validate --questions questions.json --state-json state.json
   gev examples ask-native`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			format, _ := cmd.Flags().GetString("output")
 			flags := askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON, model: model,
-				output: format, requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),
+				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"),
 			}
 			return runValidate(cmd, deps, flags)
@@ -91,13 +92,15 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if composeErr != nil {
 		return composeErr
 	}
-	renderer, renderErr := outputRenderer(cmd, deps)
-	if renderErr != nil {
-		return renderErr
-	}
 	mode := "composed"
 	if f.requestSet {
 		mode = "native"
 	}
-	return renderer.RenderValue(cmd.OutOrStdout(), validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)})
+	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)}
+	recordHuman(deps.Renderer, doc)
+	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.QuestionCount)
+	if writeErr != nil {
+		return gev.WrapError(gev.CodeResponseInvalid, writeErr, "writing validation output")
+	}
+	return nil
 }

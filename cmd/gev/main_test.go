@@ -2,18 +2,12 @@ package main
 
 import (
 	"bytes"
-	"flag"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cristianoliveira/gev/internal/cli"
 	"github.com/cristianoliveira/gev/internal/infra/render"
 )
-
-// Regenerate goldens with: nix develop -c go test ./cmd/gev -update
-var updateGolden = flag.Bool("update", false, "regenerate golden fixtures")
 
 // runCLI drives the real composition: the real renderer, the real tree.
 func runCLI(args ...string) (code int, stdout, stderr string) {
@@ -39,10 +33,9 @@ func TestBinaryUsageDocuments(t *testing.T) {
 			if code != 2 {
 				t.Fatalf("exit = %d, want 2", code)
 			}
-			if strings.TrimSpace(stderr) != "" {
-				t.Errorf("stderr must be empty, got %q", stderr)
+			if stdout != "" || !strings.Contains(stderr, "Error: GEV_INPUT_INVALID") {
+				t.Errorf("stdout=%q stderr=%q", stdout, stderr)
 			}
-			assertGolden(t, tt.golden, []byte(stdout))
 		})
 	}
 }
@@ -59,22 +52,5 @@ func TestHelpExitsZero(t *testing.T) {
 		if strings.TrimSpace(stderr) != "" {
 			t.Errorf("args %q: help must not write stderr, got %q", args, stderr)
 		}
-	}
-}
-
-func assertGolden(t *testing.T, name string, got []byte) {
-	t.Helper()
-	path := filepath.Join("..", "..", "internal", "fixtures", "render", name)
-	if *updateGolden {
-		if err := os.WriteFile(path, got, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	want, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading golden %s (run with -update): %v", name, err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("stdout drifted from golden %s\nwant:\n%s\ngot:\n%s", name, want, got)
 	}
 }

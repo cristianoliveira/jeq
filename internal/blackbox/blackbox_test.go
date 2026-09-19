@@ -129,12 +129,34 @@ func assertCleanMachineOutput(t *testing.T, result processResult, wantExit int, 
 	if result.exit != wantExit {
 		t.Fatalf("exit=%d want=%d stdout=%q stderr=%q err=%v", result.exit, wantExit, result.stdout, result.stderr, result.err)
 	}
-	doc := assertJSON(t, result.stdout)
 	if secret != "" && (strings.Contains(result.stdout, secret) || strings.Contains(result.stderr, secret)) {
 		t.Fatalf("secret leaked in stdout/stderr: stdout=%q stderr=%q", result.stdout, result.stderr)
 	}
-	if strings.Contains(result.stderr, "Error:") || strings.Contains(result.stderr, "panic:") || strings.Contains(result.stderr, "goroutine ") {
-		t.Fatalf("stderr contains raw error prose: %q", result.stderr)
+	if wantExit != 0 {
+		if result.stdout != "" || !strings.Contains(result.stderr, "Error: GEV_") {
+			t.Fatalf("want plain stderr error: stdout=%q stderr=%q", result.stdout, result.stderr)
+		}
+		parts := strings.SplitN(strings.TrimPrefix(strings.TrimSpace(result.stderr), "Error: "), ": ", 2)
+		return map[string]any{"code": parts[0], "recovery": result.stderr}
+	}
+	if strings.HasPrefix(result.stdout, "{") {
+		return assertJSON(t, result.stdout)
+	}
+	doc := map[string]any{}
+	for _, line := range strings.Split(strings.TrimSpace(result.stdout), "\n") {
+		pair := strings.SplitN(line, ": ", 2)
+		if len(pair) == 2 {
+			var value any
+			switch pair[1] {
+			case "true":
+				value = true
+			case "false":
+				value = false
+			default:
+				value = pair[1]
+			}
+			doc[pair[0]] = value
+		}
 	}
 	return doc
 }
@@ -180,9 +202,7 @@ func TestBlackBoxDiscoveryAndProseExceptions(t *testing.T) {
 		prose bool
 	}{
 		{name: "home default", args: nil},
-		{name: "home explicit json", args: []string{"--output", "json"}},
 		{name: "version default", args: []string{"version"}},
-		{name: "version explicit json", args: []string{"version", "--output", "json"}},
 		{name: "help", args: []string{"--help"}, prose: true},
 		{name: "completion", args: []string{"completion", "bash"}, prose: true},
 	}
@@ -223,7 +243,7 @@ func TestBlackBoxValidateSourcesAndNoStateEcho(t *testing.T) {
 		{name: "native file", args: []string{"validate", "--request", requestPath}},
 		{name: "native stdin", args: []string{"validate", "--request", "-"}, input: string(fixture(t, "request_full.json"))},
 		{name: "composed files", args: []string{"validate", "--questions", questionsPath, "--state-json", statePath}},
-		{name: "composed stdin", args: []string{"validate", "--questions", "-", "--state", "literal state", "--output", "json"}, input: `{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`},
+		{name: "composed stdin", args: []string{"validate", "--questions", "-", "--state", "literal state"}, input: `{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -255,13 +275,13 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 	}{
 		{name: "native file default", args: func(url string) []string { return []string{"ask", "--request", requestPath, "--base-url", url} }},
 		{name: "native stdin explicit json", args: func(url string) []string {
-			return []string{"ask", "--request", "-", "--base-url", url, "--output", "json"}
+			return []string{"ask", "--request", "-", "--base-url", url}
 		}, input: string(fixture(t, "request_full.json"))},
 		{name: "composed file default", args: func(url string) []string {
 			return []string{"ask", "--questions", questionsPath, "--state", "a user needs help", "--base-url", url}
 		}},
 		{name: "composed stdin explicit json", args: func(url string) []string {
-			return []string{"ask", "--questions", "-", "--state", "a user needs help", "--base-url", url, "--output", "json"}
+			return []string{"ask", "--questions", "-", "--state", "a user needs help", "--base-url", url}
 		}, input: `{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`},
 	}
 	for _, tc := range cases {
@@ -297,7 +317,7 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 			}
 			_, _ = w.Write(fixture(t, "models.json"))
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "models-secret"}, "models", "--base-url", api.server.URL, "--output", "json")
+		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "models-secret"}, "models", "--base-url", api.server.URL)
 		assertCleanMachineOutput(t, result, 0, "models-secret")
 		if api.count() != 1 {
 			t.Fatalf("request count=%d", api.count())
@@ -398,7 +418,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		if doc["code"] != "GEV_NETWORK_ERROR" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
-		if result.stderr != "" || strings.Contains(result.stdout, "EOF") || strings.Contains(result.stdout, "connection reset") {
+		if strings.Contains(result.stderr, "EOF") || strings.Contains(result.stderr, "connection reset") {
 			t.Fatalf("raw transport detail leaked: stdout=%q stderr=%q", result.stdout, result.stderr)
 		}
 	})
@@ -422,8 +442,8 @@ func TestBlackBoxUsageAndFailureSeparation(t *testing.T) {
 			if doc["code"] != "GEV_INPUT_INVALID" || doc["recovery"] == "" {
 				t.Fatalf("usage document=%v", doc)
 			}
-			if strings.Contains(result.stderr, "unknown command") || strings.Contains(result.stderr, "unknown flag") {
-				t.Fatalf("raw usage prose leaked to stderr: %q", result.stderr)
+			if !strings.Contains(result.stderr, "Error: GEV_INPUT_INVALID") {
+				t.Fatalf("plain usage error missing: %q", result.stderr)
 			}
 		})
 	}
@@ -461,12 +481,8 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 		if code := exitCode(cmd, err); code != 130 {
 			t.Fatalf("interrupt exit=%d want=130 stdout=%q stderr=%q err=%v", code, stdout.String(), stderr.String(), err)
 		}
-		doc := assertJSON(t, stdout.String())
-		if doc["code"] != "GEV_INTERRUPTED" || strings.Contains(stdout.String(), "interrupt-secret") {
-			t.Fatalf("interrupt document=%v", doc)
-		}
-		if stderr.Len() != 0 {
-			t.Fatalf("interrupt stderr=%q", stderr.String())
+		if stdout.Len() != 0 || !strings.Contains(stderr.String(), "GEV_INTERRUPTED") || strings.Contains(stderr.String(), "interrupt-secret") {
+			t.Fatalf("interrupt output stdout=%q stderr=%q", stdout.String(), stderr.String())
 		}
 	case <-time.After(2 * time.Second):
 		_ = cmd.Process.Kill()

@@ -110,10 +110,6 @@ func NewExamplesCmd(deps AskDeps) *cobra.Command {
 		Example: `  gev examples
   gev examples map-reduce-gate`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			renderer, err := outputRenderer(cmd, deps)
-			if err != nil {
-				return err
-			}
 			if len(args) > 1 {
 				return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("examples accepts one id; received %q", strings.Join(args, " "))).WithRecovery("choose one of: " + exampleIDs())
 			}
@@ -122,11 +118,14 @@ func NewExamplesCmd(deps AskDeps) *cobra.Command {
 				for _, recipe := range exampleRecipes {
 					items = append(items, exampleSummary{ID: recipe.ID, Purpose: recipe.Purpose, Covers: recipe.Covers, Cost: recipe.Cost})
 				}
-				return renderer.RenderValue(cmd.OutOrStdout(), examplesCatalog{Examples: items, NextStep: "run gev examples map-reduce-gate"})
+				doc := examplesCatalog{Examples: items, NextStep: "run gev examples map-reduce-gate"}
+				recordHuman(deps.Renderer, doc)
+				return writeExamples(cmd.OutOrStdout(), doc)
 			}
 			for _, recipe := range exampleRecipes {
 				if recipe.ID == args[0] {
-					return renderer.RenderValue(cmd.OutOrStdout(), recipe)
+					recordHuman(deps.Renderer, recipe)
+					return writeRecipe(cmd.OutOrStdout(), recipe)
 				}
 			}
 			return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unknown example id %q", args[0])).WithRecovery("choose one of: " + exampleIDs())

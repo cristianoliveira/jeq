@@ -102,20 +102,13 @@ func TestEveryStableCodeHasAnExitClass(t *testing.T) {
 	}
 }
 
-func TestJSONIsTheOnlyOutputFormat(t *testing.T) {
-	root := cli.NewRootCmd()
-	flag := root.PersistentFlags().Lookup("output")
-	if flag == nil || flag.DefValue != "json" {
-		t.Fatalf("output default = %v, want json", flag)
-	}
-
+func TestOutputFlagIsUnknownAndUsesPlainStderr(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	renderer := &stubRenderer{}
-	if got := cli.Run([]string{"version", "--output", "toon"}, &stdout, &stderr, renderer); got != 2 {
-		t.Fatalf("TOON output exit = %d, want 2", got)
+	if got := cli.Run([]string{"version", "--output", "toon"}, &stdout, &stderr, &stubRenderer{}); got != 2 {
+		t.Fatalf("output flag exit = %d, want 2", got)
 	}
-	if renderer.errDoc == nil || renderer.errDoc.Recovery != "set --output json" || strings.Contains(renderer.errDoc.Recovery, "toon") {
-		t.Fatalf("error = %#v", renderer.errDoc)
+	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "unknown flag") {
+		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
 }
 
@@ -141,10 +134,7 @@ func TestRunExitCodesEndToEnd(t *testing.T) {
 	}
 }
 
-// TASK-0017: usage failures emit exactly one structured error document on
-// stdout (GEV_INPUT_INVALID + offending input + recovery); stderr stays
-// empty — the interim prose fallback is gone.
-func TestUsageFailuresAreStructuredAndStderrEmpty(t *testing.T) {
+func TestUsageFailuresArePlainStderr(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        []string
@@ -164,8 +154,8 @@ func TestUsageFailuresAreStructuredAndStderrEmpty(t *testing.T) {
 				t.Fatalf("exit = %d, want 2", got)
 			}
 
-			if strings.TrimSpace(stderr.String()) != "" {
-				t.Errorf("stderr must be empty, got %q", stderr.String())
+			if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Error:") {
+				t.Errorf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 			}
 			if renderer.errDoc == nil {
 				t.Fatal("renderer did not receive an error document")
