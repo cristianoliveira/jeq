@@ -6,7 +6,12 @@ import (
 	"os"
 
 	"github.com/cristianoliveira/gev/internal/cli"
+	"github.com/cristianoliveira/gev/internal/infra/render"
 )
+
+// The composition root keeps cli and infra wired together; this compile
+// assertion pins that infra/render satisfies the cli port.
+var _ cli.Renderer = render.JSON{}
 
 func main() {
 	os.Exit(cli.Run(os.Args[1:], os.Stdout, os.Stderr))
