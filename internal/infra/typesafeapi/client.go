@@ -1,7 +1,7 @@
 // Package typesafeapi is the net/http adapter for the TypeSafe System One
-// endpoints: bearer auth, bounded body reads, and status-to-error
-// classification. It is the only package that touches the wire; construction
-// happens in the composition root.
+// endpoints: bearer auth, bounded body reads, bounded retry on documented
+// throttling statuses, and status-to-error classification. It is the only
+// package that touches the wire; construction happens in the composition root.
 package typesafeapi
 
 import (
@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,15 @@ const (
 	defaultHTTPTimeout         = 10 * time.Second
 )
 
+// Retry bounds (OQ-3): default 2 retries (3 attempts), hard max 5; backoff
+// starts at 250ms and doubles; no single wait may exceed 10s.
+const (
+	DefaultMaxRetries = 2
+	MaxRetriesLimit   = 5
+	retryBaseBackoff  = 250 * time.Millisecond
+	retryWaitCap      = 10 * time.Second
+)
+
 // Client calls the two TypeSafe endpoints. All fields are injected; there
 // are no globals and the domain never constructs it.
 type Client struct {
@@ -37,6 +47,14 @@ type Client struct {
 
 	MaxBodyBytes  int64
 	MaxErrorBytes int64
+
+	// Retry policy. MaxRetries is clamped to 0..5; Sleep and Now are
+	// injectable so tests record waits instead of sleeping; Diagnostic
+	// receives one line per retry attempt (never stdout, never the key).
+	MaxRetries int
+	Sleep      func(time.Duration)
+	Now        func() time.Time
+	Diagnostic func(line string)
 }
 
 // New builds a client with the documented defaults applied.
@@ -50,6 +68,9 @@ func New(baseURL string, httpc *http.Client, apiKey string) *Client {
 		APIKey:        apiKey,
 		MaxBodyBytes:  DefaultMaxBodyBytes,
 		MaxErrorBytes: DefaultMaxErrorBytes,
+		MaxRetries:    DefaultMaxRetries,
+		Sleep:         time.Sleep,
+		Now:           time.Now,
 	}
 }
 
@@ -93,13 +114,51 @@ func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]
 			"export TYPESAFE_API_KEY with the account key")
 	}
 
+	retries := c.MaxRetries
+	if retries < 0 {
+		retries = 0
+	} else if retries > MaxRetriesLimit {
+		retries = MaxRetriesLimit
+	}
+
+	for attempt := 0; ; attempt++ {
+		status, header, raw, cerr := c.attemptOnce(ctx, method, path, body)
+		if cerr != nil {
+			return nil, cerr
+		}
+		if status == http.StatusOK {
+			return raw, nil
+		}
+
+		// Only documented throttling statuses replay; exhaustion keeps the
+		// same stable classification with its recovery instruction.
+		if (status == http.StatusTooManyRequests || status == 529) && attempt < retries {
+			wait, source := c.retryWait(header.Get("Retry-After"), attempt)
+			c.noteRetry(attempt, retries, wait, status, source)
+			sleep := c.Sleep
+			if sleep != nil {
+				sleep(wait)
+			}
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, gev.WrapError(gev.CodeInterrupted, ctxErr, "interrupted while waiting to retry")
+			}
+			continue
+		}
+		return nil, classifyStatus(status, raw, c.MaxErrorBytes, c.APIKey)
+	}
+}
+
+// attemptOnce performs exactly one HTTP exchange with bounded reads and an
+// always-closed body. Transport failures are never retried here: the caller
+// returns them immediately because a sent request may already have executed.
+func (c *Client) attemptOnce(ctx context.Context, method, path string, body []byte) (status int, header http.Header, raw []byte, cerr *gev.Error) {
 	var reader io.Reader
 	if body != nil {
 		reader = strings.NewReader(string(body))
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, reader)
 	if err != nil {
-		return nil, withRecovery(gev.WrapError(gev.CodeNetworkError, err, "building request"),
+		return 0, nil, nil, withRecovery(gev.WrapError(gev.CodeNetworkError, err, "building request"),
 			"check TYPESAFE_BASE_URL; it must be a valid API root")
 	}
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
@@ -108,25 +167,65 @@ func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, c.transportError(err)
+		return 0, nil, nil, c.transportError(err)
 	}
 	defer func() { _ = resp.Body.Close() }() // read-side body; nothing to act on at close
 
 	limit := c.MaxBodyBytes
 	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if readErr != nil {
-		return nil, c.transportError(readErr)
+		return 0, nil, nil, c.transportError(readErr)
 	}
 	if int64(len(raw)) > limit {
-		return nil, withRecovery(gev.NewError(gev.CodeResponseInvalid,
+		return 0, nil, nil, withRecovery(gev.NewError(gev.CodeResponseInvalid,
 			fmt.Sprintf("response body exceeds the %d byte safety bound", limit)),
 			"retry; if it persists, the server reply is too large for gev's safety bound")
 	}
+	return resp.StatusCode, resp.Header, raw, nil
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, classifyStatus(resp.StatusCode, raw, c.MaxErrorBytes, c.APIKey)
+// retryWait decides the next wait: Retry-After when it parses and fits the
+// 10s cap, otherwise the doubling backoff schedule.
+func (c *Client) retryWait(retryAfter string, attempt int) (time.Duration, string) {
+	if d, ok := parseRetryAfter(retryAfter, c.Now(), retryWaitCap); ok {
+		return d, "retry-after"
 	}
-	return raw, nil
+	d := retryBaseBackoff << attempt
+	if d > retryWaitCap {
+		d = retryWaitCap
+	}
+	return d, "backoff"
+}
+
+func (c *Client) noteRetry(attempt, retries int, wait time.Duration, status int, source string) {
+	if c.Diagnostic == nil {
+		return
+	}
+	c.Diagnostic(fmt.Sprintf("retry %d/%d after %s (%s; status %d)", attempt+1, retries, wait, source, status))
+}
+
+// parseRetryAfter accepts delta-seconds and HTTP-dates. Absent, malformed,
+// negative, or over-cap values are invalid and fall back to the schedule.
+func parseRetryAfter(v string, now time.Time, maxWait time.Duration) (time.Duration, bool) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0, false
+	}
+	if secs, err := strconv.Atoi(v); err == nil {
+		if secs < 0 {
+			return 0, false
+		}
+		d := time.Duration(secs) * time.Second
+		return d, d <= maxWait
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		d := t.Sub(now)
+		if d <= 0 {
+			return 0, false
+		}
+		return d, d <= maxWait
+	}
+	return 0, false
 }
 
 // classifyStatus maps every non-200 status to its stable code. Server detail
