@@ -1,7 +1,7 @@
 ---
 id: TASK-0023
 title: Composable decision envelope and map engine
-status: doing
+status: done
 depends_on: [TASK-0022]
 priority: high
 tags: []
