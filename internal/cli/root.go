@@ -7,7 +7,7 @@ import "github.com/spf13/cobra"
 // withBareHelp wraps an action so a bare invocation opens native Cobra help.
 func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		if cmd.Flags().NFlag() == 0 {
+		if len(args) == 0 && cmd.Flags().NFlag() == 0 {
 			return cmd.Help()
 		}
 		return run(cmd, args)

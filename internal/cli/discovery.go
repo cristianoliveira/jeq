@@ -28,7 +28,7 @@ func depsForRoot(deps ...AskDeps) AskDeps {
 // NewVersionCmdWithDeps creates the plain-text build-information command.
 func NewVersionCmdWithDeps(_ AskDeps) *cobra.Command {
 	return &cobra.Command{
-		Use: "version", Short: "Print build information",
+		Use: "version", Short: "Print build information", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			doc := versionDocument{Name: "jeq", Version: Version, Commit: Commit}
 			return writeVersion(cmd.OutOrStdout(), doc)
@@ -40,7 +40,7 @@ func NewVersionCmdWithDeps(_ AskDeps) *cobra.Command {
 func NewModelsCmd(deps AskDeps) *cobra.Command {
 	var baseURL, timeoutText string
 	cmd := &cobra.Command{
-		Use: "models", Short: "List models available to the account",
+		Use: "models", Short: "List models available to the account", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			timeout, parseErr := time.ParseDuration(timeoutText)
 			if parseErr != nil || timeout <= 0 {

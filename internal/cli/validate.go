@@ -20,7 +20,7 @@ type validateDocument struct {
 func NewValidateCmd(deps AskDeps) *cobra.Command {
 	var request, questions, state, stateFile, stateJSON, model string
 	cmd := &cobra.Command{
-		Use: "validate", Short: "Validate one request without network access",
+		Use: "validate", Short: "Validate one request without network access", Args: cobra.NoArgs,
 		Example: `  jeq validate --questions questions.json --state-json state.json
   jeq examples ask-native`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {

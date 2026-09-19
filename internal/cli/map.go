@@ -32,6 +32,7 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "map",
 		Short: "Enrich each JSON record with one named judgment",
+		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
   jeq examples map-gate`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {

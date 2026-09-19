@@ -40,6 +40,26 @@ func TestBareActionsEqualNativeHelpWithoutDependencyWork(t *testing.T) {
 	}
 }
 
+func TestCommandsRejectUnexpectedArgumentsBeforeWork(t *testing.T) {
+	commands := []string{"ask", "validate", "map", "reduce", "gate", "version", "models"}
+	for _, command := range commands {
+		t.Run(command, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			var envReads, clientCreates int
+			deps := cli.AskDeps{
+				Getenv:    func(string) string { envReads++; return "secret" },
+				NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient { clientCreates++; return nil },
+			}
+			if code := cli.RunWithDeps([]string{command, "junk"}, &out, &errOut, nil, deps); code != 2 || out.Len() != 0 || !strings.HasPrefix(errOut.String(), "Error: ") {
+				t.Fatalf("exit=%d stdout=%q stderr=%q", code, out.String(), errOut.String())
+			}
+			if envReads != 0 || clientCreates != 0 {
+				t.Fatalf("dependency work: env=%d clients=%d", envReads, clientCreates)
+			}
+		})
+	}
+}
+
 func TestIncompleteRecipeInvocationUsesNativeHelp(t *testing.T) {
 	var bare, help, stderr bytes.Buffer
 	for _, id := range []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate"} {

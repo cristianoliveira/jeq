@@ -24,6 +24,7 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reduce",
 		Short: "Aggregate JSON records with one named judgment",
+		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | jeq reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
   jeq examples reduce-gate`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
