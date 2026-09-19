@@ -10,8 +10,10 @@ import (
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
+// ProbabilityTolerance permits small floating-point serialization drift around a unit sum.
 const ProbabilityTolerance = 1e-6
 
+// RankedItem is one candidate and its relative Choice probability.
 type RankedItem struct {
 	ID          string          `json:"id"`
 	Probability float64         `json:"probability"`
@@ -64,10 +66,10 @@ func Rank(records [][]byte, ids []string, answer contract.Answer) ([]byte, *jeq.
 		}
 		return false
 	})
-	max := items[0].Probability
+	maxProbability := items[0].Probability
 	count := 0
 	for _, item := range items {
-		if item.Probability == max {
+		if item.Probability == maxProbability {
 			count++
 		}
 	}

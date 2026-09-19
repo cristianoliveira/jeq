@@ -209,23 +209,6 @@ func rankRecords(input []byte, framing string) ([][]byte, *jeq.Error) {
 	return out, nil
 }
 
-type rankScored struct {
-	id          string
-	probability float64
-	record      json.RawMessage
-	order       int
-}
-
-func countProbability(candidates []rankScored, value float64) int {
-	count := 0
-	for _, candidate := range candidates {
-		if candidate.probability == value {
-			count++
-		}
-	}
-	return count
-}
-
 func rankState(deps AskDeps, f rankFlags) ([]byte, *jeq.Error) {
 	if f.stateSet {
 		return []byte(strconvQuote(f.state)), nil
