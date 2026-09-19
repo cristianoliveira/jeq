@@ -31,9 +31,9 @@ Deliverable: TOON default output (or a recorded spike decision that changes ADR 
 
 ### D4 — Release-ready v1
 
-Tasks: TASK-0014, TASK-0015 · Owner: Dave · QA: verification gate
+Tasks: TASK-0014, TASK-0015, TASK-0018, TASK-0019 · Owner: Dave · QA: Kelly
 
-Deliverable: black-box binary suite (exit codes, stdout/stderr separation, trailing newline, SIGINT), govulncheck triaged, cross-build smoke, TOON round-trip suite, `docs/ARCHITECTURE.md` and `DEVELOPMENT.md`.
+Deliverable: black-box binary suite (exit codes, stdout/stderr separation, trailing newline, SIGINT), govulncheck triaged, cross-build smoke, TOON round-trip suite, paid live TypeSafe baseline plus live release-candidate verification, `docs/ARCHITECTURE.md` and `DEVELOPMENT.md`.
 
 ## Working agreements
 
