@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// PickMaxOptions is the TypeSafe Choice option limit.
 const PickMaxOptions = 255
 
 // NewPickCmd creates the one-request candidate selection primitive.
@@ -22,8 +23,10 @@ func NewPickCmd(deps AskDeps) *cobra.Command {
 		Use: "pick", Short: "Select one candidate with a TypeSafe Choice", Long: "Selects one original candidate and attaches complete Choice evidence under _jeq.<as>. Choice is relative: include an explicit fallback candidate when nothing may fit. Pipe the result unchanged into jq or another explicit JEQ stage.", Args: cobra.NoArgs,
 		Example: `  cat handlers.ndjson | jeq pick --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
-			return runPick(cmd, deps, pickFlags{name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
-				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url")})
+			return runPick(cmd, deps, pickFlags{
+				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
+				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
+			})
 		}),
 	}
 	flags := cmd.Flags()

@@ -35,7 +35,7 @@ func TestPickSelectsOriginalCandidateAndAttachesCompleteEvidence(t *testing.T) {
 		t.Fatalf("code=%d stderr=%q", code, errOut.String())
 	}
 	var result map[string]any
-	if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
 	if result["name"] != "b" || result["description"] != "second" {
