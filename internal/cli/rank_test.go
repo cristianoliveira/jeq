@@ -51,11 +51,71 @@ func TestRankSelectsOriginalCandidateAndAttachesCompleteEvidence(t *testing.T) {
 	}
 }
 
+func TestRankRejectsInvalidProbabilityResponses(t *testing.T) {
+	cases := []struct {
+		name      string
+		probs     map[string]float64
+		choice    string
+		wantError bool
+	}{
+		{"negative", map[string]float64{"a": -.1, "b": 1.1}, "b", true},
+		{"over one", map[string]float64{"a": 1.2, "b": -.2}, "a", true},
+		{"wrong sum", map[string]float64{"a": .2, "b": .2}, "a", true},
+		{"missing", map[string]float64{"b": 1}, "b", true},
+		{"extra", map[string]float64{"a": .2, "b": .7, "c": .1}, "b", true},
+		{"unique max mismatch", map[string]float64{"a": .8, "b": .2}, "b", true},
+		{"tie selected first", map[string]float64{"a": .5, "b": .5}, "b", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &fakeClient{resp: contract.Response{Model: "m", Answers: map[string]contract.Answer{"route": {Type: contract.TypeChoice, Choice: &tc.choice, Probs: tc.probs}}}}
+			var out, errOut bytes.Buffer
+			deps := RankDeps(client, &out)
+			deps.Stdin = strings.NewReader("[{\"id\":\"a\",\"criteria\":null},{\"id\":\"b\",\"criteria\":\"B\"}]")
+			code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
+			if tc.wantError && (code != 1 || out.Len() != 0) {
+				t.Fatalf("code=%d out=%q err=%q", code, out.String(), errOut.String())
+			}
+			if !tc.wantError && (code != 0 || out.Len() == 0) {
+				t.Fatalf("code=%d out=%q err=%q", code, out.String(), errOut.String())
+			}
+		})
+	}
+}
+
+func TestRankRejectsConflictingStateSourcesBeforeNetwork(t *testing.T) {
+	client := &fakeClient{}
+	var out, errOut bytes.Buffer
+	deps := RankDeps(client, &out)
+	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"x"}]`)
+	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "request", "--state-file", "request.txt", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
+	if code != 2 || client.call != 0 || out.Len() != 0 {
+		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
+	}
+}
+
+func TestRankRejectsTooManyCandidatesBeforeNetwork(t *testing.T) {
+	var input strings.Builder
+	for i := 0; i < cli.RankMaxOptions+1; i++ {
+		input.WriteString(`{"id":"` + string(rune('a'+i%26)) + `-` + string(rune('0'+i/26)) + `","criteria":"x"}` + "\\n")
+	}
+	client := &fakeClient{}
+	var out, errOut bytes.Buffer
+	deps := RankDeps(client, &out)
+	deps.Stdin = strings.NewReader(input.String())
+	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
+	if code != 2 || client.call != 0 || out.Len() != 0 {
+		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
+	}
+}
+
 func TestRankRejectsInvalidCandidatesBeforeAuthOrNetwork(t *testing.T) {
 	for _, tc := range []struct{ name, input string }{
 		{"duplicate", `{"id":"a","criteria":"x"}
 {"id":"a","criteria":"y"}`},
 		{"missing id", `{"criteria":"x"}`},
+		{"non-string id", `{"id":7,"criteria":"x"}`},
+		{"evidence collision", `{"id":"a","criteria":"x","_jeq":{"route":{}}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &fakeClient{}

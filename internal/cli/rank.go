@@ -17,6 +17,9 @@ import (
 // RankMaxOptions is the TypeSafe Choice option limit.
 const RankMaxOptions = 255
 
+// RankProbabilityTolerance permits small floating-point serialization drift around a unit sum.
+const RankProbabilityTolerance = 1e-6
+
 // NewRankCmd creates the one-request candidate ranking primitive.
 func NewRankCmd(deps AskDeps) *cobra.Command {
 	var name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, config, baseURL, timeoutText string
@@ -193,10 +196,18 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 		}
 		scoredCandidates = append(scoredCandidates, rankScored{id: id, probability: probability, record: record, order: index})
 	}
-	for id := range answer.Probs {
+	sum := 0.0
+	for id, probability := range answer.Probs {
 		if _, ok := ids[id]; !ok {
 			return jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("Choice probability has unknown candidate id %q", id))
 		}
+		if probability > 1 {
+			return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must not exceed 1")
+		}
+		sum += probability
+	}
+	if math.Abs(sum-1) > RankProbabilityTolerance {
+		return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must sum to 1")
 	}
 	maxProbability := scoredCandidates[0].probability
 	for _, candidate := range scoredCandidates[1:] {

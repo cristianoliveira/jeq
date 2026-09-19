@@ -22,6 +22,17 @@ type exampleRecipe struct {
 
 var exampleRecipes = []exampleRecipe{
 	{
+		ID: "rank-top-k", Purpose: "Rank candidates once, then select an explicit top-k policy with jq.", Covers: []string{"rank", "jq"},
+		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request; jq is offline",
+		Shell: `JEQ_BIN=${JEQ_BIN:-jeq}
+set -euo pipefail
+printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":"support","description":"Account help"},{"name":"fallback","description":"No specialist match"}]' |
+  "$JEQ_BIN" rank --as route --input json --state 'A customer asks about a refund' \
+    --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description |
+  jq -c '.items[:2] | map(.candidate)'`,
+		InputShape: "JSON array of candidate objects", OutputShape: "top-two candidate objects selected explicitly with jq", Privacy: "candidate descriptions and state are sent to TypeSafe; jq emits only selected candidates.", Exits: "rank exits 0 on success; jq is offline.",
+	},
+	{
 		ID: "validate-native", Purpose: "Validate one native request locally before spending a network call.", Covers: []string{"validate"},
 		Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests; validation is offline",
 		Shell: `JEQ_BIN=${JEQ_BIN:-jeq}
