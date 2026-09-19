@@ -1,7 +1,7 @@
 ---
 id: TASK-0019
 title: Verify gev against live TypeSafe API
-status: doing
+status: done
 depends_on: [TASK-0009, TASK-0011, TASK-0012, TASK-0013, TASK-0018]
 priority: high
 tags: []
