@@ -115,6 +115,8 @@ func TestRankRejectsInvalidCandidatesBeforeAuthOrNetwork(t *testing.T) {
 {"id":"a","criteria":"y"}`},
 		{"missing id", `{"criteria":"x"}`},
 		{"non-string id", `{"id":7,"criteria":"x"}`},
+		{"empty-string id", `{"id":"","criteria":"x"}`},
+		{"missing criteria value", `{"id":"a"}`},
 		{"evidence collision", `{"id":"a","criteria":"x","_jeq":{"route":{}}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

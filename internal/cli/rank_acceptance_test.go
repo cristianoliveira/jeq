@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 
@@ -55,6 +56,25 @@ func TestRankAcceptanceJSONArrayAndFullTieOrder(t *testing.T) {
 	}
 	if strings.Index(out.String(), `"id":"b"`) > strings.Index(out.String(), `"id":"a"`) || strings.Index(out.String(), `"id":"a"`) > strings.Index(out.String(), `"id":"c"`) {
 		t.Fatalf("tie order=%s", out.String())
+	}
+}
+
+func TestRankAcceptanceRejectsNonFiniteProbabilities(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		probability float64
+	}{{"NaN", math.NaN()}, {"positive infinity", math.Inf(1)}, {"negative infinity", math.Inf(-1)}} {
+		t.Run(tc.name, func(t *testing.T) {
+			choice := "a"
+			client := &fakeClient{resp: contract.Response{Answers: map[string]contract.Answer{"route": {Type: contract.TypeChoice, Choice: &choice, Probs: map[string]float64{"a": tc.probability}}}}}
+			var out, stderr bytes.Buffer
+			deps := RankDeps(client, &out)
+			deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"A"}]`)
+			code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "one", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &stderr, RankRenderer{}, deps)
+			if code != 1 || out.Len() != 0 {
+				t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
+			}
+		})
 	}
 }
 
