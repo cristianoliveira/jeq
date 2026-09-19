@@ -1,33 +1,32 @@
 ---
 id: TASK-0033
-title: Rebrand JEQ to JEQ
+title: Complete full JEQ rebrand
 status: doing
 depends_on: []
 priority: high
 tags: []
 ---
 
-# Rebrand JEQ to JEQ
+# Complete full JEQ rebrand
 
 ## Problem
-The product name JEQ no longer matches the desired identity. Replace the executable, public contracts, configuration namespace, module path, and repository-facing language with JEQ as one intentional breaking release.
+The predecessor product name no longer matches the desired identity. Replace its executable, public contracts, configuration namespace, module path, and repository-facing language with JEQ as one intentional breaking release.
 
 ## Desired outcome
-One product name exists everywhere: JEQ. A fresh checkout builds and installs `jeq`; its public data/config contracts use the JEQ namespace; no supported alias or compatibility layer keeps JEQ alive.
+One product name exists everywhere: JEQ. A fresh checkout builds and installs `jeq`; public data and configuration contracts use the JEQ namespace; no supported alias or compatibility layer retains the predecessor identity.
 
 ## Acceptance criteria
-- [ ] Rename executable/build target/command package from `jeq` to `jeq`; `jeq`, `jeq --help`, completion, examples, development commands, Nix install/checks, distribution artifacts, and shell scripts use the new name. Do not ship a `jeq` alias.
-- [ ] Rename the Go module/import root to `github.com/cristianoliveira/jeq`, `cmd/jeq` to `cmd/jeq`, and `internal/domain/jeq` package/path to `internal/domain/jeq`. Update architecture import guards and all Go identifiers/comments whose name encodes the product.
-- [ ] Rename stable error values from `JEQ_*` to `JEQ_*`; update fixtures, manifests, CLI error assertions, docs, and security/redaction tests. Exit meanings remain unchanged.
-- [ ] Rename composable evidence envelope `_jeq` to `_jeq` everywhere, including map/reduce/gate logic, pointers, examples, fixtures, collision errors, privacy projections, tests, and ADRs. Preserve all other envelope semantics.
-- [ ] Rename product-owned environment/shell variables (`JEQ_BIN`, `JEQ_MODEL`, `JEQ_BASE_URL`, etc.) and config locations from `jeq` to `jeq` (`~/.config/jeq/config.json`). Keep vendor-owned `TYPESAFE_*` variables unchanged.
-- [ ] Rename tracked file/directory names and current repository-facing prose from JEQ/jeq to JEQ/jeq, including QA filenames and completed-plan filenames. Task IDs and Git history remain stable. Local checkout directory name is outside the code change.
-- [ ] Treat this as an intentional breaking release: no old executable, error-code alias, `_jeq` fallback, dual config lookup, deprecated environment variable, or import compatibility package.
-- [ ] Finish TASK-0032 only after the rename, so every Cobra command/help/example is authored directly as JEQ. Bare `jeq` and `jeq examples` use native Cobra help per their tasks.
-- [ ] Tests first at each boundary: binary existence/name, module/import graph, codes, envelope writes/reads/collisions, config precedence/path, example execution, CLI help/errors, no old alias, and absence scan.
-- [ ] Final tracked-tree scan (`git ls-files` plus content search, case-insensitive) finds no `jeq` in paths or content. Document any technically unavoidable generated/tool cache exception; ignored local files do not count and must not be committed.
-- [ ] Update decisions/architecture/development/QA, run full Nix checks, govulncheck, built-binary black-box and fake-endpoint workflows, architecture review, independent QA, then commit.
+- [ ] The executable, build target, command package, help, completion, examples, development commands, Nix installation, distribution artifacts, and shell scripts use `jeq`. No predecessor executable alias is shipped.
+- [ ] The Go module is `github.com/cristianoliveira/jeq`; command and domain paths use `cmd/jeq` and `internal/domain/jeq`. Architecture guards, imports, identifiers, and comments use the new identity.
+- [ ] Stable error values use `JEQ_*`; fixtures, manifests, CLI assertions, documentation, and redaction tests agree. Exit meanings remain unchanged.
+- [ ] Composable evidence uses `_jeq` everywhere: map/reduce/gate logic, pointers, examples, fixtures, collisions, privacy projections, tests, and decisions. Envelope semantics otherwise remain unchanged.
+- [ ] Product-owned shell variables use `JEQ_*`; configuration resolves only `${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`. Vendor-owned `TYPESAFE_*` variables remain unchanged.
+- [ ] Tracked path names and current repository-facing prose use JEQ, including QA and completed-plan filenames. Task IDs and Git history remain stable. The local checkout directory is outside the code change.
+- [ ] This is an intentional breaking release: no predecessor executable, error alias, evidence fallback, dual config lookup, deprecated environment variable, or import compatibility package.
+- [ ] TASK-0032 native Cobra discovery works directly under JEQ. Bare `jeq` and `jeq examples` use native Cobra help.
+- [ ] Tests cover binary presence and predecessor absence, module/import graph, codes, envelope writes/reads/collisions, config precedence/path, example execution, CLI help/errors, and tracked-tree absence scans.
+- [ ] Final tracked-tree path/content scans find no standalone predecessor product token, legacy code prefix, or legacy envelope key. Unrelated identifiers containing the same three-letter substring and ignored local caches do not count.
+- [ ] Decisions, architecture, development guidance, and QA are current; full Nix checks, govulncheck, built-binary black-box tests, fake-endpoint workflows, architecture review, and independent QA pass.
 
 ## External repository boundary
-Changing a hosted GitHub repository name is an external operation and is not assumed by the local code migration. The module path is intentionally prepared for `github.com/cristianoliveira/jeq`; record whether a remote exists and any remaining hosting action.
-
+Changing a hosted GitHub repository name is an external operation and is not assumed by the local code migration. The module path is prepared for `github.com/cristianoliveira/jeq`. No Git remote is configured in this checkout, so no hosting action was available.
