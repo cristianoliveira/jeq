@@ -1,7 +1,7 @@
 ---
 id: TASK-0015
 title: Release gate
-status: todo
+status: doing
 depends_on: [TASK-0009, TASK-0014, TASK-0019]
 priority: normal
 tags: []
