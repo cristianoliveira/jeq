@@ -85,6 +85,54 @@ func EnrichRequest(ctx context.Context, record []byte, name string, request cont
 	return result, nil
 }
 
+// CheckEvidenceAvailable validates the record and ensures the evidence slot is free.
+func CheckEvidenceAvailable(record []byte, name string) *jeq.Error {
+	members, err := decodeObject(record, "record")
+	if err != nil {
+		return inputError(err.Error())
+	}
+	if err := validateName(name); err != nil {
+		return inputError(err.Error())
+	}
+	jeqMembers, err := existingEvidence(members)
+	if err != nil {
+		return inputError(err.Error())
+	}
+	if _, exists := jeqMembers[name]; exists {
+		return inputError(fmt.Sprintf("_jeq.%s already exists; choose a new name", name))
+	}
+	return nil
+}
+
+// AttachResponse appends a complete evaluator response under the named evidence key.
+func AttachResponse(record []byte, name string, response contract.Response) ([]byte, *jeq.Error) {
+	members, err := decodeObject(record, "record")
+	if err != nil {
+		return nil, inputError(err.Error())
+	}
+	if err := validateName(name); err != nil {
+		return nil, inputError(err.Error())
+	}
+	jeqMembers, err := existingEvidence(members)
+	if err != nil {
+		return nil, inputError(err.Error())
+	}
+	if _, exists := jeqMembers[name]; exists {
+		return nil, inputError(fmt.Sprintf("_jeq.%s already exists; choose a new name", name))
+	}
+	encoded, encodeErr := response.Encode()
+	if encodeErr != nil {
+		return nil, jeq.WrapError(jeq.CodeResponseInvalid, encodeErr, "encoding evaluator response")
+	}
+	jeqMembers[name] = encoded
+	members["_jeq"], _ = json.Marshal(jeqMembers)
+	result, marshalErr := json.Marshal(members)
+	if marshalErr != nil {
+		return nil, jeq.WrapError(jeq.CodeResponseInvalid, marshalErr, "encoding enriched record")
+	}
+	return result, nil
+}
+
 // ValidateName checks an evidence name before reading or evaluating records.
 func ValidateName(name string) error { return validateName(name) }
 
