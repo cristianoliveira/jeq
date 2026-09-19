@@ -42,3 +42,9 @@ Deliverable: black-box binary suite (exit codes, stdout/stderr separation, trail
 - Tools run inside `nix develop`; the normal gate is `make check` and prints `true` only on success.
 - `.tmp/` stays untracked. No force operations, no rewriting history.
 - Module path unless a remote says otherwise: `github.com/cristianoliveira/gev`.
+
+## Sequencing decisions (QA open questions resolved)
+
+- OQ-5: D2 ships JSON as the interim default output. TASK-0009 (D3) introduces TOON and flips the default. No external contract exists before the v1 tag (D4), so this is not a breaking change.
+- OQ-6: `models`/`version`/home-view acceptance belongs to D3 (TASK-0012). D2 end-to-end acceptance covers `ask` only.
+- OQ-4: binary-level timeout tests use the existing `--timeout` flag; no new knob.
