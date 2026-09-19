@@ -24,11 +24,14 @@ The new skill is structurally valid, but we do not yet have measured evidence th
 - Iterations: one; analyze results before deciding whether to revise
 
 ## Acceptance criteria
-- [ ] Freeze prompts, fixtures, expectations, model, and settings before paired runs.
-- [ ] Candidate and baseline use identical files and DeepSeek settings in fresh run directories.
-- [ ] Runtime failures are reported as errors rather than graded as passes or negatives.
+- [x] Freeze prompts, fixtures, expectations, model, and settings before paired runs.
+- [x] Candidate and baseline use identical files and DeepSeek settings in fresh run directories.
+- [x] Runtime failures are reported as errors rather than graded as passes or negatives.
 - [ ] Grade every declared expectation with transcript/output evidence and state grader independence limits.
-- [ ] Aggregate pass rate, duration, and authoritative token usage; identify non-discriminating assertions and limitations of one repetition.
-- [ ] Generate the standard static review report and preserve all raw artifacts outside the skill directory.
-- [ ] Live JEQ calls use only synthetic fixtures, read the existing credential from environment, never print/copy it, disable retries, and stay within 16 total HTTP attempts.
+- [x] Aggregate pass rate, duration, and authoritative token usage; identify non-discriminating assertions and limitations of one repetition.
+- [x] Generate the standard static review report and preserve all raw artifacts outside the skill directory.
+- [x] Live JEQ calls use only synthetic fixtures, read the existing credential from environment, never print/copy it, disable retries, and stay within 16 total HTTP attempts.
+
+## Iteration 1 result
+Four of six runs completed. The eval 2 and eval 3 no-skill baselines timed out at 300 seconds and remain ungraded. Candidate completed 15/16 expectations; the only completed pair favored the skill 7/7 versus 6/7. A second approved paid iteration is required for a complete paired benchmark.
 
