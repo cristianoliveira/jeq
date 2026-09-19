@@ -63,7 +63,7 @@ set -euo pipefail
 printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
   "$GEV_BIN" map --as risk --input ndjson --state-pointer /change \
     --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}' |
-  "$GEV_BIN" gate --as policy --value-pointer /_gev/risk/answers/risk/noul \
+  "$GEV_BIN" gate --as policy --input ndjson --value-pointer /_gev/risk/answers/risk/noul \
     --pass-min 0.80 --reject-max 0.40 |
   jq -c 'del(.change)'`,
 		InputShape: "NDJSON records containing change", OutputShape: "source-free records with _gev/risk and _gev/policy",

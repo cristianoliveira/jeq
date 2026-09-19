@@ -46,6 +46,9 @@ func TestExamplesCatalogAndDetailsAreDeterministicAndOffline(t *testing.T) {
 		if strings.Contains(id, "gate") && !strings.Contains(shell, "jq -c 'del(") {
 			t.Fatalf("gate recipe lacks safe final projection: %s", id)
 		}
+		if id == "map-gate" && !strings.Contains(shell, "gate --as policy --input ndjson") {
+			t.Fatalf("multi-record gate lacks NDJSON framing: %s", shell)
+		}
 	}
 }
 
