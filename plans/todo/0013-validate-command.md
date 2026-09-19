@@ -1,7 +1,7 @@
 ---
 id: TASK-0013
 title: validate command
-status: todo
+status: doing
 depends_on: [TASK-0004, TASK-0005, TASK-0020]
 priority: normal
 tags: []

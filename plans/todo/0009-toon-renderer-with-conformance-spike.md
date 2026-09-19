@@ -1,7 +1,7 @@
 ---
 id: TASK-0009
 title: TOON renderer with conformance spike
-status: todo
+status: doing
 depends_on: [TASK-0008]
 priority: normal
 tags: []
