@@ -259,6 +259,11 @@ func classifyStatus(status int, body []byte, maxError int64, apiKey string) *gev
 }
 
 func (c *Client) transportError(err error) *gev.Error {
+	fmt.Fprintf(os.Stderr, "DEBUG transportError: err=%v isCanceled=%v isTimeout=%v isDeadline=%v\n", err, errors.Is(err, context.Canceled), errors.Is(err, os.ErrDeadlineExceeded), errors.Is(err, context.DeadlineExceeded))
+	if errors.Is(err, context.Canceled) {
+		return withRecovery(gev.WrapError(gev.CodeInterrupted, err, "request interrupted"),
+			"rerun the command when ready")
+	}
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() ||
 		errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrDeadlineExceeded) {
