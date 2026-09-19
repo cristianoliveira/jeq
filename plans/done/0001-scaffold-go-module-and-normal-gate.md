@@ -1,7 +1,7 @@
 ---
 id: TASK-0001
 title: Scaffold Go module and normal gate
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: []

@@ -1,7 +1,7 @@
 ---
 id: TASK-0002
 title: Stable error codes and exit mapping
-status: doing
+status: done
 depends_on: [TASK-0001]
 priority: high
 tags: []
