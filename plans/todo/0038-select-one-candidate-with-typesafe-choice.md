@@ -1,7 +1,7 @@
 ---
 id: TASK-0038
 title: Select one candidate with TypeSafe Choice
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [cli, typesafe, composability]
