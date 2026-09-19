@@ -1,7 +1,7 @@
 ---
 id: TASK-0016
 title: QA acceptance plan for D0-D2
-status: doing
+status: done
 depends_on: [TASK-0001]
 priority: normal
 tags: []
