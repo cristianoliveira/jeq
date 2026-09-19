@@ -1,7 +1,7 @@
 ---
 id: TASK-0020
 title: Normalize empty JSON state validation
-status: todo
+status: done
 depends_on: [TASK-0004]
 priority: normal
 tags: []
