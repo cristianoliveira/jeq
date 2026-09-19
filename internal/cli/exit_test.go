@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/cristianoliveira/gev/internal/cli"
@@ -113,6 +114,38 @@ func TestRunExitCodesEndToEnd(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			if got := cli.Run(tt.args, &stdout, &stderr); got != tt.want {
 				t.Errorf("Run(%q) exit = %d, want %d (stderr: %q)", tt.args, got, tt.want, stderr.String())
+			}
+		})
+	}
+}
+
+// D0-8: usage failures are never silent — exit 2 with self-correcting
+// stderr that names the offending input and points at valid alternatives.
+func TestUsageFailuresAreNotSilent(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantNamed string
+	}{
+		{"unknown command", []string{"badsubcommand"}, "badsubcommand"},
+		{"unknown flag", []string{"--nope"}, "--nope"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if got := cli.Run(tt.args, &stdout, &stderr); got != 2 {
+				t.Fatalf("exit = %d, want 2", got)
+			}
+
+			if strings.TrimSpace(stderr.String()) == "" {
+				t.Fatal("stderr is silent; a non-zero exit must be auto-discoverable")
+			}
+			if !strings.Contains(stderr.String(), tt.wantNamed) {
+				t.Errorf("stderr %q does not name the offending input %q", stderr.String(), tt.wantNamed)
+			}
+			if !strings.Contains(stderr.String(), "--help") {
+				t.Errorf("stderr %q does not point at valid alternatives", stderr.String())
 			}
 		})
 	}
