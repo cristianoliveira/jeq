@@ -1,7 +1,7 @@
 ---
 id: TASK-0026
 title: Executable code-smell review example
-status: doing
+status: done
 depends_on: [TASK-0025]
 priority: normal
 tags: [examples]
