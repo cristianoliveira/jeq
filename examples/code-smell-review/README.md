@@ -60,7 +60,7 @@ top-level `quality_floor` as their minimum:
 
 ```sh
 ./examples/code-smell-review/review.sh path/to/file.go |
-jq 'del(._gev.code_smells.items)
+jq 'del(.items)
   | ._gev.code_smells.answers as $answers
   | ($answers | to_entries | map({id: .key, noul: .value.noul}) | sort_by(.noul)) as $dimensions
   | {dimensions: $dimensions, quality_floor: ($dimensions | map(.noul) | min)}'
@@ -74,7 +74,7 @@ quality floor with offline thresholds:
 ```sh
 review=$(./examples/code-smell-review/review.sh path/to/file.go)
 printf '%s\n' "$review" |
-jq 'del(._gev.code_smells.items)
+jq 'del(.items)
   | ._gev.code_smells.answers as $answers
   | ($answers | to_entries | map({id: .key, noul: .value.noul}) | sort_by(.noul)) as $dimensions
   | {dimensions: $dimensions, quality_floor: ($dimensions | map(.noul) | min)}' |
@@ -84,4 +84,7 @@ jq 'del(._gev.code_smells.items)
 ```
 
 `gate` is offline and does not make another API request. The gate is a caller
-choice; the review itself does not block delivery.
+choice; the review itself does not block delivery. With these example thresholds,
+values above or equal to `0.80` pass, values below or equal to `0.40` reject, and
+values between them are uncertain (exit 11). These are illustrative policy
+values, not calibrated proof that code is safe or defective.
