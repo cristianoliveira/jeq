@@ -313,7 +313,7 @@ func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
 			http.Error(w, "wrong endpoint", http.StatusBadRequest)
 			return
 		}
-		_, _ = w.Write([]byte(`{"model":"jev-latest","answers":{"route":{"type":"choice","choice":"b","probabilities":{"a":0.2,"b":0.8},"confidence":0.8}},"usage":{"input_tokens":1,"output_tokens":1}}`))
+		_, _ = w.Write([]byte(`{"model":"jev-latest","answers":{"route":{"type":"choice","choice":"b","probabilities":{"a":0.2,"b":0.8},"confidence":0.8}},"usage":{"input_tokens":1,"output_tokens":1},"trace_id":"trace-1"}`))
 	})
 	input := "{\"name\":\"a\",\"description\":\"first\"}\n{\"name\":\"b\",\"description\":\"second\"}\n"
 	result := runBinary(t, input, map[string]string{"TYPESAFE_API_KEY": "rank-secret"}, "rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description", "--base-url", api.server.URL)
@@ -327,6 +327,15 @@ func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
 	items := doc["items"].([]any)
 	if items[0].(map[string]any)["id"] != "b" || len(items) != 2 {
 		t.Fatalf("items=%#v", items)
+	}
+	if doc["_jeq"].(map[string]any)["route"].(map[string]any)["trace_id"] != "trace-1" {
+		t.Fatalf("unknown response field was not preserved: %#v", doc)
+	}
+	jq := exec.Command("jq", "-c", ".items[:1] | map(.candidate)")
+	jq.Stdin = strings.NewReader(result.stdout)
+	topK, err := jq.Output()
+	if err != nil || !strings.Contains(string(topK), `"name":"b"`) {
+		t.Fatalf("jq top-k=%q err=%v", topK, err)
 	}
 }
 

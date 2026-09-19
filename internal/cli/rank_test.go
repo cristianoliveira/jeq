@@ -88,8 +88,8 @@ func TestRankRejectsConflictingStateSourcesBeforeNetwork(t *testing.T) {
 	var out, errOut bytes.Buffer
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"x"}]`)
-	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "request", "--state-file", "request.txt", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 2 || client.call != 0 || out.Len() != 0 {
+	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state-file", "-", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
+	if code != 2 || client.call != 0 || out.Len() != 0 || !strings.Contains(errOut.String(), "stdin") {
 		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
 	}
 }
@@ -97,14 +97,14 @@ func TestRankRejectsConflictingStateSourcesBeforeNetwork(t *testing.T) {
 func TestRankRejectsTooManyCandidatesBeforeNetwork(t *testing.T) {
 	var input strings.Builder
 	for i := 0; i < cli.RankMaxOptions+1; i++ {
-		input.WriteString(`{"id":"` + string(rune('a'+i%26)) + `-` + string(rune('0'+i/26)) + `","criteria":"x"}` + "\\n")
+		input.WriteString(`{"id":"` + string(rune('a'+i%26)) + `-` + string(rune('0'+i/26)) + `","criteria":"x"}` + "\n")
 	}
 	client := &fakeClient{}
 	var out, errOut bytes.Buffer
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(input.String())
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 2 || client.call != 0 || out.Len() != 0 {
+	if code != 2 || client.call != 0 || out.Len() != 0 || !strings.Contains(errOut.String(), "255 Choice option limit") {
 		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
 	}
 }

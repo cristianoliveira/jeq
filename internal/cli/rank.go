@@ -3,8 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"math"
-	"sort"
 	"strings"
 	"time"
 
@@ -117,7 +115,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if len(records) > RankMaxOptions {
 		return jeq.NewError(jeq.CodeInputInvalid, "candidate count exceeds the 255 Choice option limit")
 	}
-	ids := make(map[string]struct{}, len(records))
+	knownIDs := make(map[string]struct{}, len(records))
 	criteria := make(map[string]json.RawMessage, len(records))
 	for _, record := range records {
 		if slotErr := pipeline.CheckEvidenceAvailable(record, f.name); slotErr != nil {
@@ -127,10 +125,10 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 		if err != nil {
 			return err
 		}
-		if _, exists := ids[id]; exists {
+		if _, exists := knownIDs[id]; exists {
 			return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("duplicate candidate id %q", id))
 		}
-		ids[id] = struct{}{}
+		knownIDs[id] = struct{}{}
 		criteria[id] = criteriaValue
 	}
 	criteriaJSON, _ := json.Marshal(criteria)
@@ -174,69 +172,21 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 		return callErr
 	}
 	answer, ok := response.Answers[f.name]
-	if !ok || answer.Type != contract.TypeChoice || answer.Choice == nil {
+	if !ok || answer.Type != contract.TypeChoice {
 		return jeq.NewError(jeq.CodeResponseInvalid, "Choice response is missing the selected id")
 	}
-	selected := answer.Choice
-	if _, ok := ids[*selected]; !ok {
-		return jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("Choice selected unknown candidate id %q", *selected))
-	}
-	if len(answer.Probs) != len(ids) {
-		return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must contain every candidate exactly once")
-	}
-	scoredCandidates := make([]rankScored, 0, len(records))
-	for index, record := range records {
-		id, _, candidateErr := rankCandidate(record, f.idPointer, f.criteriaPointer)
-		if candidateErr != nil {
-			return candidateErr
+	ids := make([]string, len(records))
+	for i, record := range records {
+		id, _, err := rankCandidate(record, f.idPointer, f.criteriaPointer)
+		if err != nil {
+			return err
 		}
-		probability, ok := answer.Probs[id]
-		if !ok || math.IsNaN(probability) || math.IsInf(probability, 0) || probability < 0 {
-			return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must be finite and non-negative for every candidate")
-		}
-		scoredCandidates = append(scoredCandidates, rankScored{id: id, probability: probability, record: record, order: index})
+		ids[i] = id
 	}
-	sum := 0.0
-	for id, probability := range answer.Probs {
-		if _, ok := ids[id]; !ok {
-			return jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("Choice probability has unknown candidate id %q", id))
-		}
-		if probability > 1 {
-			return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must not exceed 1")
-		}
-		sum += probability
+	envelope, rankErr := pipeline.Rank(records, ids, answer)
+	if rankErr != nil {
+		return rankErr
 	}
-	if math.Abs(sum-1) > RankProbabilityTolerance {
-		return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must sum to 1")
-	}
-	maxProbability := scoredCandidates[0].probability
-	for _, candidate := range scoredCandidates[1:] {
-		if candidate.probability > maxProbability {
-			maxProbability = candidate.probability
-		}
-	}
-	sort.SliceStable(scoredCandidates, func(i, j int) bool {
-		if scoredCandidates[i].probability != scoredCandidates[j].probability {
-			return scoredCandidates[i].probability > scoredCandidates[j].probability
-		}
-		if scoredCandidates[i].id == *selected {
-			return true
-		}
-		if scoredCandidates[j].id == *selected {
-			return false
-		}
-		return scoredCandidates[i].order < scoredCandidates[j].order
-	})
-	if maxCount := countProbability(scoredCandidates, maxProbability); maxCount == 1 && scoredCandidates[0].id != *selected {
-		return jeq.NewError(jeq.CodeResponseInvalid, "Choice selected id is not the highest-probability candidate")
-	}
-	items := make([]map[string]json.RawMessage, 0, len(scoredCandidates))
-	for _, candidate := range scoredCandidates {
-		probability, _ := json.Marshal(candidate.probability)
-		items = append(items, map[string]json.RawMessage{"id": json.RawMessage(strconvQuote(candidate.id)), "probability": probability, "candidate": candidate.record})
-	}
-	itemsJSON, _ := json.Marshal(items)
-	envelope, _ := json.Marshal(map[string]json.RawMessage{"items": itemsJSON})
 	output, attachErr := pipeline.AttachResponse(envelope, f.name, response)
 	if attachErr != nil {
 		return attachErr
