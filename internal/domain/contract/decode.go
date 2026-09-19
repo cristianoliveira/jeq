@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/gev/internal/domain/gev/codes"
 )
 
 // DecodeRequest parses a native request document strictly: valid UTF-8, no
 // duplicate keys, well-formed JSON, known-field types checked with the
 // failing field path in the message. Unknown fields are preserved, never
 // rejected.
-func DecodeRequest(data []byte) (Request, *gev.Error) {
+func DecodeRequest(data []byte) (Request, *codes.Error) {
 	if err := scanDoc(data); err != nil {
-		return Request{}, gev.WrapError(gev.CodeRequestInvalid, err, "request document")
+		return Request{}, codes.WrapError(codes.CodeRequestInvalid, err, "request document")
 	}
 
 	var raws map[string]json.RawMessage
@@ -52,20 +52,20 @@ func DecodeRequest(data []byte) (Request, *gev.Error) {
 }
 
 // checkStateJSON accepts exactly string, object, or array.
-func checkStateJSON(raw json.RawMessage) *gev.Error {
+func checkStateJSON(raw json.RawMessage) *codes.Error {
 	trimmed := trimSpace(raw)
 	if len(trimmed) == 0 {
-		return gev.NewError(gev.CodeRequestInvalid, "state: field is missing or null; provide non-empty state")
+		return codes.NewError(codes.CodeRequestInvalid, "state: field is missing or null; provide non-empty state")
 	}
 	switch trimmed[0] {
 	case '"', '{', '[':
 		return nil
 	default:
-		return gev.NewError(gev.CodeRequestInvalid, "state: must be a string, object, or array")
+		return codes.NewError(codes.CodeRequestInvalid, "state: must be a string, object, or array")
 	}
 }
 
-func decodeQuestions(raw json.RawMessage) (map[string]Question, *gev.Error) {
+func decodeQuestions(raw json.RawMessage) (map[string]Question, *codes.Error) {
 	var raws map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &raws); err != nil {
 		return nil, requestErr(err, "questions: must be an object of question ids")
@@ -82,7 +82,7 @@ func decodeQuestions(raw json.RawMessage) (map[string]Question, *gev.Error) {
 	return qs, nil
 }
 
-func decodeQuestion(raw json.RawMessage) (Question, *gev.Error) {
+func decodeQuestion(raw json.RawMessage) (Question, *codes.Error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return Question{}, requestErr(err, "question: must be an object")
@@ -116,40 +116,40 @@ func decodeQuestion(raw json.RawMessage) (Question, *gev.Error) {
 }
 
 // checkInstructionsJSON accepts string, object, or array.
-func checkInstructionsJSON(raw json.RawMessage) *gev.Error {
+func checkInstructionsJSON(raw json.RawMessage) *codes.Error {
 	trimmed := trimSpace(raw)
 	if len(trimmed) == 0 {
-		return gev.NewError(gev.CodeRequestInvalid, "instructions: field is missing or null")
+		return codes.NewError(codes.CodeRequestInvalid, "instructions: field is missing or null")
 	}
 	switch trimmed[0] {
 	case '"', '{', '[':
 		return nil
 	default:
-		return gev.NewError(gev.CodeRequestInvalid, "instructions: must be a string, object, or array")
+		return codes.NewError(codes.CodeRequestInvalid, "instructions: must be a string, object, or array")
 	}
 }
 
 // checkCriteriaJSON accepts object or array at the JSON level; the
 // primitive-specific shape is a validation rule, not a decode concern.
-func checkCriteriaJSON(raw json.RawMessage) *gev.Error {
+func checkCriteriaJSON(raw json.RawMessage) *codes.Error {
 	trimmed := trimSpace(raw)
 	if len(trimmed) == 0 {
-		return gev.NewError(gev.CodeRequestInvalid, "criteria: field is missing or null")
+		return codes.NewError(codes.CodeRequestInvalid, "criteria: field is missing or null")
 	}
 	switch trimmed[0] {
 	case '{', '[':
 		return nil
 	default:
-		return gev.NewError(gev.CodeRequestInvalid, "criteria: must be an object or an array")
+		return codes.NewError(codes.CodeRequestInvalid, "criteria: must be an object or an array")
 	}
 }
 
 // DecodeResponse parses an evaluation response tolerantly: unknown server
 // fields survive; a missing or mistyped documented-required field classifies
 // as GEV_RESPONSE_INVALID.
-func DecodeResponse(data []byte) (Response, *gev.Error) {
+func DecodeResponse(data []byte) (Response, *codes.Error) {
 	if err := scanDoc(data); err != nil {
-		return Response{}, gev.WrapError(gev.CodeResponseInvalid, err, "response document")
+		return Response{}, codes.WrapError(codes.CodeResponseInvalid, err, "response document")
 	}
 
 	var raws map[string]json.RawMessage
@@ -188,18 +188,18 @@ func DecodeResponse(data []byte) (Response, *gev.Error) {
 	}
 
 	if resp.Model == "" {
-		return Response{}, gev.NewError(gev.CodeResponseInvalid, "model: missing; the response must name the model that answered")
+		return Response{}, codes.NewError(codes.CodeResponseInvalid, "model: missing; the response must name the model that answered")
 	}
 	if !sawAnswers {
-		return Response{}, gev.NewError(gev.CodeResponseInvalid, "answers: missing; the response must carry one answer per question")
+		return Response{}, codes.NewError(codes.CodeResponseInvalid, "answers: missing; the response must carry one answer per question")
 	}
 	if !sawUsage {
-		return Response{}, gev.NewError(gev.CodeResponseInvalid, "usage: missing; the response must report token usage")
+		return Response{}, codes.NewError(codes.CodeResponseInvalid, "usage: missing; the response must report token usage")
 	}
 	return resp, nil
 }
 
-func decodeAnswers(raw json.RawMessage) (map[string]Answer, *gev.Error) {
+func decodeAnswers(raw json.RawMessage) (map[string]Answer, *codes.Error) {
 	var raws map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &raws); err != nil {
 		return nil, responseErr(err, "answers: must be an object of answer ids")
@@ -216,7 +216,7 @@ func decodeAnswers(raw json.RawMessage) (map[string]Answer, *gev.Error) {
 	return answers, nil
 }
 
-func decodeAnswer(raw json.RawMessage) (Answer, *gev.Error) {
+func decodeAnswer(raw json.RawMessage) (Answer, *codes.Error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return Answer{}, responseErr(err, "answer: must be an object")
@@ -266,28 +266,28 @@ func decodeAnswer(raw json.RawMessage) (Answer, *gev.Error) {
 	}
 
 	if a.Type == "" {
-		return Answer{}, gev.NewError(gev.CodeResponseInvalid, "type: missing; every answer carries its question's type")
+		return Answer{}, codes.NewError(codes.CodeResponseInvalid, "type: missing; every answer carries its question's type")
 	}
 	switch a.Type {
 	case TypeNoul:
 		if a.Noul == nil {
-			return Answer{}, gev.NewError(gev.CodeResponseInvalid, "noul: missing for a noul answer")
+			return Answer{}, codes.NewError(codes.CodeResponseInvalid, "noul: missing for a noul answer")
 		}
 	case TypeChoice:
 		if a.Choice == nil || a.Probs == nil || a.Confidence == nil {
-			return Answer{}, gev.NewError(gev.CodeResponseInvalid, "choice, probabilities, confidence: required for a choice answer")
+			return Answer{}, codes.NewError(codes.CodeResponseInvalid, "choice, probabilities, confidence: required for a choice answer")
 		}
 	case TypeScore:
 		if a.Score == nil || a.Legend == nil || a.Probs == nil || a.Confidence == nil {
-			return Answer{}, gev.NewError(gev.CodeResponseInvalid, "score, legend, probabilities, confidence: required for a score answer")
+			return Answer{}, codes.NewError(codes.CodeResponseInvalid, "score, legend, probabilities, confidence: required for a score answer")
 		}
 	default:
-		return Answer{}, gev.NewError(gev.CodeResponseInvalid, fmt.Sprintf("type: unknown primitive %q in answer", a.Type))
+		return Answer{}, codes.NewError(codes.CodeResponseInvalid, fmt.Sprintf("type: unknown primitive %q in answer", a.Type))
 	}
 	return a, nil
 }
 
-func decodeUsage(raw json.RawMessage) (Usage, *gev.Error) {
+func decodeUsage(raw json.RawMessage) (Usage, *codes.Error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return Usage{}, responseErr(err, "usage: must be an object")
@@ -343,9 +343,9 @@ func compactRaw(raw json.RawMessage) json.RawMessage {
 }
 
 // DecodeModels parses the GET /v1/models document.
-func DecodeModels(data []byte) (Models, *gev.Error) {
+func DecodeModels(data []byte) (Models, *codes.Error) {
 	if err := scanDoc(data); err != nil {
-		return Models{}, gev.WrapError(gev.CodeResponseInvalid, err, "models document")
+		return Models{}, codes.WrapError(codes.CodeResponseInvalid, err, "models document")
 	}
 
 	var raws map[string]json.RawMessage
@@ -411,18 +411,58 @@ func decodeModelInfo(raw json.RawMessage) (ModelInfo, error) {
 
 // requestErr, responseErr, questionErr, answerErr wrap a decode failure in
 // the stable code for the document kind, keeping the field path visible.
-func requestErr(err error, path string) *gev.Error {
-	return gev.WrapError(gev.CodeRequestInvalid, err, path+": incompatible JSON type")
+func requestErr(err error, path string) *codes.Error {
+	return codes.WrapError(codes.CodeRequestInvalid, err, path+": incompatible JSON type")
 }
 
-func responseErr(err error, path string) *gev.Error {
-	return gev.WrapError(gev.CodeResponseInvalid, err, path)
+func responseErr(err error, path string) *codes.Error {
+	return codes.WrapError(codes.CodeResponseInvalid, err, path)
 }
 
-func questionErr(qerr *gev.Error, id string) *gev.Error {
-	return gev.NewError(qerr.Code, "questions."+id+"."+qerr.Message)
+func questionErr(qerr *codes.Error, id string) *codes.Error {
+	return codes.NewError(qerr.Code, "questions."+id+"."+qerr.Message)
 }
 
-func answerErr(aerr *gev.Error, id string) *gev.Error {
-	return gev.NewError(aerr.Code, "answers."+id+"."+aerr.Message)
+func answerErr(aerr *codes.Error, id string) *codes.Error {
+	return codes.NewError(aerr.Code, "answers."+id+"."+aerr.Message)
+}
+
+// CheckStateValue verifies a raw state value against the API shape:
+// string, object, or array, non-empty. Exported for composed mode, where
+// gev assembles the state from resolved sources.
+func CheckStateValue(raw json.RawMessage) *codes.Error {
+	return checkStateJSON(raw)
+}
+
+// DecodeQuestionsDoc parses a composed-mode questions document: an object
+// with a required "questions" map of typed questions. Unknown top-level
+// fields are returned so they can ride onto the outgoing request.
+func DecodeQuestionsDoc(data []byte) (map[string]Question, map[string]json.RawMessage, *codes.Error) {
+	if err := scanDoc(data); err != nil {
+		return nil, nil, codes.WrapError(codes.CodeRequestInvalid, err, "questions document")
+	}
+
+	var raws map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raws); err != nil {
+		return nil, nil, requestErr(err, "questions document: must be an object")
+	}
+
+	var questions map[string]Question
+	extra := map[string]json.RawMessage{}
+	for key, raw := range raws {
+		if key != "questions" {
+			extra[key] = compactRaw(raw)
+			continue
+		}
+		qs, qerr := decodeQuestions(raw)
+		if qerr != nil {
+			return nil, nil, qerr
+		}
+		questions = qs
+	}
+	if questions == nil {
+		return nil, nil, codes.NewError(codes.CodeInputInvalid,
+			`questions: missing; the document must carry a "questions" object`)
+	}
+	return questions, extra, nil
 }

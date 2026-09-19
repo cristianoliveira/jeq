@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/gev/internal/domain/gev/codes"
 )
 
 // Rule is one client-owned local invariant. This list is closed (OQ-2):
@@ -16,14 +16,14 @@ import (
 // API failure, never as a local rejection.
 type Rule struct {
 	Name     string
-	Code     gev.Code
+	Code     codes.Code
 	Recovery string
 }
 
 // Violation pairs a broken rule with the coded error naming the field path.
 type Violation struct {
 	Rule  string
-	Error *gev.Error
+	Error *codes.Error
 }
 
 // The client-owned local rules, in checking order. All are local document
@@ -31,52 +31,52 @@ type Violation struct {
 var (
 	ruleWellformed = Rule{
 		Name:     "json_wellformed",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "reformat the document as strict JSON (no BOM, no trailing data)",
 	}
 	ruleDuplicateKeys = Rule{
 		Name:     "no_duplicate_keys",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "remove the repeated key so every key appears exactly once",
 	}
 	ruleRequestSchema = Rule{
 		Name:     "request_schema",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "correct the type of the field named in the message",
 	}
 	ruleStateNonEmpty = Rule{
 		Name:     "state_non_empty",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "provide the content to evaluate in state",
 	}
 	ruleQuestionsNonEmpty = Rule{
 		Name:     "questions_non_empty",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "add at least one question to the questions object",
 	}
 	ruleQuestionTypeKnown = Rule{
 		Name:     "question_type_known",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "use one of the known primitives: noul, choice, score",
 	}
 	ruleInstructionsNonEmpty = Rule{
 		Name:     "instructions_non_empty",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "write the question itself in instructions",
 	}
 	ruleChoiceCriteriaNonEmpty = Rule{
 		Name:     "choice_criteria_non_empty",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "list the possible options in criteria",
 	}
 	ruleScoreCriteriaMinLevels = Rule{
 		Name:     "score_criteria_min_levels",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: "define at least two ordered level descriptions in criteria",
 	}
 	ruleNoulCriteriaShape = Rule{
 		Name:     "noul_criteria_shape",
-		Code:     gev.CodeRequestInvalid,
+		Code:     codes.CodeRequestInvalid,
 		Recovery: `describe yes and no as {"true": "...", "false": "..."} in criteria`,
 	}
 )
@@ -235,6 +235,6 @@ func newViolation(rule Rule, err error) Violation {
 	message := err.Error()
 	return Violation{
 		Rule:  rule.Name,
-		Error: gev.NewError(rule.Code, message+"; "+rule.Recovery),
+		Error: codes.NewError(rule.Code, message+"; "+rule.Recovery),
 	}
 }

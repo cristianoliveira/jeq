@@ -1,7 +1,7 @@
-// Package gev holds gev's own rules: stable error codes, ask modes, sources,
-// and input composition. It is the center ring of ADR 0002: pure Go,
-// standard library only — no Cobra, HTTP, or TOON here.
-package gev
+// Package codes is the leaf holding the stable error-code registry and
+// the coded error type. It imports nothing internal, so both contract and
+// gev can depend on it without a cycle.
+package codes
 
 import "strings"
 
