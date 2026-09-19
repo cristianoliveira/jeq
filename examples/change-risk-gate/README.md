@@ -15,7 +15,8 @@ GEV_BIN=gev GEV_MODEL=jev-latest \
 Policy exits are owned by this script. GEV operational, usage, and interruption
 exits (`1`, `2`, and `130`) are returned unchanged with GEV's structured JSON
 error document. Missing or malformed model evidence produces an `uncertain`
-receipt and exit `11`.
+receipt and exit `11`. The example's `130` test uses gev's already-black-boxed
+interrupt contract plus a deterministic shim instead of a race-prone signal.
 
 The thresholds are examples for workflow design, not calibrated release policy.
 No deployment action is performed. Set `GEV_BASE_URL` for a local fake server

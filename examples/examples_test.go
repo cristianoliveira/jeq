@@ -282,9 +282,11 @@ func TestChangeRiskGatePolicyAndOperationalStatus(t *testing.T) {
 		exit int
 		kind string
 	}{
-		{name: "pass", safe: 0.90, exit: 0, kind: "pass"},
-		{name: "review or block", safe: 0.20, exit: 10, kind: "review_or_block"},
-		{name: "uncertain", safe: 0.50, exit: 11, kind: "uncertain"},
+		{name: "exact review boundary", safe: 0.30, exit: 10, kind: "review_or_block"},
+		{name: "just above review boundary", safe: 0.3001, exit: 11, kind: "uncertain"},
+		{name: "representative uncertain midpoint", safe: 0.50, exit: 11, kind: "uncertain"},
+		{name: "just below pass boundary", safe: 0.7999, exit: 11, kind: "uncertain"},
+		{name: "exact pass boundary", safe: 0.80, exit: 0, kind: "pass"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -370,15 +372,52 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 		t.Fatal("ranking requests did not carry state")
 	}
 
-	t.Run("first operational error stops the stream", func(t *testing.T) {
-		failAPI := newFakeAPI(t, func(int) (int, []byte) { return http.StatusInternalServerError, []byte("server detail") })
+	t.Run("second operational error preserves partial output and stops", func(t *testing.T) {
+		failAPI := newFakeAPI(t, func(count int) (int, []byte) {
+			if count == 1 {
+				return http.StatusOK, responseDocument(map[string]any{
+					"priority": answerScore(1),
+					"impact":   answerScore(0),
+				})
+			}
+			return http.StatusInternalServerError, []byte("server detail")
+		})
 		failed := runScript(t, "examples/issue-ranking/rank.sh", input, failAPI.server.URL, nil)
-		if failed.exit != 1 || failAPI.count() != 1 || failed.stderr != "" {
+		if failed.exit != 1 || failAPI.count() != 2 || failed.stderr != "" {
 			t.Fatalf("exit=%d requests=%d stderr=%q stdout=%q", failed.exit, failAPI.count(), failed.stderr, failed.stdout)
 		}
-		doc := oneJSON(t, failed.stdout)
-		if doc["code"] != "GEV_SERVER_ERROR" {
-			t.Fatalf("error=%#v", doc)
+		lines := ndjson(t, failed.stdout)
+		if len(lines) != 2 || lines[0]["id"] != "ISSUE-101" || lines[1]["code"] != "GEV_SERVER_ERROR" {
+			t.Fatalf("partial output=%#v", lines)
+		}
+	})
+	t.Run("missing and invalid IDs are local input errors", func(t *testing.T) {
+		cases := []string{`{"title":"missing id"}`, `{"id":42,"title":"non-string id"}`}
+		for _, input := range cases {
+			result := runScript(t, "examples/issue-ranking/rank.sh", input+"\n", "", nil)
+			if result.exit != 2 || result.stderr != "" {
+				t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
+			}
+			receipt := oneJSON(t, result.stdout)
+			if receipt["status"] != "input_invalid" || receipt["reason"] == nil {
+				t.Fatalf("receipt=%#v", receipt)
+			}
+		}
+	})
+	t.Run("missing numeric score is uncertain", func(t *testing.T) {
+		missingScoreAPI := newFakeAPI(t, func(int) (int, []byte) {
+			return http.StatusOK, responseDocument(map[string]any{
+				"priority": answerScore(2),
+				"impact":   answerNoul(0.5),
+			})
+		})
+		result := runScript(t, "examples/issue-ranking/rank.sh", "{\"id\":\"ISSUE-404\",\"title\":\"missing score\"}\n", missingScoreAPI.server.URL, nil)
+		if result.exit != 11 || result.stderr != "" || missingScoreAPI.count() != 1 {
+			t.Fatalf("exit=%d requests=%d stderr=%q stdout=%q", result.exit, missingScoreAPI.count(), result.stderr, result.stdout)
+		}
+		receipt := oneJSON(t, result.stdout)
+		if receipt["status"] != "uncertain" || receipt["id"] != "ISSUE-404" {
+			t.Fatalf("receipt=%#v", receipt)
 		}
 	})
 }
