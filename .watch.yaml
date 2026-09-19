@@ -16,12 +16,27 @@ on:
   respect_gitignore: true
 
 execution:
-  concurrency: 1
+  concurrency: 6
   output: show-on-failure
   timeout: 5m
   recovery_policy: skip
 
 jobs:
-  - name: check
+  - name: nixfmt
     run_on_init: true
-    run: make check
+    run: nixfmt --check flake.nix
+  - name: flake-check
+    run_on_init: true
+    run: nix flake check
+  - name: fzz-check
+    run_on_init: true
+    run: fzz check
+  - name: go-build
+    run_on_init: true
+    run: go build ./...
+  - name: lint
+    run_on_init: true
+    run: golangci-lint run
+  - name: go-test
+    run_on_init: true
+    run: go test ./...
