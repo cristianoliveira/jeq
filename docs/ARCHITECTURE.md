@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`gev` is an agent-first command-line client for TypeSafe System One. The
-binary emits deterministic JSON documents on stdout. Help and shell completion
-are the only prose output exceptions.
+`gev` is a command-line client for TypeSafe System One. Human interactions use
+deterministic plain text through Cobra. Evaluation result streams use lossless
+JSON/NDJSON so agents and Unix pipelines can compose them.
 
 ## Package arrows
 

@@ -10,7 +10,7 @@ import (
 	"github.com/cristianoliveira/gev/internal/domain/gev"
 )
 
-func TestMapAndGateRejectUnsupportedOutputBeforeDependencies(t *testing.T) {
+func TestMapAndGateRejectUnknownOutputFlagBeforeDependencies(t *testing.T) {
 	for _, command := range []string{"map", "gate"} {
 		t.Run(command, func(t *testing.T) {
 			reads := 0
