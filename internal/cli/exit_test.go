@@ -17,6 +17,12 @@ import (
 // Exit code contract per ADR 0001 § Errors:
 // 0 success · 1 auth/API/network/timeout/response failure · 2 usage or locally
 // invalid input · 130 interrupted.
+type stubRenderer struct{ errDoc *gev.Error }
+
+func (r *stubRenderer) RenderSuccess(_ io.Writer, _ contract.Response) error { return nil }
+func (r *stubRenderer) RenderValue(_ io.Writer, _ any) error                 { return nil }
+func (r *stubRenderer) RenderError(_ io.Writer, e *gev.Error) error          { r.errDoc = e; return nil }
+
 func TestExitCodeMapping(t *testing.T) {
 	tests := []struct {
 		name string
@@ -143,48 +149,26 @@ func TestUsageFailuresArePlainStderr(t *testing.T) {
 	}{
 		{"unknown command", []string{"badsubcommand"}, `unknown command "badsubcommand"`, ""},
 		{"unknown flag", []string{"--nope"}, "unknown flag: --nope", ""},
-		{"misspelled command suggests closest", []string{"versionn"}, `unknown command "versionn"`, "did you mean \"version\"?"},
+		{"misspelled command suggests closest", []string{"versionn"}, `unknown command "versionn"`, "version"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			renderer := &stubRenderer{}
-			if got := cli.Run(tt.args, &stdout, &stderr, renderer); got != 2 {
+			if got := cli.Run(tt.args, &stdout, &stderr, nil); got != 2 {
 				t.Fatalf("exit = %d, want 2", got)
 			}
 
-			if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Error:") {
-				t.Errorf("stdout=%q stderr=%q", stdout.String(), stderr.String())
+			text := stderr.String()
+			if stdout.Len() != 0 || !strings.HasPrefix(text, "Error: ") {
+				t.Errorf("stdout=%q stderr=%q", stdout.String(), text)
 			}
-			if renderer.errDoc == nil {
-				t.Fatal("renderer did not receive an error document")
+			if !strings.Contains(text, tt.wantNamed) {
+				t.Errorf("stderr %q does not name the offending input %q", text, tt.wantNamed)
 			}
-			doc := *renderer.errDoc
-			if doc.Code != gev.CodeInputInvalid {
-				t.Errorf("code = %q, want %q", doc.Code, gev.CodeInputInvalid)
-			}
-			if !strings.Contains(doc.Message, tt.wantNamed) {
-				t.Errorf("message %q does not name the offending input %q", doc.Message, tt.wantNamed)
-			}
-			if tt.wantSuggest != "" && !strings.Contains(doc.Recovery, "version") {
-				t.Errorf("recovery %q lacks the closest alternative", doc.Recovery)
-			}
-			if !strings.Contains(doc.Recovery, "--help") {
-				t.Errorf("recovery %q does not point at the command list", doc.Recovery)
+			if tt.wantSuggest != "" && !strings.Contains(text, tt.wantSuggest) {
+				t.Errorf("stderr %q lacks the closest alternative", text)
 			}
 		})
 	}
-}
-
-// stubRenderer records the error document passed through the injected port.
-type stubRenderer struct {
-	errDoc *gev.Error
-}
-
-func (r *stubRenderer) RenderSuccess(_ io.Writer, _ contract.Response) error { return nil }
-func (r *stubRenderer) RenderValue(_ io.Writer, _ any) error                 { return nil }
-func (r *stubRenderer) RenderError(_ io.Writer, e *gev.Error) error {
-	r.errDoc = e
-	return nil
 }

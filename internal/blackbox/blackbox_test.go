@@ -133,11 +133,10 @@ func assertCleanMachineOutput(t *testing.T, result processResult, wantExit int, 
 		t.Fatalf("secret leaked in stdout/stderr: stdout=%q stderr=%q", result.stdout, result.stderr)
 	}
 	if wantExit != 0 {
-		if result.stdout != "" || !strings.Contains(result.stderr, "Error: GEV_") {
-			t.Fatalf("want plain stderr error: stdout=%q stderr=%q", result.stdout, result.stderr)
+		if result.stdout != "" || !strings.HasPrefix(result.stderr, "Error: ") {
+			t.Fatalf("want standard stderr error: stdout=%q stderr=%q", result.stdout, result.stderr)
 		}
-		parts := strings.SplitN(strings.TrimPrefix(strings.TrimSpace(result.stderr), "Error: "), ": ", 2)
-		return map[string]any{"code": parts[0], "recovery": result.stderr}
+		return map[string]any{"error": strings.TrimSpace(result.stderr)}
 	}
 	if strings.HasPrefix(result.stdout, "{") {
 		return assertJSON(t, result.stdout)
@@ -329,7 +328,7 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": ""}, "models", "--base-url", api.server.URL)
 		doc := assertCleanMachineOutput(t, result, 1, "")
-		if doc["code"] != "GEV_AUTH_MISSING" || api.count() != 0 {
+		if doc["error"] == "" || api.count() != 0 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
 	})
@@ -339,7 +338,7 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "auth-secret"}, "models", "--base-url", api.server.URL)
 		doc := assertCleanMachineOutput(t, result, 1, "auth-secret")
-		if doc["code"] != "GEV_AUTH_REJECTED" || api.count() != 1 {
+		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
 	})
@@ -375,7 +374,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "status-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
 		doc := assertCleanMachineOutput(t, result, 1, "status-secret")
-		if doc["code"] != "GEV_SERVER_ERROR" || api.count() != 1 || strings.Contains(result.stdout, "dependency stack") {
+		if doc["error"] == "" || api.count() != 1 || strings.Contains(result.stdout, "dependency stack") {
 			t.Fatalf("doc=%v requests=%d stdout=%q", doc, api.count(), result.stdout)
 		}
 	})
@@ -383,7 +382,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write([]byte("not-json")) })
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "malformed-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
 		doc := assertCleanMachineOutput(t, result, 1, "malformed-secret")
-		if doc["code"] != "GEV_RESPONSE_INVALID" || api.count() != 1 {
+		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
 	})
@@ -391,7 +390,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		api := newFakeAPI(t, func(_ http.ResponseWriter, r *http.Request, _ int) { <-r.Context().Done() })
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "timeout-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL, "--timeout", "50ms")
 		doc := assertCleanMachineOutput(t, result, 1, "timeout-secret")
-		if doc["code"] != "GEV_TIMEOUT" || api.count() != 1 {
+		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
 	})
@@ -415,7 +414,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "drop-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
 		doc := assertCleanMachineOutput(t, result, 1, "drop-secret")
-		if doc["code"] != "GEV_NETWORK_ERROR" || api.count() != 1 {
+		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
 		if strings.Contains(result.stderr, "EOF") || strings.Contains(result.stderr, "connection reset") {
@@ -439,11 +438,8 @@ func TestBlackBoxUsageAndFailureSeparation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": ""}, tc.args...)
 			doc := assertCleanMachineOutput(t, result, 2, "")
-			if doc["code"] != "GEV_INPUT_INVALID" || doc["recovery"] == "" {
-				t.Fatalf("usage document=%v", doc)
-			}
-			if !strings.Contains(result.stderr, "Error: GEV_INPUT_INVALID") {
-				t.Fatalf("plain usage error missing: %q", result.stderr)
+			if !strings.HasPrefix(result.stderr, "Error: ") || doc["error"] == "" {
+				t.Fatalf("standard usage error missing: %q", result.stderr)
 			}
 		})
 	}

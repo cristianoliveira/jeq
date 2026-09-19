@@ -11,7 +11,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		Short:         "Agent-first CLI for TypeSafe System One",
 		Example:       "  gev examples\n  gev examples map-reduce-gate",
 		SilenceUsage:  true,
-		SilenceErrors: true, // errors render as structured documents, not Cobra prose
+		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return renderHome(cmd, depsForRoot(deps...))
 		},

@@ -106,8 +106,8 @@ func TestModelsMissingCredentialDoesNotCreateClient(t *testing.T) {
 	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 1 {
 		t.Fatalf("exit=%d errors=%v out=%q", code, r.errors, out.String())
 	}
-	if created || len(r.errors) == 0 || r.errors[len(r.errors)-1].Code != gev.CodeAuthMissing {
-		t.Fatalf("created=%v errors=%v", created, r.errors)
+	if created || len(r.errors) != 0 || !strings.Contains(errOut.String(), "GEV_AUTH_MISSING") {
+		t.Fatalf("created=%v errors=%v stderr=%q", created, r.errors, errOut.String())
 	}
 }
 

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -129,7 +130,7 @@ func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--request", "a", "--questions", "b"}, deps)
-	if code != 2 || renderer.err == nil || renderer.err.Code != gev.CodeSourceConflict || *reads != 0 || client.call != 0 || !strings.Contains(stderr, "GEV_SOURCE_CONFLICT") {
+	if code != 2 || renderer.err != nil || *reads != 0 || client.call != 0 || !strings.Contains(stderr, "GEV_SOURCE_CONFLICT") {
 		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, *reads, client.call, stderr)
 	}
 }
@@ -137,8 +138,8 @@ func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 func TestAskRejectsDualStdinBeforeRead(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
-	code, renderer, _, _ := runAsk(t, []string{"ask", "--questions", "-", "--state-json", "-"}, deps)
-	if code != 2 || renderer.err == nil || renderer.err.Code != gev.CodeSourceConflict || *reads != 0 {
+	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "-", "--state-json", "-"}, deps)
+	if code != 2 || renderer.err != nil || !strings.Contains(stderr, "GEV_SOURCE_CONFLICT") || *reads != 0 {
 		t.Fatalf("code=%d err=%v reads=%d", code, renderer.err, *reads)
 	}
 }
@@ -148,8 +149,8 @@ func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
 	deps, _, _ := testDeps(t, client, func(string) string { return "" })
 	created := false
 	deps.NewClient = func(string, time.Duration, string, int, func(string)) cli.APIClient { created = true; return client }
-	code, renderer, _, _ := runAsk(t, []string{"ask", "--questions", "q", "--state", "s"}, deps)
-	if code != 1 || renderer.err == nil || renderer.err.Code != gev.CodeAuthMissing || created {
+	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "q", "--state", "s"}, deps)
+	if code != 1 || renderer.err != nil || !strings.Contains(stderr, "GEV_AUTH_MISSING") || created {
 		t.Fatalf("code=%d err=%v created=%v", code, renderer.err, created)
 	}
 }
@@ -159,8 +160,8 @@ func TestAskMaxRetriesAndInputConfigErrors(t *testing.T) {
 		t.Run(strings.Join(args, "-"), func(t *testing.T) {
 			client := &fakeClient{}
 			deps, _, _ := testDeps(t, client, func(string) string { return "secret" })
-			code, renderer, _, _ := runAsk(t, append([]string{"ask", "--questions", "q", "--state", "s"}, args...), deps)
-			if code != 2 || renderer.err == nil || renderer.err.Code != gev.CodeInputInvalid {
+			code, renderer, _, stderr := runAsk(t, append([]string{"ask", "--questions", "q", "--state", "s"}, args...), deps)
+			if code != 2 || renderer.err != nil || !strings.Contains(stderr, "Error:") {
 				t.Fatalf("code=%d err=%v", code, renderer.err)
 			}
 		})
@@ -210,7 +211,7 @@ func TestAskReadsExplicitStdinOnce(t *testing.T) {
 }
 
 func TestAskFailureRendersStableDocumentAndRetryDiagnostics(t *testing.T) {
-	client := &fakeClient{err: gev.NewError(gev.CodeRateLimited, "slow").WithRecovery("retry later")}
+	client := &fakeClient{err: gev.WrapError(gev.CodeRateLimited, errors.New("wrapped dependency secret"), "slow")}
 	deps, _, _ := testDeps(t, client, func(key string) string {
 		if key == "TYPESAFE_API_KEY" {
 			return "secret"
@@ -220,7 +221,7 @@ func TestAskFailureRendersStableDocumentAndRetryDiagnostics(t *testing.T) {
 	var out, errOut bytes.Buffer
 	r := &askRenderer{}
 	code := cli.RunWithDeps([]string{"ask", "--questions", "q", "--state", "s"}, &out, &errOut, r, deps)
-	if code != 1 || r.err == nil || r.err.Code != gev.CodeRateLimited || out.Len() != 0 {
+	if code != 1 || r.err != nil || !strings.Contains(errOut.String(), "GEV_RATE_LIMITED") || strings.Contains(errOut.String(), "wrapped dependency secret") || out.Len() != 0 {
 		t.Fatalf("code=%d err=%v stdout=%q", code, r.err, out.String())
 	}
 }

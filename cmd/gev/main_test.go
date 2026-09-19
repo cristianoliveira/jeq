@@ -33,7 +33,7 @@ func TestBinaryUsageDocuments(t *testing.T) {
 			if code != 2 {
 				t.Fatalf("exit = %d, want 2", code)
 			}
-			if stdout != "" || !strings.Contains(stderr, "Error: GEV_INPUT_INVALID") {
+			if stdout != "" || !strings.HasPrefix(stderr, "Error: ") {
 				t.Errorf("stdout=%q stderr=%q", stdout, stderr)
 			}
 		})

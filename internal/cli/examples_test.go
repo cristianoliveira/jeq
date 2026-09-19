@@ -56,11 +56,8 @@ func TestExamplesUnknownAndExtraArgsAreStructuredInputErrors(t *testing.T) {
 	for _, args := range [][]string{{"examples", "missing"}, {"examples", "ask-native", "extra"}} {
 		r := &valueRenderer{}
 		var out, errOut bytes.Buffer
-		if code := cli.RunWithDeps(args, &out, &errOut, r, cli.AskDeps{}); code != 2 || !strings.Contains(errOut.String(), "Error:") || len(r.errors) != 1 {
+		if code := cli.RunWithDeps(args, &out, &errOut, r, cli.AskDeps{}); code != 2 || out.Len() != 0 || !strings.Contains(errOut.String(), "Error: GEV_INPUT_INVALID") || len(r.errors) != 0 {
 			t.Fatalf("args=%v code=%d stderr=%q errors=%v", args, code, errOut.String(), r.errors)
-		}
-		if !strings.Contains(r.errors[0].Message, "example") {
-			t.Fatalf("error=%v", r.errors[0])
 		}
 	}
 }

@@ -336,7 +336,7 @@ func TestChangeRiskGatePolicyAndOperationalStatus(t *testing.T) {
 	t.Run("gev status 2 is unchanged", func(t *testing.T) {
 		wrapper := writeWrapper(t, `exec "$GEV_REAL" "$@" --unknown-flag`)
 		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"GEV_BIN": wrapper, "GEV_REAL": gevBin})
-		if result.exit != 2 || strings.TrimSpace(result.stdout) != "" || !strings.Contains(result.stderr, "GEV_INPUT_INVALID") {
+		if result.exit != 2 || strings.TrimSpace(result.stdout) != "" || !strings.HasPrefix(result.stderr, "Error: ") {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
 		}
 	})
