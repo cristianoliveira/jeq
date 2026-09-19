@@ -4,19 +4,12 @@ Independent verification of `f0f5166` (`feat: add executable code smell review e
 
 ## Verdict
 
-**BLOCKED: one privacy-relevant correctness defect must be fixed before acceptance.**
+**PASS.** The two findings from the initial review are resolved by `785deaf`.
 
-`examples/code-smell-review/review.sh` creates a mode-600 temporary source bundle, but its final command is `exec "$GEV_BIN" reduce ... <"$tmp"`. Replacing the shell with `exec` prevents the shell's `EXIT` trap from running. A successful review therefore leaves the complete source bundle on disk.
+- The successful and evaluator-failure paths now remove the mode-600 temporary source bundle.
+- The README NUL-delimited Git example now uses a Bash 3.2-compatible loop.
 
-Observed after a successful exactly-256 KiB run with a dedicated `TMPDIR`:
-
-```text
--rw------- ... /tmp/gev-code-smell-qa/tmp-exact/gev-code-smells.sv5IBd 262207 bytes
-```
-
-The invalid-input paths did not leak because they exit before creating the temporary file. The successful path does leak. This is material because the README explicitly warns about sending source and safe projection; leaving source behind defeats the expected privacy boundary and can consume temporary storage. The fix should preserve the trap by removing `exec` (or otherwise explicitly cleaning the file after the child exits), then add a success-path cleanup assertion to the example tests.
-
-No code was changed during verification. Only this report is intended to be committed.
+No code was changed during this retest. Only this report amendment is intended to be committed.
 
 ## Verification evidence
 
@@ -60,7 +53,7 @@ All of these returned the expected status and made no API request where applicab
 | unavailable `GEV_BIN` | exit 127, explicit dependency error |
 | unavailable `JQ_BIN` | exit 127, explicit dependency error |
 
-Temporary files created by invalid preflight paths were absent. Successful-path cleanup is the blocker described above. The created file mode was 600, which is appropriate but insufficient while the file remains.
+Temporary files created by invalid preflight paths were absent. After `785deaf`, successful review, API failure, and evaluator failure all left zero `gev-code-smells.*` files in isolated `TMPDIR` directories. The created file mode remains 600.
 
 ### Questions, semantics, privacy, and cost
 
@@ -84,52 +77,32 @@ Under the project-supported Bash/JQ environment, these examples passed against t
 
 ### Bash portability
 
-The README's NUL example uses `mapfile -d ''`, which works under the project's Bash 5 environment but fails on macOS's default `/bin/bash` 3.2:
-
-```text
-/bin/bash: mapfile: command not found
-```
-
-The script itself passes `bash -n` under both Bash versions. Since the README presents the NUL snippet as a copyable command and the repository is used on macOS, the snippet should use a Bash 3.2-compatible loop instead:
-
-```bash
-changed=()
-while IFS= read -r -d '' path; do
-  changed+=("$path")
-done < <(
-  git diff --name-only -z --diff-filter=ACMR -- '*.go' '*.sh'
-)
-if ((${#changed[@]})); then
-  ./examples/code-smell-review/review.sh "${changed[@]}"
-fi
-```
-
-This replacement was executed under `/bin/bash` 3.2 with the TASK-0026 paths and passed. `shellcheck` was not available in the existing Nix inputs; no dependency was added.
+The README now uses a `while IFS= read -r -d ''` array loop instead of `mapfile`. The updated snippet was executed under macOS's default `/bin/bash` 3.2 with the TASK-0026 paths and passed, preserving all selected paths. The script itself passes `bash -n` under both Bash versions. `shellcheck` was not available in the existing Nix inputs; no dependency was added.
 
 ## Full checks
 
-- Funzzy gen 215: **PASS** — `nixfmt --check flake.nix`, `nix flake check`, `fzz check`, build, `golangci-lint`, and `go test ./...`.
+- Funzzy gen 218: **PASS** — `nixfmt --check flake.nix`, `nix flake check`, `fzz check`, build, `golangci-lint`, and `go test ./...`.
 - `nix develop -c govulncheck ./...`: **No vulnerabilities found**.
 - `bash -n` and `/bin/bash -n` on `review.sh`: PASS.
 - `shellcheck`: not installed/available; not added.
 
 ## Findings
 
-### Blocking B1 — successful review leaks temporary source bundle
+### Resolved R1 — successful review temporary bundle cleanup
 
-**Location:** `examples/code-smell-review/review.sh`, final `exec "$GEV_BIN" ... <"$tmp"`.
+`785deaf` removed `exec` so the `EXIT` trap runs after both successful and failed evaluator commands. The focused test `TestCodeSmellReviewCleansTemporaryBundleAfterSuccessAndFailure` passed. Manual isolated-TMPDIR checks also proved:
 
-**Impact:** the complete source bundle survives successful execution in `TMPDIR`, despite the mode-600 permission. This violates the expected cleanup/privacy boundary.
+- success: exit 0, one API request, JSON stdout, empty stderr, zero bundles;
+- API 500: exit 1 with `GEV_SERVER_ERROR` JSON stdout, empty stderr, zero bundles;
+- evaluator exit 7: exit 7, empty stdout, exact `fake gev failure` stderr, zero bundles.
 
-**Required fix:** do not replace the shell before the `EXIT` trap runs, or explicitly remove the file after the evaluator exits. Add a successful-path cleanup test.
+### Resolved R2 — macOS Bash portability
 
-### Non-blocking O1 — README NUL example requires Bash 4+
-
-`mapfile` is unavailable in macOS's default Bash 3.2. Replace it with the tested `while IFS= read -r -d ''` array loop above if the README is intended to be generally copyable on macOS.
+`785deaf` replaced `mapfile` with the tested Bash 3.2-compatible NUL loop. The loop passed under `/bin/bash` 3.2 and preserved paths from the Git stream.
 
 ## Final status
 
-- Verdict: **BLOCKED pending B1**.
-- Blocking findings: **1**.
-- Non-blocking observations: **1**.
+- Verdict: **PASS**.
+- Blocking findings: **0**.
+- Resolved findings: **2**.
 - Code changes made during verification: **0**.
