@@ -55,7 +55,7 @@ func TestUnixReviewPipelineMapsThenReducesAndProjectsSafely(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if file["path"] != want || file["content"] != string(content) || item["local_focus"] != 0.9 {
+		if len(item) != 2 || file["path"] != want || file["content"] != string(content) || item["local_focus"] != 0.9 {
 			t.Fatalf("reduce item[%d]=%#v", i, item)
 		}
 	}
