@@ -1,7 +1,7 @@
 ---
 id: TASK-0014
 title: Black-box binary suite
-status: doing
+status: done
 depends_on: [TASK-0011, TASK-0012, TASK-0013]
 priority: normal
 tags: []
