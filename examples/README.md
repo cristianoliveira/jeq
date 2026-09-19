@@ -26,6 +26,8 @@ endpoint for development. Model evidence is data: examples validate it as a cata
   then gate.
 - [`code-smell-review`](code-smell-review/README.md): explicit bounded source
   files, one aggregate judgment, and an optional offline cohesion gate.
+- [`unix-review-pipeline`](unix-review-pipeline/README.md): visible emitter,
+  map, jq, reduce, gate, and safe final projection pipeline.
 
 The existing `support-routing`, `change-risk-gate`, and `issue-ranking`
 directories remain low-level Bash references. They expose transport mechanics

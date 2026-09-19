@@ -1,0 +1,4 @@
+// Fixture input only: a related second file.
+package fixture
+
+type Clock interface { Now() int64 }

@@ -1,0 +1,4 @@
+// Fixture input only: one focused file.
+package fixture
+
+func Greeting(name string) string { return "hello " + name }
