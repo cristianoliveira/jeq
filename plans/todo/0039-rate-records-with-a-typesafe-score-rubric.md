@@ -1,7 +1,7 @@
 ---
 id: TASK-0039
 title: Rate records with a TypeSafe Score rubric
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [cli, typesafe, composability]
