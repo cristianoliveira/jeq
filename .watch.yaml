@@ -1,6 +1,7 @@
 on:
   change:
     - "**/*.go"
+    - "**/AGENTS.md"
     - go.mod
     - go.sum
     - .golangci.yml
@@ -22,6 +23,14 @@ execution:
   recovery_policy: skip
 
 jobs:
+  - name: validate-agents-links
+    run_on_init: true
+    parallel: checks
+    run: python /Users/cristianoliveira/.pi/agent/skills/agentsmd-creator/scripts/validate_links.py .
+  - name: validate-agents-landmarks
+    run_on_init: true
+    parallel: checks
+    run: python /Users/cristianoliveira/.pi/agent/skills/agentsmd-creator/scripts/validate_landmarks.py .
   - name: nixfmt
     run_on_init: true
     parallel: checks
