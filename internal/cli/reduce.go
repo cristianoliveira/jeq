@@ -26,14 +26,14 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 		Short: "Aggregate JSON records with one named judgment",
 		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | jeq reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
   jeq examples reduce-gate`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			source.fileSet = cmd.Flags().Changed("questions")
 			source.inlineSet = cmd.Flags().Changed("questions-json")
 			return runReduce(cmd, deps, reduceFlags{
 				name: name, input: input, source: source, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
 				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
 			})
-		},
+		}),
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&name, "as", "", "evidence name (required)")

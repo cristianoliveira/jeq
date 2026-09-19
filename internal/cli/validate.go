@@ -23,14 +23,14 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 		Use: "validate", Short: "Validate one request without network access",
 		Example: `  jeq validate --questions questions.json --state-json state.json
   jeq examples ask-native`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			flags := askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON, model: model,
 				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"),
 			}
 			return runValidate(cmd, deps, flags)
-		},
+		}),
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&request, "request", "", "complete native request JSON file or -")

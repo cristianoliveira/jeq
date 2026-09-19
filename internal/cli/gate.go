@@ -18,14 +18,14 @@ func NewGateCmd(deps AskDeps) *cobra.Command {
 		Short: "Apply an offline probability policy to each JSON record",
 		Example: `  jeq gate --as policy --value-pointer /_jeq/risk/answers/risk/noul --pass-min 0.80 --reject-max 0.40
   jeq examples map-gate`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runGate(cmd, deps, gateFlags{
 				name: name, input: input, pointer: pointer, passMin: passMin, rejectMax: rejectMax,
 				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"),
 				pointerSet: cmd.Flags().Changed("value-pointer"), passSet: cmd.Flags().Changed("pass-min"),
 				rejectSet: cmd.Flags().Changed("reject-max"),
 			})
-		},
+		}),
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&name, "as", "", "evidence name (required)")

@@ -34,7 +34,7 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 		Short: "Enrich each JSON record with one named judgment",
 		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
   jeq examples map-gate`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
 				name: name, input: input, source: source, config: config, statePointer: statePointer,
 				requestPointer: requestPointer, model: model, baseURL: baseURL,
@@ -46,7 +46,7 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 				return err
 			}
 			return nil
-		},
+		}),
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&name, "as", "", "evidence name (required)")

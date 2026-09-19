@@ -4,6 +4,16 @@ package cli
 
 import "github.com/spf13/cobra"
 
+// withBareHelp wraps an action so a bare invocation opens native Cobra help.
+func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		if cmd.Flags().NFlag() == 0 {
+			return cmd.Help()
+		}
+		return run(cmd, args)
+	}
+}
+
 // NewRootCmd builds a fresh jeq command tree.
 func NewRootCmd(deps ...AskDeps) *cobra.Command {
 	root := &cobra.Command{

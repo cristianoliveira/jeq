@@ -68,7 +68,7 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 		Short: "Send one System One request",
 		Example: `  jeq ask --request request.json
   jeq examples ask-native`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,
 				model: model, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
@@ -76,7 +76,7 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"),
 				baseURLSet: cmd.Flags().Changed("base-url"),
 			})
-		},
+		}),
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&request, "request", "", "complete native request JSON file or -")
