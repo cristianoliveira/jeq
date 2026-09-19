@@ -2,7 +2,7 @@
 id: TASK-0011
 title: ask command end-to-end
 status: todo
-depends_on: [TASK-0005, TASK-0006, TASK-0007, TASK-0008, TASK-0010]
+depends_on: [TASK-0005, TASK-0006, TASK-0007, TASK-0008, TASK-0010, TASK-0017]
 priority: high
 tags: []
 ---
