@@ -58,12 +58,25 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 	if err != nil {
 		return err
 	}
+	commands := []string{"version", "help"}
+	if deps.valid() {
+		commands = append([]string{"ask", "map"}, commands...)
+	}
+	if deps.ReadStdin != nil && deps.Renderer != nil {
+		commands = append([]string{"gate"}, commands...)
+	}
+	if deps.modelsReady() {
+		commands = append([]string{"models"}, commands...)
+	}
+	if deps.sourceReady() {
+		commands = append([]string{"validate"}, commands...)
+	}
 	doc := homeDocument{
 		Identity:        "gev",
 		Purpose:         "agent-first TypeSafe System One client",
 		CredentialReady: strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY")) != "",
 		DefaultModel:    ResolveModel("", deps.Getenv),
-		Commands:        []string{"ask", "models", "validate", "version", "help"},
+		Commands:        commands,
 		NextStep:        "run gev ask --help",
 	}
 	return renderer.RenderValue(cmd.OutOrStdout(), doc)

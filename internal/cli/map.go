@@ -62,6 +62,9 @@ type mapFlags struct {
 }
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
+	if output, err := cmd.Flags().GetString("output"); err != nil || output != "json" {
+		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unsupported output format %q", output)).WithRecovery("set --output json")
+	}
 	if !f.nameSet || f.name == "" {
 		return gev.NewError(gev.CodeInputInvalid, "--as is required")
 	}

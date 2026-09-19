@@ -10,20 +10,24 @@ GEV_BIN=${GEV_BIN:-gev}
 
 "$GEV_BIN" map --as category --questions category-questions.json \
     --state-pointer /incident |
-  jq --argfile catalog runbook-catalog.json '
-    .request = {
-      "model": "jev-latest",
-      "state": .incident,
-      "questions": {
-        "runbook": {
-          "type": "choice",
-          "instructions": ("Select the approved runbook for category " +
-            (.category // "unknown")),
-          "criteria": ($catalog[._gev.category.answers.category.choice] // {})
+  jq --slurpfile catalog runbook-catalog.json '
+    (._gev.category.answers.category.choice // error("missing category answer")) as $category |
+    ($catalog[0][$category] // error("unknown catalog category: " + $category)) as $criteria |
+    if (($criteria | type) != "object" or ($criteria | length) == 0) then
+      error("empty catalog category: " + $category)
+    else
+      .request = {
+        "model": "jev-latest",
+        "state": .incident,
+        "questions": {
+          "runbook": {
+            "type": "choice",
+            "instructions": ("Select the approved runbook for category " + $category),
+            "criteria": $criteria
+          }
         }
       }
-    }
-    | select((.request.questions.runbook.criteria | length) > 0)
+    end
   ' |
   "$GEV_BIN" map --as runbook --request-pointer /request |
   "$GEV_BIN" gate --as incident_policy \

@@ -45,6 +45,9 @@ type policyStatus struct{ status int }
 func (e *policyStatus) Error() string { return fmt.Sprintf("gate policy status %d", e.status) }
 
 func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
+	if output, err := cmd.Flags().GetString("output"); err != nil || output != "json" {
+		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unsupported output format %q", output)).WithRecovery("set --output json")
+	}
 	if !f.nameSet || f.name == "" {
 		return gev.NewError(gev.CodeInputInvalid, "--as is required")
 	}
