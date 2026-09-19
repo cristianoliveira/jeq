@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
 )
 
 func TestValidateLocalRules(t *testing.T) {

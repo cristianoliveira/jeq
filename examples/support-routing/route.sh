@@ -3,24 +3,24 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-GEV_BIN=${GEV_BIN:-gev}
-GEV_MODEL=${GEV_MODEL:-jev-latest}
-GEV_BASE_URL=${GEV_BASE_URL:-}
+JEQ_BIN=${JEQ_BIN:-jeq}
+JEQ_MODEL=${JEQ_MODEL:-jev-latest}
+JEQ_BASE_URL=${JEQ_BASE_URL:-}
 ROUTE_CONFIDENCE_MIN=0.70
-TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gev-route.XXXXXX")
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/jeq-route.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Pass the optional endpoint as an argument. Never build a shell command from
 # model output; all values below are data passed as quoted arguments.
-GEV_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$GEV_MODEL")
-if [[ -n "$GEV_BASE_URL" ]]; then
-  GEV_ARGS+=(--base-url "$GEV_BASE_URL")
+JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$JEQ_MODEL")
+if [[ -n "$JEQ_BASE_URL" ]]; then
+  JEQ_ARGS+=(--base-url "$JEQ_BASE_URL")
 fi
 
-run_gev() {
+run_jeq() {
   local state_json=$1
   local status
-  if printf '%s\n' "$state_json" | "$GEV_BIN" "${GEV_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
+  if printf '%s\n' "$state_json" | "$JEQ_BIN" "${JEQ_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
     status=0
   else
     status=$?
@@ -31,7 +31,7 @@ run_gev() {
 }
 
 ticket_json=$(jq -Rs .)
-if response=$(run_gev "$ticket_json"); then
+if response=$(run_jeq "$ticket_json"); then
   :
 else
   status=$?
@@ -39,7 +39,7 @@ else
   exit "$status"
 fi
 
-jq -c --arg model "$GEV_MODEL" --argjson min_confidence "$ROUTE_CONFIDENCE_MIN" '
+jq -c --arg model "$JEQ_MODEL" --argjson min_confidence "$ROUTE_CONFIDENCE_MIN" '
   .answers.route as $route |
   ($route.choice // null) as $choice |
   (if ($route.confidence | type) == "number" then $route.confidence else 0 end) as $confidence |

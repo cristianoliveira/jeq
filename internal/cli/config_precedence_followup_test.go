@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 func TestConfiguredModelShortCircuitsLowerSources(t *testing.T) {
-	panicReader := func(string, int64) ([]byte, *gev.Error, bool) {
+	panicReader := func(string, int64) ([]byte, *jeq.Error, bool) {
 		t.Fatal("config must not be read")
 		return nil, nil, false
 	}
@@ -40,7 +40,7 @@ func TestExplicitConfigRejectsMalformedWrongTypeEmptyDuplicateAndOversize(t *tes
 	}
 	for i, document := range cases {
 		t.Run(fmt.Sprintf("case-%d", i), func(t *testing.T) {
-			read := func(string, int64) ([]byte, *gev.Error) { return []byte(document), nil }
+			read := func(string, int64) ([]byte, *jeq.Error) { return []byte(document), nil }
 			if _, err := ResolveConfiguredModel("", "explicit.json", func(string) string { return "" }, read); err == nil {
 				t.Fatal("invalid config accepted")
 			}

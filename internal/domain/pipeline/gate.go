@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 // GatePolicy is an offline probability policy. Values are inclusive at both
@@ -30,7 +30,7 @@ const (
 
 // Gate appends a numeric policy receipt to a strict object envelope. It never
 // calls a model or interprets any model-derived string as an instruction.
-func Gate(record []byte, name, pointer string, policy GatePolicy) ([]byte, GateDecision, *gev.Error) {
+func Gate(record []byte, name, pointer string, policy GatePolicy) ([]byte, GateDecision, *jeq.Error) {
 	members, err := decodeObject(record, "record")
 	if err != nil {
 		return nil, "", inputError(err.Error())
@@ -41,12 +41,12 @@ func Gate(record []byte, name, pointer string, policy GatePolicy) ([]byte, GateD
 	if err := validatePolicy(policy); err != nil {
 		return nil, "", inputError(err.Error())
 	}
-	gevMembers, err := existingEvidence(members)
+	jeqMembers, err := existingEvidence(members)
 	if err != nil {
 		return nil, "", inputError(err.Error())
 	}
-	if _, exists := gevMembers[name]; exists {
-		return nil, "", inputError(fmt.Sprintf("_gev.%s already exists; choose a new name", name))
+	if _, exists := jeqMembers[name]; exists {
+		return nil, "", inputError(fmt.Sprintf("_jeq.%s already exists; choose a new name", name))
 	}
 	selected, err := Select(record, pointer)
 	if err != nil {
@@ -74,11 +74,11 @@ func Gate(record []byte, name, pointer string, policy GatePolicy) ([]byte, GateD
 		},
 	}
 	receiptRaw, _ := json.Marshal(receipt)
-	gevMembers[name] = receiptRaw
-	members["_gev"], _ = json.Marshal(gevMembers)
+	jeqMembers[name] = receiptRaw
+	members["_jeq"], _ = json.Marshal(jeqMembers)
 	result, marshalErr := json.Marshal(members)
 	if marshalErr != nil {
-		return nil, "", gev.WrapError(gev.CodeResponseInvalid, marshalErr, "encoding gated record")
+		return nil, "", jeq.WrapError(jeq.CodeResponseInvalid, marshalErr, "encoding gated record")
 	}
 	return result, decision, nil
 }

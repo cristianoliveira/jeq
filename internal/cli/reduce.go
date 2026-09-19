@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/domain/pipeline"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/domain/pipeline"
 	"github.com/spf13/cobra"
 )
 
@@ -24,8 +24,8 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reduce",
 		Short: "Aggregate JSON records with one named judgment",
-		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | gev reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
-  gev examples reduce-gate`,
+		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | jeq reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
+  jeq examples reduce-gate`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			source.fileSet = cmd.Flags().Changed("questions")
 			source.inlineSet = cmd.Flags().Changed("questions-json")
@@ -56,29 +56,29 @@ type reduceFlags struct {
 
 func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if !f.nameSet || f.name == "" {
-		return gev.NewError(gev.CodeInputInvalid, "--as is required")
+		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}
 	if err := pipeline.ValidateName(f.name); err != nil {
-		return gev.NewError(gev.CodeInputInvalid, err.Error())
+		return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
 	if f.input != "json" && f.input != "ndjson" {
-		return gev.NewError(gev.CodeInputInvalid, "--input must be json or ndjson")
+		return jeq.NewError(jeq.CodeInputInvalid, "--input must be json or ndjson")
 	}
 	if err := checkQuestionSource(f.source); err != nil {
 		return err
 	}
 	if f.configSet && strings.TrimSpace(f.config) == "" {
-		return gev.NewError(gev.CodeInputInvalid, "--config cannot be empty")
+		return jeq.NewError(jeq.CodeInputInvalid, "--config cannot be empty")
 	}
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
-		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("--max-retries must be between 0 and %d", MaxRetriesLimit))
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("--max-retries must be between 0 and %d", MaxRetriesLimit))
 	}
 	timeout, err := time.ParseDuration(f.timeout)
 	if err != nil || timeout <= 0 {
-		return gev.NewError(gev.CodeInputInvalid, "--timeout must be a positive duration")
+		return jeq.NewError(jeq.CodeInputInvalid, "--timeout must be a positive duration")
 	}
 	if deps.Stdin == nil || deps.ReadStdin == nil || deps.ReadFile == nil || deps.NewClient == nil || deps.Getenv == nil {
-		return gev.NewError(gev.CodeInputInvalid, "reduce dependencies are unavailable")
+		return jeq.NewError(jeq.CodeInputInvalid, "reduce dependencies are unavailable")
 	}
 
 	inputDoc, readErr := deps.ReadStdin(deps.Stdin, MapMaxInputBytes, true)
@@ -98,12 +98,12 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 		return modelErr
 	}
 	if strings.TrimSpace(resolvedModel) == "" {
-		return gev.NewError(gev.CodeInputInvalid, "model is required")
+		return jeq.NewError(jeq.CodeInputInvalid, "model is required")
 	}
 
 	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
 	if apiKey == "" {
-		return gev.NewError(gev.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	rootURL := f.baseURL
 	if !f.baseURLSet {
@@ -121,30 +121,30 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	return renderRaw(deps.Renderer, cmd.OutOrStdout(), output)
 }
 
-func reduceItems(input []byte, framing string) ([]byte, *gev.Error) {
+func reduceItems(input []byte, framing string) ([]byte, *jeq.Error) {
 	if framing != "json" && framing != "ndjson" {
-		return nil, gev.NewError(gev.CodeInputInvalid, "--input must be json or ndjson")
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "--input must be json or ndjson")
 	}
 	if framing == "json" {
 		trimmed := bytes.TrimSpace(input)
 		if len(trimmed) > MapMaxRecordBytes {
-			return nil, gev.NewError(gev.CodeInputInvalid, "JSON collection exceeds the byte limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "JSON collection exceeds the byte limit")
 		}
 		if err := contract.ValidateJSON(trimmed); err != nil {
-			return nil, gev.NewError(gev.CodeInputInvalid, err.Error())
+			return nil, jeq.NewError(jeq.CodeInputInvalid, err.Error())
 		}
 		if len(trimmed) < 2 || trimmed[0] != '[' {
-			return nil, gev.NewError(gev.CodeInputInvalid, "JSON reduce input must be an array")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "JSON reduce input must be an array")
 		}
 		var values []json.RawMessage
 		if err := json.Unmarshal(trimmed, &values); err != nil {
-			return nil, gev.NewError(gev.CodeInputInvalid, err.Error())
+			return nil, jeq.NewError(jeq.CodeInputInvalid, err.Error())
 		}
 		if len(values) == 0 {
-			return nil, gev.NewError(gev.CodeInputInvalid, "reduce collection is empty")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "reduce collection is empty")
 		}
 		if len(values) > ReduceMaxItems {
-			return nil, gev.NewError(gev.CodeInputInvalid, "reduce collection exceeds the item limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "reduce collection exceeds the item limit")
 		}
 		return trimmed, nil
 	}
@@ -156,18 +156,18 @@ func reduceItems(input []byte, framing string) ([]byte, *gev.Error) {
 			continue
 		}
 		if len(line) > MapMaxRecordBytes {
-			return nil, gev.NewError(gev.CodeInputInvalid, "NDJSON item exceeds the byte limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "NDJSON item exceeds the byte limit")
 		}
 		if len(items) >= ReduceMaxItems {
-			return nil, gev.NewError(gev.CodeInputInvalid, "reduce collection exceeds the item limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "reduce collection exceeds the item limit")
 		}
 		if err := contract.ValidateJSON(line); err != nil {
-			return nil, gev.NewError(gev.CodeInputInvalid, err.Error())
+			return nil, jeq.NewError(jeq.CodeInputInvalid, err.Error())
 		}
 		items = append(items, line)
 	}
 	if len(items) == 0 {
-		return nil, gev.NewError(gev.CodeInputInvalid, "reduce collection is empty")
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "reduce collection is empty")
 	}
 	var out bytes.Buffer
 	out.WriteByte('[')

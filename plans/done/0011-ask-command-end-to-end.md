@@ -16,7 +16,7 @@ The primary capability must work: flags to compose to client to render to exit c
 (Optional: approach, links, related tasks.)
 
 ## Acceptance criteria
-- [ ] `gev ask` wires source selection → bounded reads → Compose/Validate → credential lookup → TypeSafe client → selected renderer, in that order.
+- [ ] `jeq ask` wires source selection → bounded reads → Compose/Validate → credential lookup → TypeSafe client → selected renderer, in that order.
 - [ ] Native `--request` and composed `--questions` plus exactly one state source work with files and explicit `-`; all conflicts fail before filesystem, env, or network access.
 - [ ] Flags: `--model`, `--base-url`, `--timeout` (10s default), `--max-retries` (0..5, default 2), and `--output json` for D2; env precedence follows ADR 0001.
 - [ ] Missing/rejected auth, 422, retry exhaustion, timeout, malformed response, source failure, invalid input, and interruption map to stable documents and exits 1/2/130.

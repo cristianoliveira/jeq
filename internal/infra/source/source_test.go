@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/infra/source"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/infra/source"
 )
 
 func TestReadFileExactBytesWithinLimit(t *testing.T) {
@@ -85,8 +85,8 @@ func TestReadFileFailures(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := source.ReadFile(tt.path, tt.limit, source.OSOpen, tt.forbidEmpty)
-			if err == nil || err.Code != gev.CodeInputInvalid {
-				t.Fatalf("expected %q, got %v", gev.CodeInputInvalid, err)
+			if err == nil || err.Code != jeq.CodeInputInvalid {
+				t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
 			}
 			if !strings.Contains(err.Message, tt.path) {
 				t.Errorf("message %q does not name the offending source", err.Message)
@@ -111,8 +111,8 @@ func TestReadFileUnreadable(t *testing.T) {
 	}
 
 	_, err := source.ReadFile(path, 1024, source.OSOpen, false)
-	if err == nil || err.Code != gev.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", gev.CodeInputInvalid, err)
+	if err == nil || err.Code != jeq.CodeInputInvalid {
+		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
 	}
 	if !strings.Contains(err.Message, "readable") {
 		t.Errorf("message %q does not describe the permission problem", err.Message)
@@ -139,8 +139,8 @@ func TestReadStdinTTYFailsBeforeAnyRead(t *testing.T) {
 	r := &countingReader{r: strings.NewReader("data")}
 
 	_, err := source.ReadStdin(r, 1024, func() bool { return true }, true)
-	if err == nil || err.Code != gev.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", gev.CodeInputInvalid, err)
+	if err == nil || err.Code != jeq.CodeInputInvalid {
+		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
 	}
 	if r.reads != 0 {
 		t.Errorf("TTY stdin was read %d times; must fail pre-read", r.reads)
@@ -154,8 +154,8 @@ func TestReadStdinOversize(t *testing.T) {
 	r := &countingReader{r: strings.NewReader(strings.Repeat("x", 64))}
 
 	_, err := source.ReadStdin(r, 32, func() bool { return false }, false)
-	if err == nil || err.Code != gev.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", gev.CodeInputInvalid, err)
+	if err == nil || err.Code != jeq.CodeInputInvalid {
+		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
 	}
 	if r.total > 33 {
 		t.Errorf("read %d bytes; must stop at limit+1", r.total)
@@ -166,8 +166,8 @@ func TestReadStdinEmptyForbidden(t *testing.T) {
 	r := &countingReader{r: strings.NewReader("")}
 
 	_, err := source.ReadStdin(r, 32, func() bool { return false }, true)
-	if err == nil || err.Code != gev.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", gev.CodeInputInvalid, err)
+	if err == nil || err.Code != jeq.CodeInputInvalid {
+		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
 	}
 }
 

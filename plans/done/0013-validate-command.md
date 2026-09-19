@@ -16,7 +16,7 @@ Agents need offline document checking to avoid paid 422 round trips.
 (Optional: approach, links, related tasks.)
 
 ## Acceptance criteria
-- [ ] `gev validate` accepts the same native/composed source flags and conflict matrix as `ask`, including explicit stdin and byte bounds.
+- [ ] `jeq validate` accepts the same native/composed source flags and conflict matrix as `ask`, including explicit stdin and byte bounds.
 - [ ] It performs decode, composition, and the closed local validation set only—no credential lookup, HTTP client call, retry, or paid request.
 - [ ] Success exits 0 with a deterministic structured receipt: valid=true, mode, resolved model, and question count; it does not echo state content.
 - [ ] Failure uses the selected structured error document, stable code/recovery, and exit 2; exactly one document/newline.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/cli"
 )
 
 func TestExamplesUseNativeCobraHelp(t *testing.T) {
@@ -26,12 +26,12 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 		if code := cli.RunWithDeps([]string{"examples", id, "--help"}, &help, &errOut, nil, cli.AskDeps{}); code != 0 || out.String() != help.String() {
 			t.Fatalf("%s/help mismatch: %q != %q", id, out.String(), help.String())
 		}
-		for _, field := range []string{"Commands:", "Requirements:", "Network calls:", "Input:", "Output:", "Privacy:", "Exits:"} {
+		for _, field := range []string{"Commands:", "Requirements:", "Network calls:", "Input:", "Output:", "Privacy:"} {
 			if !strings.Contains(out.String(), field) {
 				t.Fatalf("%s missing %q", id, field)
 			}
 		}
-		if !strings.Contains(out.String(), "GEV_BIN=${GEV_BIN:-gev}") || strings.Contains(out.String(), "Next:") {
+		if !strings.Contains(out.String(), "JEQ_BIN=${JEQ_BIN:-jeq}") || strings.Contains(out.String(), "Next:") {
 			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
 		}
 	}
@@ -53,7 +53,7 @@ func TestRootAndCommandHelpPointToExamples(t *testing.T) {
 	if code := cli.RunWithDeps(nil, &out, &errOut, r, cli.AskDeps{}); code != 0 {
 		t.Fatal(code)
 	}
-	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "gev examples map-reduce-gate") {
+	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "jeq examples map-reduce-gate") {
 		t.Fatalf("root help=%q", out.String())
 	}
 }

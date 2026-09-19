@@ -1,10 +1,10 @@
-# GEV QA acceptance plan — D0–D2 (TASK-0016)
+# JEQ QA acceptance plan — D0–D2 (TASK-0016)
 
 Status: accepted for D1 verification — open questions OQ-1..OQ-7 resolved in commit 92926aa and folded into the checks below.
 Ground truth: ADR 0001 (agent-first CLI contract), ADR 0002 (layered architecture), plans/todo TASK-0001..0011.
 Exit-class truth from ADR 0001: `0` success · `1` auth/API/network/timeout/response failure · `2` usage or locally invalid input · `130` interrupted. Low confidence is never an error.
 
-**Error motto (product rule): every failure is auto-discoverable — non-zero is never silent.** Every non-zero exit emits **exactly one structured error document on stdout** in the selected format (ADR 0001: success and errors use the selected structured format on stdout), carrying the stable `GEV_*` code, one actionable recovery instruction, and — for usage failures — the offending input plus the valid alternatives so the caller can self-correct without leaving the terminal. stderr remains diagnostics/retry-progress only: no raw Cobra prose, no duplicate error documents across channels.
+**Error motto (product rule): every failure is auto-discoverable — non-zero is never silent.** Every non-zero exit emits **exactly one structured error document on stdout** in the selected format (ADR 0001: success and errors use the selected structured format on stdout), carrying the stable `JEQ_*` code, one actionable recovery instruction, and — for usage failures — the offending input plus the valid alternatives so the caller can self-correct without leaving the terminal. stderr remains diagnostics/retry-progress only: no raw Cobra prose, no duplicate error documents across channels.
 
 **Phase split (PO decision, final):** the D0 bootstrap **permits a temporary stderr prose fallback** (commits ff1db92 + 650f0a2: usage failures print `Error: …` + help hint on stderr instead of exiting silently). TASK-0017/D2 **must replace it** with exactly one structured stdout error document and **remove** the raw Cobra prose/duplicate stderr. D2-17 is the final ADR contract; the fallback is not a pass for it.
 
@@ -26,8 +26,8 @@ Given every symbolic error code in the registry, when mapped to exit classes, th
 Verify: `go test ./internal/cli/... -run TestExitClassMapping` — table-driven, domain-owned table.
 
 **D0-3 Symbolic codes are a stable registry.**
-Given the code registry, when a code is added/removed/renamed, then a golden snapshot test fails until the change is explicit. Format locked to `GEV_<AREA>_<REASON>`; initial registry per TASK-0002 (GEV_AUTH_MISSING, GEV_AUTH_REJECTED, GEV_REQUEST_INVALID, GEV_SOURCE_CONFLICT, GEV_INPUT_INVALID, GEV_RATE_LIMITED, GEV_SERVER_ERROR, GEV_RESPONSE_INVALID, GEV_NETWORK_ERROR, GEV_TIMEOUT, GEV_INTERRUPTED).
-Verify: `go test ./internal/domain/gev/... -run TestErrorCodeRegistryGolden` — fixture `contract/error_codes.golden`.
+Given the code registry, when a code is added/removed/renamed, then a golden snapshot test fails until the change is explicit. Format locked to `JEQ_<AREA>_<REASON>`; initial registry per TASK-0002 (JEQ_AUTH_MISSING, JEQ_AUTH_REJECTED, JEQ_REQUEST_INVALID, JEQ_SOURCE_CONFLICT, JEQ_INPUT_INVALID, JEQ_RATE_LIMITED, JEQ_SERVER_ERROR, JEQ_RESPONSE_INVALID, JEQ_NETWORK_ERROR, JEQ_TIMEOUT, JEQ_INTERRUPTED).
+Verify: `go test ./internal/domain/jeq/... -run TestErrorCodeRegistryGolden` — fixture `contract/error_codes.golden`.
 
 **D0-4 Error documents follow the output contract.**
 Given any failure, when the error document is emitted, then it uses the selected format on stdout, is exactly one document plus one trailing newline, and carries a stable code plus one actionable recovery instruction.
@@ -47,8 +47,8 @@ Verify: `go test ./internal/cli/... -run TestExitClassMapping -run 'Confidence'`
 
 **D0-8 Usage failures are never silent — bootstrap criterion (added post-verification, from finding F-1 in d0-verification.md).**
 Given an unknown command or unknown flag, when the binary runs, then exit is `2` AND the failure is discoverable. **D0 bootstrap pass condition (PO-approved, met by ff1db92 + 650f0a2):** non-empty stderr naming the offending input with a help/alternatives pointer; `version` unaffected; test-asserted (`TestUsageFailuresAreNotSilent`). Cobra's did-you-mean suggestion passthrough is preserved.
-**Final criterion (not met at D0, owned by TASK-0017, depends TASK-0008, blocks TASK-0011):** exactly one structured stdout error document — `GEV_INPUT_INVALID`, offending input, valid commands/flags as recovery, one trailing newline — with raw Cobra prose and duplicate stderr removed; help stays exit 0 on stdout.
-Verify (bootstrap): build `./cmd/gev`; probes `./gev badsubcommand`, `./gev --nope` exit 2 with discoverable stderr; `go test ./internal/cli/... -run TestUsageFailuresAreNotSilent`.
+**Final criterion (not met at D0, owned by TASK-0017, depends TASK-0008, blocks TASK-0011):** exactly one structured stdout error document — `JEQ_INPUT_INVALID`, offending input, valid commands/flags as recovery, one trailing newline — with raw Cobra prose and duplicate stderr removed; help stays exit 0 on stdout.
+Verify (bootstrap): build `./cmd/jeq`; probes `./jeq badsubcommand`, `./jeq --nope` exit 2 with discoverable stderr; `go test ./internal/cli/... -run TestUsageFailuresAreNotSilent`.
 Verify (final, via TASK-0017/D2-17): probes capture stdout = exactly one structured document (`jq -e .` parses, code present), stderr free of error prose; goldens per TASK-0017 (unknown command, unknown flag, misspelled-command suggestion, help).
 
 ## D1 — Contract types, validation, ask composition (TASK-0003..0005)
@@ -72,7 +72,7 @@ Given a probability supplied as a string or levels as a scalar, when decoded, th
 Fixture: `contract/type_mismatch.json`.
 
 **D1-5 Response decode is lossless.**
-Given a response containing fields gev does not model, when decoded and re-rendered, then the unknown fields are preserved verbatim.
+Given a response containing fields jeq does not model, when decoded and re-rendered, then the unknown fields are preserved verbatim.
 Fixture: `contract/response_unknown_fields.json`; verify: `go test ./internal/domain/contract/... -run TestLosslessResponse`.
 
 **D1-6 Unknown primitive fails locally.**
@@ -89,7 +89,7 @@ Fixtures: `contract/empty_questions.json`, `contract/empty_state.json`.
 
 **D1-9 Mode conflicts fail before any I/O.**
 Given `--request` combined with `--questions`, or `--request` with any `--state*`, or two `--state*` flags together, when parsed, then exit `2` with the conflict code, and the fake server counted `0` requests and injected readers observed no file/env access.
-Verify: `go test ./internal/domain/gev/... -run TestModeConflictMatrix` (table = the full conflict matrix from ADR 0001).
+Verify: `go test ./internal/domain/jeq/... -run TestModeConflictMatrix` (table = the full conflict matrix from ADR 0001).
 
 **D1-10 Exactly one state source is accepted.**
 Given each of `--state`, `--state-file`, `--state-json`, `--state-json -` alone with `--questions`, when composed, then composition succeeds and proceeds to evaluation (no conflict error).
@@ -97,7 +97,7 @@ Fixture: `requests/composed_questions.json` + per-source state fixtures.
 
 **D1-11 stdin is never read implicitly.**
 Given ask invoked with explicit non-stdin inputs while stdin is closed (not `-`), when the command runs, then it completes without blocking.
-Verify: `go test ./internal/cli/... -run TestNoImplicitStdin` with injected closed stream; binary smoke: `gev ask --questions q.json --state "x" </dev/null`.
+Verify: `go test ./internal/cli/... -run TestNoImplicitStdin` with injected closed stream; binary smoke: `jeq ask --questions q.json --state "x" </dev/null`.
 
 **D1-12 Model resolution follows the documented chain.**
 Given none/each of `--model`, `TYPESAFE_DEFAULT_MODEL`, set, when composing, then the resolved model is respectively `jev-latest` → env → flag (flag wins). Resolution lives in `internal/cli` (os.Getenv containment per ADR 0002); the domain receives the resolved model explicitly.
@@ -159,7 +159,7 @@ Given an HTML/text error body, then exit `1` and stdout carries only the stable 
 Fixture: `http/nonjson_error.html`.
 
 **D2-12 Timeout classifies as exit 1.**
-Given a server exceeding the timeout (short injected timeout in tests), then exit `1` with GEV_TIMEOUT.
+Given a server exceeding the timeout (short injected timeout in tests), then exit `1` with JEQ_TIMEOUT.
 Verify: `go test ./internal/infra/typesafeapi/... -run TestTimeout`; binary-level override uses `--timeout` (OQ-4 resolved).
 
 **D2-13 Missing key fails pre-network.**
@@ -179,7 +179,7 @@ Given the same response rendered twice, then bytes are identical (no timestamps,
 Verify: `go test ./internal/infra/render/... -run TestRenderDeterminism` (render twice, byte-compare).
 
 **D2-17 Every error names its way out (motto end-to-end; FINAL ADR contract).**
-Given any failure, when the command exits non-zero, then stdout carries exactly one structured document in the selected format: exit 2 → `GEV_INPUT_INVALID`-class code with offending input + valid alternatives; exit 1 → the matching code with a recovery instruction — never a bare code, never raw dependency prose. stderr holds diagnostics/retry progress only. **The D0 bootstrap stderr prose fallback (ff1db92/650f0a2) must be removed by this check.**
+Given any failure, when the command exits non-zero, then stdout carries exactly one structured document in the selected format: exit 2 → `JEQ_INPUT_INVALID`-class code with offending input + valid alternatives; exit 1 → the matching code with a recovery instruction — never a bare code, never raw dependency prose. stderr holds diagnostics/retry progress only. **The D0 bootstrap stderr prose fallback (ff1db92/650f0a2) must be removed by this check.**
 Verify: `go test ./internal/cli/... -run TestUnknownFlagSuggestions`; binary probes capture stdout+stderr for one exit-2 and one exit-1 scenario, asserting single-document stdout and quiet stderr.
 
 **D2-18 ask end-to-end, composed mode.**
@@ -198,4 +198,4 @@ Fixtures: `requests/native_with_unknown_fields.json`, `requests/composed_with_un
 - **OQ-4** → existing `--timeout` flag; no new knob. (D2-12 updated.)
 - **OQ-5** → JSON remains the version 1 default and only supported output; TOON was deferred by TASK-0009 pending current-spec conformance.
 - **OQ-6** → `models`/`version`/home-view accepted in D3; out of D2 acceptance scope.
-- **OQ-7** → code format `GEV_<AREA>_<REASON>`, registry frozen in TASK-0002. (D0-3 updated.)
+- **OQ-7** → code format `JEQ_<AREA>_<REASON>`, registry frozen in TASK-0002. (D0-3 updated.)

@@ -16,8 +16,8 @@ TOON was the proposed default, but no Go implementation may be shipped unless it
 (Optional: approach, links, related tasks.)
 
 ## Acceptance criteria
-- [ ] Test candidate encoders at immutable revisions against current official TOON v4.1.1 fixtures and the complete gev/adversarial arbitrary-JSON corpus.
-- [ ] Record exact pass/fail counts, licenses, maintenance state, embedded spec revisions, and representative gev-relevant failures.
+- [ ] Test candidate encoders at immutable revisions against current official TOON v4.1.1 fixtures and the complete jeq/adversarial arbitrary-JSON corpus.
+- [ ] Record exact pass/fail counts, licenses, maintenance state, embedded spec revisions, and representative jeq-relevant failures.
 - [ ] Reject any candidate that emits noncanonical current-spec output for values preserved from unknown server fields; semantic self-round-trip alone is insufficient.
 - [ ] With no conformant candidate, ship v1 JSON-only: remove TOON runtime/dependency, keep deterministic single-document JSON, and reject non-JSON output names.
 - [ ] ADR 0003 records the evidence, supersedes ADR 0001's TOON-default clause, and states an objective revisit condition.

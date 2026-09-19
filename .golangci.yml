@@ -16,7 +16,7 @@ linters:
           list-mode: strict
           allow:
             - $gostd
-            - github.com/cristianoliveira/gev/internal/domain
+            - github.com/cristianoliveira/jeq/internal/domain
         # Domain test files may additionally load the shared fixtures package.
         domain-tests-fixtures-allowed:
           files:
@@ -24,25 +24,25 @@ linters:
           list-mode: strict
           allow:
             - $gostd
-            - github.com/cristianoliveira/gev/internal/domain
-            - github.com/cristianoliveira/gev/internal/fixtures
+            - github.com/cristianoliveira/jeq/internal/domain
+            - github.com/cristianoliveira/jeq/internal/fixtures
         # ADR 0002: infra -> domain; never cli or cmd.
         infra-never-cli-or-main:
           files:
             - "**/internal/infra/**"
           deny:
-            - pkg: github.com/cristianoliveira/gev/internal/cli
+            - pkg: github.com/cristianoliveira/jeq/internal/cli
               desc: infra must not depend on cli (ADR 0002)
-            - pkg: github.com/cristianoliveira/gev/cmd
+            - pkg: github.com/cristianoliveira/jeq/cmd
               desc: infra must not depend on cmd (ADR 0002)
         # ADR 0002: cli -> domain; infra is injected by main through ports.
         cli-never-infra-or-main:
           files:
             - "**/internal/cli/**"
           deny:
-            - pkg: github.com/cristianoliveira/gev/internal/infra
+            - pkg: github.com/cristianoliveira/jeq/internal/infra
               desc: cli depends on domain ports; infra is injected by main (ADR 0002)
-            - pkg: github.com/cristianoliveira/gev/cmd
+            - pkg: github.com/cristianoliveira/jeq/cmd
               desc: no package imports cmd (ADR 0002)
         # ADR 0002: main -> cli + infra only.
         main-wires-cli-and-infra:
@@ -51,15 +51,15 @@ linters:
           list-mode: strict
           allow:
             - $gostd
-            - github.com/cristianoliveira/gev/internal/cli
-            - github.com/cristianoliveira/gev/internal/infra
+            - github.com/cristianoliveira/jeq/internal/cli
+            - github.com/cristianoliveira/jeq/internal/infra
         # ADR 0002: no package imports the composition root.
         nobody-imports-main:
           files:
             - $all
           deny:
-            - pkg: github.com/cristianoliveira/gev/cmd
-              desc: no package imports cmd/gev (ADR 0002)
+            - pkg: github.com/cristianoliveira/jeq/cmd
+              desc: no package imports cmd/jeq (ADR 0002)
 
 formatters:
   enable:

@@ -4,12 +4,12 @@ package cli
 
 import "github.com/spf13/cobra"
 
-// NewRootCmd builds a fresh gev command tree.
+// NewRootCmd builds a fresh jeq command tree.
 func NewRootCmd(deps ...AskDeps) *cobra.Command {
 	root := &cobra.Command{
-		Use:           "gev",
+		Use:           "jeq",
 		Short:         "Agent-first CLI for TypeSafe System One",
-		Example:       "  gev examples\n  gev examples map-reduce-gate",
+		Example:       "  jeq examples\n  jeq examples map-reduce-gate",
 		SilenceUsage:  true,
 		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping
 		RunE: func(cmd *cobra.Command, _ []string) error {

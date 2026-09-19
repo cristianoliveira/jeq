@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
 
 // F-D1-1: semantically empty object/array state must be rejected regardless
 // of whitespace; validation compares parsed JSON shape, not byte length.
 // ValidateRequest is exercised directly with uncompacted raws — exactly what
-// composed mode (gev.Compose) feeds it.
+// composed mode (jeq.Compose) feeds it.
 func TestValidateRequestEmptyShapeIsWhitespaceIndependent(t *testing.T) {
 	tests := []struct {
 		name      string

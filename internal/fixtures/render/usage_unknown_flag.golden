@@ -1,1 +1,1 @@
-{"code":"GEV_INPUT_INVALID","message":"unknown flag: --nope","recovery":"run 'gev --help' for the flag list"}
+{"code":"JEQ_INPUT_INVALID","message":"unknown flag: --nope","recovery":"run 'jeq --help' for the flag list"}

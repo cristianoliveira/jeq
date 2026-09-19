@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 const maxNameLength = 64
@@ -27,12 +27,12 @@ type Config struct {
 
 // Evaluator is the existing TypeSafe evaluation port.
 type Evaluator interface {
-	Evaluate(context.Context, contract.Request) (contract.Response, *gev.Error)
+	Evaluate(context.Context, contract.Request) (contract.Response, *jeq.Error)
 }
 
 // Enrich selects state from one strict JSON object, evaluates one normal
-// request, and appends the complete typed response under _gev.<name>.
-func Enrich(ctx context.Context, record []byte, config Config, evaluator Evaluator) ([]byte, *gev.Error) {
+// request, and appends the complete typed response under _jeq.<name>.
+func Enrich(ctx context.Context, record []byte, config Config, evaluator Evaluator) ([]byte, *jeq.Error) {
 	selected, err := Select(record, config.Pointer)
 	if err != nil {
 		return nil, inputError(err.Error())
@@ -46,8 +46,8 @@ func Enrich(ctx context.Context, record []byte, config Config, evaluator Evaluat
 
 // EnrichRequest appends a response for an already validated native request.
 // The request is never inferred from response data and the input envelope is
-// retained unchanged apart from _gev evidence.
-func EnrichRequest(ctx context.Context, record []byte, name string, request contract.Request, evaluator Evaluator) ([]byte, *gev.Error) {
+// retained unchanged apart from _jeq evidence.
+func EnrichRequest(ctx context.Context, record []byte, name string, request contract.Request, evaluator Evaluator) ([]byte, *jeq.Error) {
 	members, err := decodeObject(record, "record")
 	if err != nil {
 		return nil, inputError(err.Error())
@@ -58,12 +58,12 @@ func EnrichRequest(ctx context.Context, record []byte, name string, request cont
 	if request.Model == "" || evaluator == nil {
 		return nil, inputError("model and evaluator are required")
 	}
-	gevMembers, err := existingEvidence(members)
+	jeqMembers, err := existingEvidence(members)
 	if err != nil {
 		return nil, inputError(err.Error())
 	}
-	if _, exists := gevMembers[name]; exists {
-		return nil, inputError(fmt.Sprintf("_gev.%s already exists; choose a new name", name))
+	if _, exists := jeqMembers[name]; exists {
+		return nil, inputError(fmt.Sprintf("_jeq.%s already exists; choose a new name", name))
 	}
 	if violations := contract.ValidateRequest(request); len(violations) > 0 {
 		return nil, violations[0].Error
@@ -74,13 +74,13 @@ func EnrichRequest(ctx context.Context, record []byte, name string, request cont
 	}
 	encoded, encodeErr := response.Encode()
 	if encodeErr != nil {
-		return nil, gev.WrapError(gev.CodeResponseInvalid, encodeErr, "encoding evaluator response")
+		return nil, jeq.WrapError(jeq.CodeResponseInvalid, encodeErr, "encoding evaluator response")
 	}
-	gevMembers[name] = encoded
-	members["_gev"], _ = json.Marshal(gevMembers)
+	jeqMembers[name] = encoded
+	members["_jeq"], _ = json.Marshal(jeqMembers)
 	result, marshalErr := json.Marshal(members)
 	if marshalErr != nil {
-		return nil, gev.WrapError(gev.CodeResponseInvalid, marshalErr, "encoding enriched record")
+		return nil, jeq.WrapError(jeq.CodeResponseInvalid, marshalErr, "encoding enriched record")
 	}
 	return result, nil
 }
@@ -111,11 +111,11 @@ func asciiAlphaNumeric(char rune) bool {
 }
 
 func existingEvidence(members map[string]json.RawMessage) (map[string]json.RawMessage, error) {
-	raw, ok := members["_gev"]
+	raw, ok := members["_jeq"]
 	if !ok {
 		return map[string]json.RawMessage{}, nil
 	}
-	return decodeObject(raw, "_gev")
+	return decodeObject(raw, "_jeq")
 }
 
 func decodeObject(data []byte, path string) (map[string]json.RawMessage, error) {
@@ -268,6 +268,6 @@ func pointerChild(current json.RawMessage, token string) (json.RawMessage, error
 	}
 }
 
-func inputError(message string) *gev.Error {
-	return gev.NewError(gev.CodeInputInvalid, message)
+func inputError(message string) *jeq.Error {
+	return jeq.NewError(jeq.CodeInputInvalid, message)
 }

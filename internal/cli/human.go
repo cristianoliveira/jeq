@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
 
 func writeVersion(w io.Writer, doc versionDocument) error {

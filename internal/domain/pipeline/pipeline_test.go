@@ -7,18 +7,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 type fakeEvaluator struct {
 	response contract.Response
-	err      *gev.Error
+	err      *jeq.Error
 	calls    int
 	request  contract.Request
 }
 
-func (fake *fakeEvaluator) Evaluate(_ context.Context, request contract.Request) (contract.Response, *gev.Error) {
+func (fake *fakeEvaluator) Evaluate(_ context.Context, request contract.Request) (contract.Response, *jeq.Error) {
 	fake.calls++
 	fake.request = request
 	if fake.err != nil {
@@ -46,7 +46,7 @@ func testResponse() contract.Response {
 	}
 }
 
-func run(t *testing.T, record, pointer, name string, fake *fakeEvaluator) ([]byte, *gev.Error) {
+func run(t *testing.T, record, pointer, name string, fake *fakeEvaluator) ([]byte, *jeq.Error) {
 	t.Helper()
 	return Enrich(context.Background(), []byte(record), Config{Name: name, Pointer: pointer, Model: "jev-test", Questions: testQuestions()}, fake)
 }
@@ -87,8 +87,8 @@ func TestPointersPreserveRawStateAndCallOnce(t *testing.T) {
 			if tc.name == "unsafe exponent" && string(members["value"]) != `123456789012345678901234567890e+10` {
 				t.Fatalf("unsafe number=%s", members["value"])
 			}
-			gevRaw := decodeOutput(t, members["_gev"])
-			responseRaw := decodeOutput(t, gevRaw["step"])
+			jeqRaw := decodeOutput(t, members["_jeq"])
+			responseRaw := decodeOutput(t, jeqRaw["step"])
 			if string(responseRaw["server_extra"]) != `{"kept":true}` {
 				t.Fatalf("response extra=%s", responseRaw["server_extra"])
 			}
@@ -115,9 +115,9 @@ func TestEnvelopeCollisionsNamesAndDuplicateKeys(t *testing.T) {
 	cases := []struct{ name, record, pointer string }{
 		{"non-object root", `[]`, ""},
 		{"nested duplicate", `{"payload":{"x":1,"x":2}}`, "/payload"},
-		{"existing evidence duplicate", `{"_gev":{"a":1,"a":2}}`, "/"},
-		{"existing evidence wrong type", `{"_gev":[]}`, ""},
-		{"collision", `{"_gev":{"step":{}}}`, ""},
+		{"existing evidence duplicate", `{"_jeq":{"a":1,"a":2}}`, "/"},
+		{"existing evidence wrong type", `{"_jeq":[]}`, ""},
+		{"collision", `{"_jeq":{"step":{}}}`, ""},
 		{"invalid pointer", `{"x":1}`, "x"},
 		{"bad escape", `{"x":1}`, "/x~2"},
 		{"missing pointer", `{"x":1}`, "/missing"},
@@ -130,7 +130,7 @@ func TestEnvelopeCollisionsNamesAndDuplicateKeys(t *testing.T) {
 			if tc.name == "collision" {
 				name = "step"
 			}
-			if _, err := run(t, tc.record, tc.pointer, name, fake); err == nil || fake.calls != 0 || err.Code != gev.CodeInputInvalid {
+			if _, err := run(t, tc.record, tc.pointer, name, fake); err == nil || fake.calls != 0 || err.Code != jeq.CodeInputInvalid {
 				t.Fatalf("err=%v calls=%d", err, fake.calls)
 			}
 		})
@@ -155,14 +155,14 @@ func TestNamesAndChainedEnrichment(t *testing.T) {
 		t.Fatalf("second err=%v calls=%d", err, secondFake.calls)
 	}
 	members := decodeOutput(t, second)
-	gevRaw := decodeOutput(t, members["_gev"])
-	if gevRaw["first"] == nil || gevRaw["second"] == nil {
-		t.Fatalf("evidence=%s", members["_gev"])
+	jeqRaw := decodeOutput(t, members["_jeq"])
+	if jeqRaw["first"] == nil || jeqRaw["second"] == nil {
+		t.Fatalf("evidence=%s", members["_jeq"])
 	}
 }
 
 func TestEvaluatorErrorPropagatesUnchanged(t *testing.T) {
-	sentinel := gev.NewError(gev.CodeAuthRejected, "denied")
+	sentinel := jeq.NewError(jeq.CodeAuthRejected, "denied")
 	fake := &fakeEvaluator{err: sentinel}
 	_, err := run(t, `{"x":{"ok":true}}`, "/x", "step", fake)
 	if err != sentinel || fake.calls != 1 {

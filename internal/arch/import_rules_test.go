@@ -5,7 +5,7 @@
 //	cli    → domain
 //	main   → cli + infra
 //
-// and forbids every import of cmd/gev. Violations fail the normal gate.
+// and forbids every import of cmd/jeq. Violations fail the normal gate.
 package arch_test
 
 import (
@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-const modulePath = "github.com/cristianoliveira/gev"
+const modulePath = "github.com/cristianoliveira/jeq"
 
 // graph maps a package import path to its direct imports.
 type graph map[string][]string
@@ -35,7 +35,7 @@ const (
 
 func classify(importPath string) ring {
 	switch importPath {
-	case modulePath + "/cmd/gev":
+	case modulePath + "/cmd/jeq":
 		return ringMain
 	case modulePath + "/internal/cli":
 		return ringCLI
@@ -65,7 +65,7 @@ func violations(g graph) []string {
 		// No package of any ring imports the composition root.
 		for _, imp := range imports {
 			if classify(imp) == ringMain {
-				bad = append(bad, pkg+" imports cmd/gev (forbidden by ADR 0002)")
+				bad = append(bad, pkg+" imports cmd/jeq (forbidden by ADR 0002)")
 			}
 		}
 
@@ -99,10 +99,10 @@ func edgeAllowed(from, to ring) bool {
 }
 
 func TestImportRules(t *testing.T) {
-	domain := modulePath + "/internal/domain/gev"
+	domain := modulePath + "/internal/domain/jeq"
 	infra := modulePath + "/internal/infra/render"
 	cli := modulePath + "/internal/cli"
-	main := modulePath + "/cmd/gev"
+	main := modulePath + "/cmd/jeq"
 
 	tests := []struct {
 		name  string
@@ -162,7 +162,7 @@ func TestImportRules(t *testing.T) {
 		{
 			name:  "no package may import main",
 			graph: graph{cli: {main}},
-			want:  []string{"imports cmd/gev", cli + " (cli) imports " + main},
+			want:  []string{"imports cmd/jeq", cli + " (cli) imports " + main},
 		},
 	}
 

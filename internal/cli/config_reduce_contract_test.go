@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 func TestResolveConfiguredModelPrecedenceAndSource(t *testing.T) {
-	read := func(path string, _ int64) ([]byte, *gev.Error) {
+	read := func(path string, _ int64) ([]byte, *jeq.Error) {
 		if path == "/cfg/config.json" {
 			return []byte(`{"default_model":"from-config"}`), nil
 		}
-		return nil, gev.NewError(gev.CodeInputInvalid, "missing")
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "missing")
 	}
 	getenv := func(key string) string {
 		if key == "XDG_CONFIG_HOME" {
@@ -57,8 +57,8 @@ func TestResolveConfiguredModelPrecedenceAndSource(t *testing.T) {
 }
 
 func TestConfigUsesXDGThenHomeAndIgnoresMissingDefault(t *testing.T) {
-	readOptional := func(path string, _ int64) ([]byte, *gev.Error, bool) {
-		if path == "/home/.config/gev/config.json" {
+	readOptional := func(path string, _ int64) ([]byte, *jeq.Error, bool) {
+		if path == "/home/.config/jeq/config.json" {
 			return []byte(`{"default_model":"home-model"}`), nil, true
 		}
 		return nil, nil, false
@@ -79,9 +79,9 @@ func TestConfigUsesXDGThenHomeAndIgnoresMissingDefault(t *testing.T) {
 }
 
 func TestExplicitConfigIsStrictAndMissingIsAnError(t *testing.T) {
-	read := func(path string, _ int64) ([]byte, *gev.Error) {
+	read := func(path string, _ int64) ([]byte, *jeq.Error) {
 		if path == "missing.json" {
-			return nil, gev.NewError(gev.CodeInputInvalid, "source missing.json: does not exist")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "source missing.json: does not exist")
 		}
 		return []byte(`{"default_model":"m","credentials":"secret"}`), nil
 	}
@@ -97,10 +97,10 @@ func TestSharedQuestionSourceAcceptsFileOrInlineButNotBoth(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		source   questionSourceFlags
-		wantCode gev.Code
+		wantCode jeq.Code
 	}{
-		{"both", questionSourceFlags{fileSet: true, inlineSet: true}, gev.CodeSourceConflict},
-		{"neither", questionSourceFlags{}, gev.CodeSourceConflict},
+		{"both", questionSourceFlags{fileSet: true, inlineSet: true}, jeq.CodeSourceConflict},
+		{"neither", questionSourceFlags{}, jeq.CodeSourceConflict},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := checkQuestionSource(tc.source); err == nil || err.Code != tc.wantCode {
@@ -108,7 +108,7 @@ func TestSharedQuestionSourceAcceptsFileOrInlineButNotBoth(t *testing.T) {
 			}
 		})
 	}
-	deps := AskDeps{ReadFile: func(string, int64) ([]byte, *gev.Error) {
+	deps := AskDeps{ReadFile: func(string, int64) ([]byte, *jeq.Error) {
 		return []byte(`{"questions":{"q":{"type":"noul","instructions":"ok"}}}`), nil
 	}}
 	questions, _, err := readQuestionSource(deps, questionSourceFlags{file: "q.json", fileSet: true})
@@ -126,7 +126,7 @@ type reduceTestClient struct {
 	request contract.Request
 }
 
-func (c *reduceTestClient) Evaluate(_ context.Context, request contract.Request) (contract.Response, *gev.Error) {
+func (c *reduceTestClient) Evaluate(_ context.Context, request contract.Request) (contract.Response, *jeq.Error) {
 	c.calls++
 	c.request = request
 	return contract.Response{Model: "m", Answers: map[string]contract.Answer{}, Usage: contract.Usage{}, Extra: map[string]json.RawMessage{"server_extra": json.RawMessage(`"kept"`)}}, nil
@@ -175,7 +175,7 @@ func TestMapAndReduceAcceptInlineQuestionSource(t *testing.T) {
 func TestReduceInvalidConfigDoesNotCreateClient(t *testing.T) {
 	client := &reduceTestClient{}
 	deps := reduceDeps(client, `[{"state":"s"}]`)
-	deps.ReadOptionalFile = func(string, int64) ([]byte, *gev.Error, bool) {
+	deps.ReadOptionalFile = func(string, int64) ([]byte, *jeq.Error, bool) {
 		return []byte(`{"default_model":"m","extra":true}`), nil, true
 	}
 	deps.Getenv = func(key string) string {
@@ -195,8 +195,8 @@ func TestReduceInvalidConfigDoesNotCreateClient(t *testing.T) {
 
 func reduceDeps(client APIClient, input string) AskDeps {
 	stdin := strings.NewReader(input)
-	return AskDeps{Stdin: stdin, ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) { return []byte(input), nil }, ReadFile: func(string, int64) ([]byte, *gev.Error) {
-		return nil, gev.NewError(gev.CodeInputInvalid, "unexpected file read")
+	return AskDeps{Stdin: stdin, ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) { return []byte(input), nil }, ReadFile: func(string, int64) ([]byte, *jeq.Error) {
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "unexpected file read")
 	}, Getenv: func(key string) string {
 		if key == "TYPESAFE_API_KEY" {
 			return "key"

@@ -21,7 +21,7 @@ import (
 
 var (
 	repoRoot string
-	gevBin   string
+	jeqBin   string
 )
 
 func TestMain(m *testing.M) {
@@ -31,13 +31,13 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	repoRoot = filepath.Clean(filepath.Join(filepath.Dir(file), ".."))
-	temp, err := os.MkdirTemp("", "gev-examples-")
+	temp, err := os.MkdirTemp("", "jeq-examples-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	gevBin = filepath.Join(temp, "gev")
-	build := exec.Command("go", "build", "-o", gevBin, "./cmd/gev")
+	jeqBin = filepath.Join(temp, "jeq")
+	build := exec.Command("go", "build", "-o", jeqBin, "./cmd/jeq")
 	build.Dir = repoRoot
 	build.Stdout = os.Stdout
 	build.Stderr = os.Stderr
@@ -65,9 +65,9 @@ func runScript(t *testing.T, script, input, endpoint string, extra map[string]st
 	cmd := exec.CommandContext(ctx, "bash", commandArgs...)
 	cmd.Dir = repoRoot
 	cmd.Env = envWith(map[string]string{
-		"GEV_BIN":          gevBin,
-		"GEV_BASE_URL":     endpoint,
-		"GEV_MODEL":        "jev-latest",
+		"JEQ_BIN":          jeqBin,
+		"JEQ_BASE_URL":     endpoint,
+		"JEQ_MODEL":        "jev-latest",
 		"TYPESAFE_API_KEY": "examples-test-key",
 		"NO_COLOR":         "1",
 		"TERM":             "dumb",
@@ -221,7 +221,7 @@ func fixture(t *testing.T, path string) string {
 
 func writeWrapper(t *testing.T, body string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "gev-wrapper.sh")
+	path := filepath.Join(t.TempDir(), "jeq-wrapper.sh")
 	if err := os.WriteFile(path, []byte("#!/usr/bin/env bash\nset -euo pipefail\n"+body+"\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -326,28 +326,28 @@ func TestChangeRiskGatePolicyAndOperationalStatus(t *testing.T) {
 		})
 	}
 
-	t.Run("gev status 1 is unchanged", func(t *testing.T) {
+	t.Run("jeq status 1 is unchanged", func(t *testing.T) {
 		api := newFakeAPI(t, func(int) (int, []byte) { return http.StatusUnauthorized, []byte(`{"message":"denied"}`) })
 		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", api.server.URL, nil)
-		if result.exit != 1 || strings.TrimSpace(result.stdout) != "" || !strings.Contains(result.stderr, "GEV_AUTH_REJECTED") {
+		if result.exit != 1 || strings.TrimSpace(result.stdout) != "" || !strings.Contains(result.stderr, "JEQ_AUTH_REJECTED") {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
 		}
 	})
-	t.Run("gev status 2 is unchanged", func(t *testing.T) {
-		wrapper := writeWrapper(t, `exec "$GEV_REAL" "$@" --unknown-flag`)
-		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"GEV_BIN": wrapper, "GEV_REAL": gevBin})
+	t.Run("jeq status 2 is unchanged", func(t *testing.T) {
+		wrapper := writeWrapper(t, `exec "$JEQ_REAL" "$@" --unknown-flag`)
+		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"JEQ_BIN": wrapper, "JEQ_REAL": jeqBin})
 		if result.exit != 2 || strings.TrimSpace(result.stdout) != "" || !strings.HasPrefix(result.stderr, "Error: ") {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
 		}
 	})
-	t.Run("gev status 130 is unchanged", func(t *testing.T) {
-		wrapper := writeWrapper(t, `printf '%s\n' '{"code":"GEV_INTERRUPTED","message":"request interrupted","recovery":"rerun the command when ready"}'; exit 130`)
-		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"GEV_BIN": wrapper})
+	t.Run("jeq status 130 is unchanged", func(t *testing.T) {
+		wrapper := writeWrapper(t, `printf '%s\n' '{"code":"JEQ_INTERRUPTED","message":"request interrupted","recovery":"rerun the command when ready"}'; exit 130`)
+		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"JEQ_BIN": wrapper})
 		if result.exit != 130 || result.stderr != "" {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
 		}
 		doc := oneJSON(t, result.stdout)
-		if doc["code"] != "GEV_INTERRUPTED" {
+		if doc["code"] != "JEQ_INTERRUPTED" {
 			t.Fatalf("error=%#v", doc)
 		}
 	})
@@ -395,7 +395,7 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 			return http.StatusInternalServerError, []byte("server detail")
 		})
 		failed := runScript(t, "examples/issue-ranking/rank.sh", input, failAPI.server.URL, nil)
-		if failed.exit != 1 || failAPI.count() != 2 || !strings.Contains(failed.stderr, "GEV_SERVER_ERROR") {
+		if failed.exit != 1 || failAPI.count() != 2 || !strings.Contains(failed.stderr, "JEQ_SERVER_ERROR") {
 			t.Fatalf("exit=%d requests=%d stderr=%q stdout=%q", failed.exit, failAPI.count(), failed.stderr, failed.stdout)
 		}
 		lines := ndjson(t, failed.stdout)

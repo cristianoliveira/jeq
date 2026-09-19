@@ -48,4 +48,4 @@ jobs:
     run: nix develop -c go test ./...
   - name: install-cli
     run_on_init: true
-    run: nix develop -c go install ./cmd/gev
+    run: nix develop -c go install ./cmd/jeq

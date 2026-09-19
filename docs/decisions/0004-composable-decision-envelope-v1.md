@@ -8,12 +8,12 @@
 `internal/domain/pipeline` implements one deterministic record transformation.
 Given a strict JSON object, a JSON Pointer, a name, questions, and an injected
 TypeSafe evaluator, it selects one state value, performs exactly one normal
-`gev ask` evaluation, and appends the complete typed response at
-`_gev.<name>`. The original record remains the envelope for the next Unix
+`jeq ask` evaluation, and appends the complete typed response at
+`_jeq.<name>`. The original record remains the envelope for the next Unix
 operation:
 
 ```text
-record -> select pointer -> one typed judgment -> record + _gev.<name>
+record -> select pointer -> one typed judgment -> record + _jeq.<name>
                                   |
                          pipe the record forward
 ```
@@ -21,8 +21,8 @@ record -> select pointer -> one typed judgment -> record + _gev.<name>
 ### Envelope v1
 
 - The input is a strict JSON object. Duplicate keys are rejected recursively.
-- `_gev` is absent or an object. It is created when absent; an existing
-  `_gev.<name>` is never overwritten and is a local input error.
+- `_jeq` is absent or an object. It is created when absent; an existing
+  `_jeq.<name>` is never overwritten and is a local input error.
 - Names are ASCII identifiers: one leading letter or digit, followed by ASCII
   letters, digits, `_`, or `-`, at most 64 bytes.
 - `pointer` is RFC 6901. The empty pointer selects the whole record. `~0` and
@@ -48,7 +48,7 @@ shape used by the TypeSafe client. The domain package imports only the standard
 library and domain contract/error packages. It does not know Cobra, files,
 stdin, HTTP, or rendering. Evaluator authentication, interruption, timeout, and
 other operational errors are returned unchanged. Local envelope/pointer errors
-use `GEV_INPUT_INVALID` before evaluator construction.
+use `JEQ_INPUT_INVALID` before evaluator construction.
 
 ## Why this instead of workflows
 

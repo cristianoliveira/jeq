@@ -1,10 +1,10 @@
-package gev
+package jeq
 
 import (
 	"encoding/json"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
 
 // StateInput is the resolved state source. File sources are read by the

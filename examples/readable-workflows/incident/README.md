@@ -6,12 +6,12 @@ request into a new record field. The second map evaluates that request. Gate
 then checks its numeric confidence offline.
 
 ```sh
-GEV_BIN=${GEV_BIN:-gev}
+JEQ_BIN=${JEQ_BIN:-jeq}
 
-"$GEV_BIN" map --as category --questions category-questions.json \
+"$JEQ_BIN" map --as category --questions category-questions.json \
     --state-pointer /incident |
   jq --slurpfile catalog runbook-catalog.json '
-    (._gev.category.answers.category.choice // error("missing category answer")) as $category |
+    (._jeq.category.answers.category.choice // error("missing category answer")) as $category |
     ($catalog[0][$category] // error("unknown catalog category: " + $category)) as $criteria |
     if (($criteria | type) != "object" or ($criteria | length) == 0) then
       error("empty catalog category: " + $category)
@@ -29,9 +29,9 @@ GEV_BIN=${GEV_BIN:-gev}
       }
     end
   ' |
-  "$GEV_BIN" map --as runbook --request-pointer /request |
-  "$GEV_BIN" gate --as incident_policy \
-    --value-pointer /_gev/runbook/answers/runbook/confidence \
+  "$JEQ_BIN" map --as runbook --request-pointer /request |
+  "$JEQ_BIN" gate --as incident_policy \
+    --value-pointer /_jeq/runbook/answers/runbook/confidence \
     --pass-min 0.80 --reject-max 0.40
 ```
 
@@ -41,7 +41,7 @@ an executable action. The full incident remains in the envelope, so project it
 before logs:
 
 ```sh
-... | jq 'del(.incident, .request, ._gev.category, ._gev.runbook)'
+... | jq 'del(.incident, .request, ._jeq.category, ._jeq.runbook)'
 ```
 
 Fixture: [`fixtures/incident.json`](fixtures/incident.json), catalog:

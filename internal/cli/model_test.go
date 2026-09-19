@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/cli"
 )
 
 func TestModelPrecedence(t *testing.T) {

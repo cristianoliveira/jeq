@@ -8,9 +8,9 @@ Verdict: PASS (0 blockers)
 
 A fresh installed binary now reaches a full pipeline recipe in three offline commands:
 
-1. `gev`
-2. `gev examples`
-3. `gev examples map-reduce-gate`
+1. `jeq`
+2. `jeq examples`
+3. `jeq examples map-reduce-gate`
 
 Measured from an empty temporary home and working directory:
 
@@ -19,7 +19,7 @@ Measured from an empty temporary home and working directory:
 - network calls during discovery: 0
 - catalog IDs: `validate-native`, `ask-native`, `map-gate`, `reduce-gate`, `map-reduce-gate`
 
-Catalog and details require no API key, config, checkout files, jq, stdin, or network access. Unknown IDs and extra arguments return one structured `GEV_INPUT_INVALID` document, exit 2, and no stderr.
+Catalog and details require no API key, config, checkout files, jq, stdin, or network access. Unknown IDs and extra arguments return one structured `JEQ_INPUT_INVALID` document, exit 2, and no stderr.
 
 ## Recipe verification
 
@@ -42,4 +42,4 @@ All completed successfully. Final pipeline outputs contained no source items, pa
 - root and local command help examples: PASS
 - independent QA: PASS
 
-The intentional home `next_step` migration from `gev ask --help` to `gev examples` is documented and tested. Recipe outputs are transport/policy evidence only; no live model-quality assertion was made.
+The intentional home `next_step` migration from `jeq ask --help` to `jeq examples` is documented and tested. Recipe outputs are transport/policy evidence only; no live model-quality assertion was made.

@@ -1,21 +1,21 @@
 # Readable Unix pipelines
 
-Start with `gev examples` for installed, self-contained recipes. This repository
+Start with `jeq examples` for installed, self-contained recipes. This repository
 contains expanded executable references for those workflows.
 
-These examples use the composable primitives from ADR 0004. `gev map` performs
+These examples use the composable primitives from ADR 0004. `jeq map` performs
 one named semantic judgment per record; `jq` projects, joins, and constructs
-native requests; `gev gate` applies an explicit offline numeric policy.
+native requests; `jeq gate` applies an explicit offline numeric policy.
 
 The same JSON record remains the transport envelope. Before logging or sharing
 it, project away sensitive state explicitly:
 
 ```sh
-jq 'del(.customer_message, .details, ._gev.route)'
+jq 'del(.customer_message, .details, ._jeq.route)'
 ```
 
 A live run needs `TYPESAFE_API_KEY` and spends account budget. Use a local fake
-endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. `map` and `reduce` resolve models as `--model`, `TYPESAFE_DEFAULT_MODEL`, user config (`${XDG_CONFIG_HOME:-$HOME/.config}/gev/config.json`), then `jev-latest`; the config contains only `default_model`.
+endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. `map` and `reduce` resolve models as `--model`, `TYPESAFE_DEFAULT_MODEL`, user config (`${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`), then `jev-latest`; the config contains only `default_model`.
 
 
 ## Recommended pipelines

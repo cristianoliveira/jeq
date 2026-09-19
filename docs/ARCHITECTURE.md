@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`gev` is a command-line client for TypeSafe System One. Human interactions use
+`jeq` is a command-line client for TypeSafe System One. Human interactions use
 deterministic plain text through Cobra. Evaluation result streams use lossless
 JSON/NDJSON so agents and Unix pipelines can compose them.
 
@@ -12,30 +12,30 @@ Keep dependencies pointing inward. The domain does not know about Cobra, HTTP,
 files, stdin, or renderers.
 
 ```text
-cmd/gev (composition root)
+cmd/jeq (composition root)
   ├──> internal/cli       (commands and shell policy)
   ├──> internal/infra/render
   ├──> internal/infra/source
   └──> internal/infra/typesafeapi
 
 internal/cli
-  ├──> internal/domain/gev       (source rules and composition)
+  ├──> internal/domain/jeq       (source rules and composition)
   ├──> internal/domain/contract  (request and response types)
-  └──> ports supplied by cmd/gev
+  └──> ports supplied by cmd/jeq
 
 internal/infra/render
   ├──> internal/domain/contract
-  └──> internal/domain/gev
+  └──> internal/domain/jeq
 internal/infra/source
-  └──> internal/domain/gev
+  └──> internal/domain/jeq
 internal/infra/typesafeapi
   ├──> internal/domain/contract
-  └──> internal/domain/gev
+  └──> internal/domain/jeq
 ```
 
 ### Composition root
 
-`cmd/gev/main.go` is the only production composition root. It wires:
+`cmd/jeq/main.go` is the only production composition root. It wires:
 
 - `internal/infra/source` to file and stdin readers;
 - `internal/infra/typesafeapi` to an HTTP client;
@@ -49,9 +49,9 @@ filesystem.
 ### Domain
 
 `internal/domain/contract` owns strict, lossless JSON decoding and deterministic
-encoding. `internal/domain/gev` owns source conflicts, local validation, and
+encoding. `internal/domain/jeq` owns source conflicts, local validation, and
 composed request construction. Stable error codes live in
-`internal/domain/gev/codes`.
+`internal/domain/jeq/codes`.
 
 ### Infrastructure
 
@@ -67,15 +67,15 @@ composed request construction. Stable error codes live in
 
 | Command | Network | Output |
 | --- | --- | --- |
-| `gev` | No | Standard Cobra help |
-| `gev examples` | No | Plain workflow discovery text |
-| `gev version` | No | Plain build information |
-| `gev models` | Yes | Plain model list |
-| `gev validate` | No | Plain validation receipt |
-| `gev ask` | Yes | JSON evaluation response |
-| `gev map` / `gev reduce` / `gev gate` | Map/reduce: yes; gate: no | JSON/NDJSON result stream |
-| `gev help` / `gev --help` | No | Cobra prose |
-| `gev completion <shell>` | No | Shell script prose |
+| `jeq` | No | Standard Cobra help |
+| `jeq examples` | No | Plain workflow discovery text |
+| `jeq version` | No | Plain build information |
+| `jeq models` | Yes | Plain model list |
+| `jeq validate` | No | Plain validation receipt |
+| `jeq ask` | Yes | JSON evaluation response |
+| `jeq map` / `jeq reduce` / `jeq gate` | Map/reduce: yes; gate: no | JSON/NDJSON result stream |
+| `jeq help` / `jeq --help` | No | Cobra prose |
+| `jeq completion <shell>` | No | Shell script prose |
 
 Exit classes are stable: `0` success, `1` auth/API/network/timeout failure,
 `2` usage or local-input failure, `10` gate reject, `11` gate uncertain, and

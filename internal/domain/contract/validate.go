@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev/codes"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq/codes"
 )
 
 // Rule is one client-owned local invariant. This list is closed (OQ-2):
@@ -27,7 +27,7 @@ type Violation struct {
 }
 
 // The client-owned local rules, in checking order. All are local document
-// validation, so all carry GEV_REQUEST_INVALID.
+// validation, so all carry JEQ_REQUEST_INVALID.
 var (
 	ruleWellformed = Rule{
 		Name:     "json_wellformed",

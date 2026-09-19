@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 type streamRenderer struct{}
@@ -24,7 +24,7 @@ func (streamRenderer) RenderSuccess(w io.Writer, response contract.Response) err
 	return err
 }
 
-func (streamRenderer) RenderError(w io.Writer, err *gev.Error) error {
+func (streamRenderer) RenderError(w io.Writer, err *jeq.Error) error {
 	return json.NewEncoder(w).Encode(map[string]any{"code": err.Code, "message": err.Message, "recovery": err.Recovery})
 }
 
@@ -47,7 +47,7 @@ type streamClient struct {
 	requests []contract.Request
 }
 
-func (c *streamClient) Evaluate(_ context.Context, request contract.Request) (contract.Response, *gev.Error) {
+func (c *streamClient) Evaluate(_ context.Context, request contract.Request) (contract.Response, *jeq.Error) {
 	c.calls++
 	c.requests = append(c.requests, request)
 	return contract.Response{Model: "m", Answers: map[string]contract.Answer{}, Usage: contract.Usage{}}, nil
@@ -56,8 +56,8 @@ func (c *streamClient) Evaluate(_ context.Context, request contract.Request) (co
 func streamDeps(client *streamClient, input string, questions string) (AskDeps, *bytes.Buffer) {
 	stdin := bytes.NewBufferString(input)
 	return AskDeps{
-		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) { return stdin.Bytes(), nil },
-		ReadFile:  func(_ string, _ int64) ([]byte, *gev.Error) { return []byte(questions), nil },
+		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) { return stdin.Bytes(), nil },
+		ReadFile:  func(_ string, _ int64) ([]byte, *jeq.Error) { return []byte(questions), nil },
 		NewClient: func(string, time.Duration, string, int, func(string)) APIClient { return client },
 		Getenv: func(key string) string {
 			if key == "TYPESAFE_API_KEY" {
@@ -113,7 +113,7 @@ not-json
 `, `{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`)
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"map", "--as", "route", "--input", "ndjson", "--questions", "questions.json", "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 2 || client.calls != 1 || !strings.Contains(stderr.String(), "GEV_REQUEST_INVALID") || strings.Contains(out.String(), `"code"`) {
+	if code != 2 || client.calls != 1 || !strings.Contains(stderr.String(), "JEQ_REQUEST_INVALID") || strings.Contains(out.String(), `"code"`) {
 		t.Fatalf("code=%d calls=%d out=%q stderr=%q", code, client.calls, out.String(), stderr.String())
 	}
 }

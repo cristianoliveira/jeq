@@ -10,7 +10,7 @@ tags: []
 # Contract types with strict JSON decode
 
 ## Problem
-gev must accept the full System One document without losing unknown server fields and without duplicate-key ambiguity.
+jeq must accept the full System One document without losing unknown server fields and without duplicate-key ambiguity.
 
 ## Context
 (Optional: approach, links, related tasks.)
@@ -20,7 +20,7 @@ gev must accept the full System One document without losing unknown server field
 - [ ] Duplicate JSON keys rejected (not last-wins); invalid JSON and non-UTF-8 rejected.
 - [ ] Unknown fields preserved byte-semantically through decode→encode in BOTH native and composed modes (OQ-1 resolved: passthrough wins; strictness applies to duplicate keys and known-field types only — unknown fields never rejected).
 - [ ] Known-field type mismatches produce stable codes naming the field path.
-- [ ] Response decode is tolerant: unknown server fields survive; missing known fields classify as GEV_RESPONSE_INVALID.
+- [ ] Response decode is tolerant: unknown server fields survive; missing known fields classify as JEQ_RESPONSE_INVALID.
 - [ ] Round-trip property tests: fixture documents decode→encode to semantically identical JSON.
 
 ## Notes

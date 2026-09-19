@@ -1,4 +1,4 @@
-package gev_test
+package jeq_test
 
 import (
 	"flag"
@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
-// Regenerate with: nix develop -c go test ./internal/domain/gev -run Golden -update
+// Regenerate with: nix develop -c go test ./internal/domain/jeq -run Golden -update
 var updateGolden = flag.Bool("update", false, "regenerate golden fixtures")
 
 // TestErrorCodesGoldenSnapshot fails on any registry add, remove, or rename.
@@ -19,7 +19,7 @@ func TestErrorCodesGoldenSnapshot(t *testing.T) {
 	golden := filepath.Join("..", "..", "fixtures", "contract", "error_codes.golden")
 
 	var b strings.Builder
-	for _, code := range gev.Codes() {
+	for _, code := range jeq.Codes() {
 		b.WriteString(string(code))
 		b.WriteString("\n")
 	}

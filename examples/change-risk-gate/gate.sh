@@ -3,23 +3,23 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-GEV_BIN=${GEV_BIN:-gev}
-GEV_MODEL=${GEV_MODEL:-jev-latest}
-GEV_BASE_URL=${GEV_BASE_URL:-}
+JEQ_BIN=${JEQ_BIN:-jeq}
+JEQ_MODEL=${JEQ_MODEL:-jev-latest}
+JEQ_BASE_URL=${JEQ_BASE_URL:-}
 PASS_MIN=0.80
 REVIEW_MAX=0.30
-TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gev-gate.XXXXXX")
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/jeq-gate.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-GEV_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$GEV_MODEL")
-if [[ -n "$GEV_BASE_URL" ]]; then
-  GEV_ARGS+=(--base-url "$GEV_BASE_URL")
+JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$JEQ_MODEL")
+if [[ -n "$JEQ_BASE_URL" ]]; then
+  JEQ_ARGS+=(--base-url "$JEQ_BASE_URL")
 fi
 
-run_gev() {
+run_jeq() {
   local state_json=$1
   local status
-  if printf '%s\n' "$state_json" | "$GEV_BIN" "${GEV_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
+  if printf '%s\n' "$state_json" | "$JEQ_BIN" "${JEQ_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
     status=0
   else
     status=$?
@@ -30,7 +30,7 @@ run_gev() {
 }
 
 diff_json=$(jq -Rs .)
-if response=$(run_gev "$diff_json"); then
+if response=$(run_jeq "$diff_json"); then
   :
 else
   status=$?
@@ -43,7 +43,7 @@ if ! safe_to_ship=$(jq -er '
   .answers.safe_to_ship.noul as $value |
   if (($value | type) == "number" and $value >= 0 and $value <= 1) then $value else empty end
 ' <<<"$response" 2>/dev/null); then
-  jq -cn --arg model "$GEV_MODEL" --argjson usage "$usage_json" --argjson pass_min "$PASS_MIN" --argjson review_max "$REVIEW_MAX" '{workflow:"change-risk-gate",status:"uncertain",reason:"missing_or_invalid_safe_to_ship_signal",model:$model,usage:$usage,thresholds:{pass_min:$pass_min,review_or_block_max:$review_max}}'
+  jq -cn --arg model "$JEQ_MODEL" --argjson usage "$usage_json" --argjson pass_min "$PASS_MIN" --argjson review_max "$REVIEW_MAX" '{workflow:"change-risk-gate",status:"uncertain",reason:"missing_or_invalid_safe_to_ship_signal",model:$model,usage:$usage,thresholds:{pass_min:$pass_min,review_or_block_max:$review_max}}'
   exit 11
 fi
 
@@ -60,7 +60,7 @@ esac
 jq -cn \
   --arg status "$policy_status" \
   --argjson safe "$safe_to_ship" \
-  --arg model "$GEV_MODEL" \
+  --arg model "$JEQ_MODEL" \
   --argjson usage "$usage_json" \
   --argjson pass_min "$PASS_MIN" \
   --argjson review_max "$REVIEW_MAX" \

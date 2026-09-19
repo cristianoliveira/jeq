@@ -1,4 +1,4 @@
-# Live `gev` final verification (TASK-0019)
+# Live `jeq` final verification (TASK-0019)
 
 Status: final paid production verification at the candidate release commit. No code, plans, dependencies, or builds changed during this run; nothing committed. Live evidence under `.tmp/release/` (git-ignored).
 Candidate commit: **fe6d34e6cdad13790cbc1d3286a6b8c2044a1e9d** ("plans(doing): TASK-0019 final paid production verification to Kelly"). Tree clean at start and end.
@@ -8,13 +8,13 @@ Toolchain: **go1.26.0 darwin/arm64** (Darwin 25.6.0, Apple silicon).
 
 | Run | Result |
 | --- | --- |
-| A — no-arg `gev` (offline home) | **PASS** |
-| B — `gev version` with injected linker values | **PASS** |
-| C — `gev models` (real production) | **PASS** |
-| D — `gev validate` with `TYPESAFE_API_KEY` removed (offline proof) | **PASS** |
-| E — `gev ask --request` (default JSON, no `--output`) | **PASS** |
-| F — `gev ask --request --output json` (same request) | **PASS** |
-| G — invalid-key ask, isolated child process → `GEV_AUTH_REJECTED` | **PASS** |
+| A — no-arg `jeq` (offline home) | **PASS** |
+| B — `jeq version` with injected linker values | **PASS** |
+| C — `jeq models` (real production) | **PASS** |
+| D — `jeq validate` with `TYPESAFE_API_KEY` removed (offline proof) | **PASS** |
+| E — `jeq ask --request` (default JSON, no `--output`) | **PASS** |
+| F — `jeq ask --request --output json` (same request) | **PASS** |
+| G — invalid-key ask, isolated child process → `JEQ_AUTH_REJECTED` | **PASS** |
 | Default-vs-explicit JSON structural contract | **PASS** |
 | Secret-leak scan over all raw captures | **PASS** (overall clean) |
 | Gate at candidate commit (`nix develop -c make check`) | **PASS** |
@@ -23,7 +23,7 @@ Toolchain: **go1.26.0 darwin/arm64** (Darwin 25.6.0, Apple silicon).
 
 ## Tooling
 
-- Binary: built from candidate commit with `go build -trimpath -ldflags "-X .../cli.Version=v1.0.0-rc1 -X .../cli.Commit=fe6d34e6cdad13790cbc1d3286a6b8c2044a1e9d" -o /tmp/gev-release ./cmd/gev`. SHA-256 `96fe50462b3b49300c2a71f4fec2ae2545cc4f668bfe13a7fd947dd257f76a2e` · 9 511 474 bytes.
+- Binary: built from candidate commit with `go build -trimpath -ldflags "-X .../cli.Version=v1.0.0-rc1 -X .../cli.Commit=fe6d34e6cdad13790cbc1d3286a6b8c2044a1e9d" -o /tmp/jeq-release ./cmd/jeq`. SHA-256 `96fe50462b3b49300c2a71f4fec2ae2545cc4f668bfe13a7fd947dd257f76a2e` · 9 511 474 bytes.
 - All seven runs drive the compiled binary directly; the captured raw outputs live under `.tmp/release/raw/`.
 - Cost basis: `$42 per Btok input`, output free (`https://docs.typesafe.ai/models`, retrieved 2026-09-19).
 
@@ -33,9 +33,9 @@ Toolchain: **go1.26.0 darwin/arm64** (Darwin 25.6.0, Apple silicon).
 
 ```
 $ unset TYPESAFE_API_KEY TYPESAFE_BASE_URL TYPESAFE_DEFAULT_MODEL
-$ /tmp/gev-release >o.txt 2>e.txt
+$ /tmp/jeq-release >o.txt 2>e.txt
 exit=0  lines=1  trailing-newline=\n  valid-json=yes  stderr=[]
-identity,credential_ready,default_model = gev,false,jev-latest
+identity,credential_ready,default_model = jeq,false,jev-latest
 commands = ask,models,validate,version,help
 no-secret-leaked: confirmed
 ```
@@ -43,30 +43,30 @@ no-secret-leaked: confirmed
 ### B — version (linker-injected values surface)
 
 ```
-$ /tmp/gev-release version >o.txt 2>e.txt
+$ /tmp/jeq-release version >o.txt 2>e.txt
 exit=0  lines=1  trailing-newline=\n  valid-json=yes  stderr=[]
-name,version,commit = gev,v1.0.0-rc1,fe6d34e6cdad13790cbc1d3286a6b8c2044a1e9d
+name,version,commit = jeq,v1.0.0-rc1,fe6d34e6cdad13790cbc1d3286a6b8c2044a1e9d
 ```
 
-### C — `gev models` (real production)
+### C — `jeq models` (real production)
 
 ```
-$ /tmp/gev-release models >o.txt 2>e.txt
+$ /tmp/jeq-release models >o.txt 2>e.txt
 exit=0  lines=1  trailing-newline=\n  valid-json=yes  stderr=[]
 models_count=2  model_names=jev-latest,jev-preview
 ```
 
-### D — `gev validate` with `TYPESAFE_API_KEY` removed (offline)
+### D — `jeq validate` with `TYPESAFE_API_KEY` removed (offline)
 
 ```
 $ unset TYPESAFE_API_KEY TYPESAFE_BASE_URL TYPESAFE_DEFAULT_MODEL
-$ /tmp/gev-release validate --questions q.json --state-json sj.json --model jev-latest >o.txt 2>e.txt
+$ /tmp/jeq-release validate --questions q.json --state-json sj.json --model jev-latest >o.txt 2>e.txt
 exit=0  stderr=[]
 valid=true, mode=composed, model=jev-latest, question_count=3
 state-leaked=0 (must be 0)   secret-leaked=0 (must be 0)
 ```
 
-### E — `gev ask` default output (no `--output`) — native mode, pinned jev-1.13.0
+### E — `jeq ask` default output (no `--output`) — native mode, pinned jev-1.13.0
 
 ```
 exit=0  lines=1  trailing-newline=\n  valid-json=yes  stderr=[]
@@ -80,7 +80,7 @@ score_value_in_range = true (0.95 ∈ [0, 2])
 score_legend_levels = 3
 ```
 
-### F — `gev ask … --output json` (same request) — structural contract preserved
+### F — `jeq ask … --output json` (same request) — structural contract preserved
 
 ```
 exit=0  lines=1  trailing-newline=\n  valid-json=yes  stderr=[]
@@ -105,14 +105,14 @@ Per-answer probability values naturally differ across the two calls (same model,
 ```
 $ ( export TYPESAFE_API_KEY=intentionally-bogus-key-12345 \
     TYPESAFE_BASE_URL=http://127.0.0.1:18202; \
-    /tmp/gev-release ask --request shared.json >o.txt 2>e.txt )
+    /tmp/jeq-release ask --request shared.json >o.txt 2>e.txt )
 exit=1  stderr=[]
-stdout = {"code":"GEV_AUTH_REJECTED",
+stdout = {"code":"JEQ_AUTH_REJECTED",
           "message":"the server rejected the credential: unauthorized",
           "recovery":"check TYPESAFE_API_KEY; it is missing, revoked, or mistyped"}
 ```
 
-The bogus key never reached this shell's environment. The fake server returned `{message:"unauthorized"}`; gev extracted only that string into the sanitized message field — no raw response body leak, no stack trace, no credential value, no transport prose. Exit 1, exact code, structured doc.
+The bogus key never reached this shell's environment. The fake server returned `{message:"unauthorized"}`; jeq extracted only that string into the sanitized message field — no raw response body leak, no stack trace, no credential value, no transport prose. Exit 1, exact code, structured doc.
 
 ## Total spend
 

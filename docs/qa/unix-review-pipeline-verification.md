@@ -6,7 +6,7 @@ Verdict: PASS (0 blockers)
 
 ## Deterministic contract
 
-- The script visibly composes record emission, `gev map`, `jq`, `gev reduce`, `gev gate`, and a safe final `jq` projection.
+- The script visibly composes record emission, `jeq map`, `jq`, `jeq reduce`, `jeq gate`, and a safe final `jq` projection.
 - All files are preflighted before the first API request.
 - Two ordered fixture files produce exactly two map requests and one reduce request.
 - Map receives exact `{path,content}` state. Reduce receives only `{file:{path,content},local_focus}` per item.

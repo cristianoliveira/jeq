@@ -1,1 +1,1 @@
-{"code":"GEV_INPUT_INVALID","message":"unknown command \"totally-fake\"","recovery":"run 'gev --help' for the command list"}
+{"code":"JEQ_INPUT_INVALID","message":"unknown command \"totally-fake\"","recovery":"run 'jeq --help' for the command list"}

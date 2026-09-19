@@ -10,7 +10,7 @@ tags: []
 # Capture paid live TypeSafe API baseline
 
 ## Problem
-Mock servers prove gev behavior but not the real TypeSafe authentication, endpoint, response schema, model resolution, or usage accounting.
+Mock servers prove jeq behavior but not the real TypeSafe authentication, endpoint, response schema, model resolution, or usage accounting.
 
 ## Context
 (Optional: approach, links, related tasks.)

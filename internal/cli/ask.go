@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/spf13/cobra"
 )
 
@@ -27,16 +27,16 @@ const (
 
 // APIClient is the narrow outbound port used by ask.
 type APIClient interface {
-	Evaluate(context.Context, contract.Request) (contract.Response, *gev.Error)
+	Evaluate(context.Context, contract.Request) (contract.Response, *jeq.Error)
 }
 
 // AskDeps contains every side effect ask needs. The composition root supplies
 // production adapters; tests supply bounded readers and an httptest-backed
 // client. This keeps source I/O and HTTP out of the shell policy.
 type AskDeps struct {
-	ReadFile         func(path string, limit int64) ([]byte, *gev.Error)
-	ReadOptionalFile func(path string, limit int64) ([]byte, *gev.Error, bool)
-	ReadStdin        func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *gev.Error)
+	ReadFile         func(path string, limit int64) ([]byte, *jeq.Error)
+	ReadOptionalFile func(path string, limit int64) ([]byte, *jeq.Error, bool)
+	ReadStdin        func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *jeq.Error)
 	NewClient        func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
 	Getenv           func(string) string
 	Stdin            io.Reader
@@ -66,8 +66,8 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ask",
 		Short: "Send one System One request",
-		Example: `  gev ask --request request.json
-  gev examples ask-native`,
+		Example: `  jeq ask --request request.json
+  jeq examples ask-native`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,
@@ -99,24 +99,24 @@ type askFlags struct {
 }
 
 func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
-	sources := gev.Sources{
+	sources := jeq.Sources{
 		Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet,
 		StateFile: f.stateFileSet, StateJSON: f.stateJSONSet,
 	}
 	// These checks are deliberately before readers and before every env lookup.
-	if err := gev.CheckSources(sources); err != nil {
+	if err := jeq.CheckSources(sources); err != nil {
 		return askError(err)
 	}
-	if err := gev.CheckStdin(
+	if err := jeq.CheckStdin(
 		f.requestSet && f.request == "-", f.questionsSet && f.questions == "-",
 		(f.stateFileSet && f.stateFile == "-") || (f.stateJSONSet && f.stateJSON == "-")); err != nil {
 		return askError(err)
 	}
 
-	read := func(path string, forbidEmpty bool) ([]byte, *gev.Error) {
+	read := func(path string, forbidEmpty bool) ([]byte, *jeq.Error) {
 		if path == "-" {
 			if deps.Stdin == nil {
-				return nil, gev.NewError(gev.CodeInputInvalid, "stdin is unavailable; pipe the selected document").WithRecovery("provide an explicit file or stdin stream")
+				return nil, jeq.NewError(jeq.CodeInputInvalid, "stdin is unavailable; pipe the selected document").WithRecovery("provide an explicit file or stdin stream")
 			}
 			return deps.ReadStdin(deps.Stdin, SourceLimit, forbidEmpty)
 		}
@@ -124,8 +124,8 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	}
 
 	var requestDoc, questionsDoc []byte
-	var stateInput gev.StateInput
-	var err *gev.Error
+	var stateInput jeq.StateInput
+	var err *jeq.Error
 	if f.requestSet {
 		requestDoc, err = read(f.request, true)
 	} else {
@@ -133,15 +133,15 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 		if err == nil {
 			switch {
 			case f.stateSet:
-				stateInput = gev.StateInput{Kind: gev.SourceStateText, Text: f.state}
+				stateInput = jeq.StateInput{Kind: jeq.SourceStateText, Text: f.state}
 			case f.stateFileSet:
 				var data []byte
 				data, err = read(f.stateFile, true)
-				stateInput = gev.StateInput{Kind: gev.SourceStateText, Text: string(data)}
+				stateInput = jeq.StateInput{Kind: jeq.SourceStateText, Text: string(data)}
 			case f.stateJSONSet:
 				var data []byte
 				data, err = read(f.stateJSON, true)
-				stateInput = gev.StateInput{Kind: gev.SourceStateJSON, JSON: data}
+				stateInput = jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: data}
 			}
 		}
 	}
@@ -153,7 +153,7 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if !f.requestSet {
 		resolvedModel = ResolveModel(f.model, deps.Getenv)
 	}
-	req, composeErr := gev.Compose(gev.ComposeInput{
+	req, composeErr := jeq.Compose(jeq.ComposeInput{
 		RequestDoc: requestDoc, QuestionsDoc: questionsDoc, State: stateInput, Model: resolvedModel,
 	})
 	if composeErr != nil {
@@ -163,20 +163,20 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	// Validate local configuration before credential lookup and client creation.
 	// This keeps malformed flags in the usage class and never starts I/O.
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
-		return gev.NewError(gev.CodeInputInvalid,
+		return jeq.NewError(jeq.CodeInputInvalid,
 			fmt.Sprintf("--max-retries must be between 0 and %d, got %d", MaxRetriesLimit, f.maxRetries)).WithRecovery("set --max-retries to an integer from 0 through 5")
 	}
 	timeout, parseErr := time.ParseDuration(f.timeout)
 	if parseErr != nil || timeout <= 0 {
-		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", f.timeout)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", f.timeout)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
 	}
 	if f.baseURLSet && strings.TrimSpace(f.baseURL) == "" {
-		return gev.NewError(gev.CodeInputInvalid, "--base-url cannot be empty").WithRecovery("set --base-url to an API root URL")
+		return jeq.NewError(jeq.CodeInputInvalid, "--base-url cannot be empty").WithRecovery("set --base-url to an API root URL")
 	}
 
 	apiKey := deps.Getenv("TYPESAFE_API_KEY")
 	if strings.TrimSpace(apiKey) == "" {
-		return gev.NewError(gev.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 	}
 	rootURL := f.baseURL
 	if !f.baseURLSet {
@@ -194,14 +194,14 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	}
 	if deps.Renderer != nil {
 		if err := deps.Renderer.RenderSuccess(cmd.OutOrStdout(), resp); err != nil {
-			return askError(gev.WrapError(gev.CodeResponseInvalid, err, "rendering success document").WithRecovery("retry the request; if it persists, report the renderer failure"))
+			return askError(jeq.WrapError(jeq.CodeResponseInvalid, err, "rendering success document").WithRecovery("retry the request; if it persists, report the renderer failure"))
 		}
 		return nil
 	}
-	return gev.NewError(gev.CodeResponseInvalid, "no output renderer configured").WithRecovery("run gev through its standard composition root")
+	return jeq.NewError(jeq.CodeResponseInvalid, "no output renderer configured").WithRecovery("run jeq through its standard composition root")
 }
 
-func askError(err *gev.Error) *gev.Error {
+func askError(err *jeq.Error) *jeq.Error {
 	if err == nil || err.Recovery != "" {
 		return err
 	}

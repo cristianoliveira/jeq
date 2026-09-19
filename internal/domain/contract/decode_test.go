@@ -8,66 +8,66 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
 )
 
 func TestDecodeRequestStrict(t *testing.T) {
 	tests := []struct {
 		name     string
 		doc      string
-		wantCode gev.Code
+		wantCode jeq.Code
 	}{
 		{
 			name:     "truncated document is rejected",
 			doc:      `{"state":"a","model"`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "trailing comma is rejected",
 			doc:      `{"state":"a","model":"m","questions":{},}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "duplicate top-level key is rejected, not last-wins",
 			doc:      `{"state":"a","state":"b","model":"m","questions":{"q":{"type":"noul","instructions":"i"}}}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "duplicate nested key is rejected",
 			doc:      `{"state":"a","model":"m","questions":{"q":{"type":"noul","instructions":"i","instructions":"j"}}}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "UTF-8 BOM is rejected",
 			doc:      "\xEF\xBB\xBF{\"state\":\"a\"}",
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "invalid UTF-8 is rejected",
 			doc:      "{\"state\":\"\xff\xfe\"}",
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "known-field type mismatch",
 			doc:      `{"state":"s","model":"m","questions":{"f":{"type":"score","instructions":"rate it","criteria":"Calm"}}}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "model as number is a type mismatch",
 			doc:      `{"state":"s","model":7,"questions":{"q":{"type":"noul","instructions":"i"}}}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "questions as array is a type mismatch",
 			doc:      `{"state":"s","model":"m","questions":[]}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 		{
 			name:     "trailing data after the document is rejected",
 			doc:      `{"state":"a","model":"m","questions":{}} {"x":1}`,
-			wantCode: gev.CodeRequestInvalid,
+			wantCode: jeq.CodeRequestInvalid,
 		},
 	}
 
@@ -193,8 +193,8 @@ func TestDecodeResponseMissingKnownFieldIsResponseInvalid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := contract.DecodeResponse([]byte(tt.doc))
-			if err == nil || err.Code != gev.CodeResponseInvalid {
-				t.Errorf("expected %q, got %v", gev.CodeResponseInvalid, err)
+			if err == nil || err.Code != jeq.CodeResponseInvalid {
+				t.Errorf("expected %q, got %v", jeq.CodeResponseInvalid, err)
 			}
 		})
 	}

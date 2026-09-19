@@ -81,14 +81,14 @@ Build reproducible, CGO-free release candidates for every supported target:
 for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
   GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 \
     go build -trimpath \
-      -ldflags "-X github.com/cristianoliveira/gev/internal/cli.Version=$VERSION \
-                -X github.com/cristianoliveira/gev/internal/cli.Commit=$COMMIT" \
-      -o "dist/gev-${target%/*}-${target#*/}" ./cmd/gev
+      -ldflags "-X github.com/cristianoliveira/jeq/internal/cli.Version=$VERSION \
+                -X github.com/cristianoliveira/jeq/internal/cli.Commit=$COMMIT" \
+      -o "dist/jeq-${target%/*}-${target#*/}" ./cmd/jeq
 done
 ```
 
 Confirm every artifact is non-empty. Run the host-compatible artifact with
-`gev version` and verify the injected version and commit. Keep artifacts outside
+`jeq version` and verify the injected version and commit. Keep artifacts outside
 the repository or remove them before committing.
 
 Run the final gate from the clean committed tree. Inspect tracked files and the

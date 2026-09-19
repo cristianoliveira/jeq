@@ -17,7 +17,7 @@ Unknown commands currently exit 2 with empty stdout and stderr, so an agent cann
 
 ## Acceptance criteria
 - [ ] Unknown command and unknown flag exit 2 and emit exactly one structured error document to stdout with one trailing newline.
-- [ ] Document carries `GEV_INPUT_INVALID`, a safe message, and a recovery value naming valid commands/flags or the closest deterministic alternative.
+- [ ] Document carries `JEQ_INPUT_INVALID`, a safe message, and a recovery value naming valid commands/flags or the closest deterministic alternative.
 - [ ] No raw Cobra prose or duplicate diagnostics leak to stderr; help remains exit 0.
 - [ ] Renderer is injected; cli does not import infra/render (ADR 0002 arrow stays green).
 - [ ] Golden tests cover unknown command, unknown flag, misspelled command suggestion, and help.

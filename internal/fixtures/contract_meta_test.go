@@ -3,9 +3,9 @@ package fixtures_test
 import (
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
 )
 
 // TestFixtureCodeCoverage is the D1-14 meta-test: every failing fixture in
@@ -18,7 +18,7 @@ func TestFixtureCodeCoverage(t *testing.T) {
 	}
 
 	registered := map[string]bool{}
-	for _, code := range gev.Codes() {
+	for _, code := range jeq.Codes() {
 		registered[string(code)] = true
 	}
 

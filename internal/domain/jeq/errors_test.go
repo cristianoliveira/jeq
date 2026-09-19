@@ -1,0 +1,134 @@
+package jeq_test
+
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"testing"
+
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+)
+
+func TestStableErrorCodes(t *testing.T) {
+	// Code values are the automation contract; they must never drift.
+	tests := []struct {
+		name string
+		code jeq.Code
+		want string
+	}{
+		{"auth missing", jeq.CodeAuthMissing, "JEQ_AUTH_MISSING"},
+		{"auth rejected", jeq.CodeAuthRejected, "JEQ_AUTH_REJECTED"},
+		{"request invalid", jeq.CodeRequestInvalid, "JEQ_REQUEST_INVALID"},
+		{"request rejected", jeq.CodeRequestRejected, "JEQ_REQUEST_REJECTED"},
+		{"source conflict", jeq.CodeSourceConflict, "JEQ_SOURCE_CONFLICT"},
+		{"input invalid", jeq.CodeInputInvalid, "JEQ_INPUT_INVALID"},
+		{"rate limited", jeq.CodeRateLimited, "JEQ_RATE_LIMITED"},
+		{"server error", jeq.CodeServerError, "JEQ_SERVER_ERROR"},
+		{"response invalid", jeq.CodeResponseInvalid, "JEQ_RESPONSE_INVALID"},
+		{"network error", jeq.CodeNetworkError, "JEQ_NETWORK_ERROR"},
+		{"timeout", jeq.CodeTimeout, "JEQ_TIMEOUT"},
+		{"interrupted", jeq.CodeInterrupted, "JEQ_INTERRUPTED"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if string(tt.code) != tt.want {
+				t.Errorf("code = %q, want %q", tt.code, tt.want)
+			}
+		})
+	}
+}
+
+func TestErrorCodeFormat(t *testing.T) {
+	// Locked format: JEQ_<AREA>_<REASON>, uppercase A-Z, 0-9, underscore only.
+	re := regexp.MustCompile(`^JEQ_[A-Z0-9_]+$`)
+
+	for _, code := range jeq.Codes() {
+		if !re.MatchString(string(code)) {
+			t.Errorf("code %q violates the locked JEQ_<AREA>_<REASON> format", code)
+		}
+	}
+}
+
+func TestCodesRegistry(t *testing.T) {
+	// The registry is exhaustive and ordered; nothing may be added or dropped silently.
+	want := []jeq.Code{
+		jeq.CodeAuthMissing,
+		jeq.CodeAuthRejected,
+		jeq.CodeRequestInvalid,
+		jeq.CodeRequestRejected,
+		jeq.CodeSourceConflict,
+		jeq.CodeInputInvalid,
+		jeq.CodeRateLimited,
+		jeq.CodeServerError,
+		jeq.CodeResponseInvalid,
+		jeq.CodeNetworkError,
+		jeq.CodeTimeout,
+		jeq.CodeInterrupted,
+	}
+
+	got := jeq.Codes()
+	if len(got) != len(want) {
+		t.Fatalf("Codes() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("Codes()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestErrorRendering(t *testing.T) {
+	tests := []struct {
+		name string
+		err  *jeq.Error
+		want string
+	}{
+		{
+			name: "coded error without cause",
+			err:  jeq.NewError(jeq.CodeInputInvalid, "question is required"),
+			want: "JEQ_INPUT_INVALID: question is required",
+		},
+		{
+			name: "coded error keeps the internal cause visible",
+			err:  jeq.WrapError(jeq.CodeSourceConflict, errors.New("two state sources"), "cannot merge"),
+			want: "JEQ_SOURCE_CONFLICT: cannot merge: two state sources",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.err.Error(); got != tt.want {
+				t.Errorf("Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestErrorUnwrapping(t *testing.T) {
+	cause := fmt.Errorf("connection refused")
+
+	t.Run("errors.As finds the coded error through wrapping", func(t *testing.T) {
+		wrapped := fmt.Errorf("ask: %w", jeq.NewError(jeq.CodeRateLimited, "slow down"))
+		var coded *jeq.Error
+		if !errors.As(wrapped, &coded) {
+			t.Fatal("errors.As did not find the coded error")
+		}
+		if coded.Code != jeq.CodeRateLimited {
+			t.Errorf("code = %q, want %q", coded.Code, jeq.CodeRateLimited)
+		}
+	})
+
+	t.Run("errors.Is finds the internal cause", func(t *testing.T) {
+		wrapped := jeq.WrapError(jeq.CodeRequestInvalid, cause, "bad payload")
+		if !errors.Is(wrapped, cause) {
+			t.Error("errors.Is did not find the internal cause")
+		}
+	})
+
+	t.Run("error without cause unwraps to nil", func(t *testing.T) {
+		if unwrapped := errors.Unwrap(jeq.NewError(jeq.CodeInputInvalid, "x")); unwrapped != nil {
+			t.Errorf("Unwrap() = %v, want nil", unwrapped)
+		}
+	})
+}

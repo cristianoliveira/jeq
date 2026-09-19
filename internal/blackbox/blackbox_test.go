@@ -22,7 +22,7 @@ import (
 
 var (
 	repoRoot string
-	gevBin   string
+	jeqBin   string
 )
 
 func TestMain(m *testing.M) {
@@ -32,14 +32,14 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	repoRoot = filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	temp, err := os.MkdirTemp("", "gev-blackbox-")
+	temp, err := os.MkdirTemp("", "jeq-blackbox-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	defer func() { _ = os.RemoveAll(temp) }()
-	gevBin = filepath.Join(temp, "gev")
-	build := exec.Command("go", "build", "-o", gevBin, "./cmd/gev")
+	jeqBin = filepath.Join(temp, "jeq")
+	build := exec.Command("go", "build", "-o", jeqBin, "./cmd/jeq")
 	build.Dir = repoRoot
 	build.Stdout = os.Stdout
 	build.Stderr = os.Stderr
@@ -61,7 +61,7 @@ func runBinary(t *testing.T, stdin string, env map[string]string, args ...string
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, gevBin, args...)
+	cmd := exec.CommandContext(ctx, jeqBin, args...)
 	cmd.Dir = repoRoot
 	cmd.Env = mergedEnv(env)
 	cmd.Stdin = strings.NewReader(stdin)
@@ -452,7 +452,7 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(gevBin, "ask", "--request", requestPath, "--base-url", api.server.URL, "--timeout", "10s")
+	cmd := exec.Command(jeqBin, "ask", "--request", requestPath, "--base-url", api.server.URL, "--timeout", "10s")
 	cmd.Dir = repoRoot
 	cmd.Env = mergedEnv(map[string]string{"TYPESAFE_API_KEY": "interrupt-secret"})
 	var stdout, stderr bytes.Buffer
@@ -477,7 +477,7 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 		if code := exitCode(cmd, err); code != 130 {
 			t.Fatalf("interrupt exit=%d want=130 stdout=%q stderr=%q err=%v", code, stdout.String(), stderr.String(), err)
 		}
-		if stdout.Len() != 0 || !strings.Contains(stderr.String(), "GEV_INTERRUPTED") || strings.Contains(stderr.String(), "interrupt-secret") {
+		if stdout.Len() != 0 || !strings.Contains(stderr.String(), "JEQ_INTERRUPTED") || strings.Contains(stderr.String(), "interrupt-secret") {
 			t.Fatalf("interrupt output stdout=%q stderr=%q", stdout.String(), stderr.String())
 		}
 	case <-time.After(2 * time.Second):

@@ -5,7 +5,7 @@
 
 ## Context
 
-`gev` wraps external dependencies (Cobra, `net/http`, filesystem/stdin) around a stable center: the TypeSafe System One contract and gev's own input rules. We want an Onion-style dependency rule — external concerns point inward — but proportionate to a CLI.
+`jeq` wraps external dependencies (Cobra, `net/http`, filesystem/stdin) around a stable center: the TypeSafe System One contract and jeq's own input rules. We want an Onion-style dependency rule — external concerns point inward — but proportionate to a CLI.
 
 An application/use-case layer was rejected during review: in a CLI, the command is the use case. A separate layer would only relay flags to ports.
 
@@ -14,7 +14,7 @@ An application/use-case layer was rejected during review: in a CLI, the command 
 ### Three rings plus a composition root
 
 ```text
-cmd/gev → main            wiring only: builds adapters, injects into cli
+cmd/jeq → main            wiring only: builds adapters, injects into cli
 internal/cli              shell: Cobra commands, flags, exit mapping
 internal/infra            adapters: each wraps exactly one external dependency
 internal/domain           center: pure Go, standard library only
@@ -26,7 +26,7 @@ internal/domain           center: pure Go, standard library only
 internal/
 ├── domain/
 │   ├── contract/          TypeSafe language: request, response, decode, validate
-│   └── gev/               gev rules: ask modes, source matrix, compose, error codes, formats
+│   └── jeq/               jeq rules: ask modes, source matrix, compose, error codes, formats
 ├── infra/
 │   ├── typesafeapi/       net/http client, bearer auth, bounded retries
 │   ├── render/            deterministic JSON writer
@@ -46,7 +46,7 @@ cli    → domain
 main   → cli + infra
 ```
 
-No package imports `cmd/gev`. Infra never imports cli. Cycles are forbidden.
+No package imports `cmd/jeq`. Infra never imports cli. Cycles are forbidden.
 
 ### Ports live with consumers
 
@@ -63,7 +63,7 @@ A command handler may only parse → call → map. Decisions (mode conflicts, va
 | Cobra | `internal/cli` |
 | `net/http`, retry logic | `internal/infra/typesafeapi` |
 | os/fs and stdin | `internal/infra/source` |
-| `os.Getenv` | `cmd/gev`, `internal/cli` |
+| `os.Getenv` | `cmd/jeq`, `internal/cli` |
 
 ### Enforcement
 
@@ -79,7 +79,7 @@ A command handler may only parse → call → map. Decisions (mode conflicts, va
 
 ## Consequences
 
-- The TypeSafe contract and gev rules evolve and test with no Cobra or HTTP present.
+- The TypeSafe contract and jeq rules evolve and test with no Cobra or HTTP present.
 - Each external dependency has one escape hatch; replacing the HTTP layer touches one package.
 - Ports add minor indirection; they are justified by the infra boundary and wiring, not mock ceremony.
 - Handler bloat is the main drift risk; the parse → call → map rule and lint enforcement guard it.

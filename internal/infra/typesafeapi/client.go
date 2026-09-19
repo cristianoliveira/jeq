@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 // Body bounds: normal replies may be large; error details are read only up
@@ -75,11 +75,11 @@ func New(baseURL string, httpc *http.Client, apiKey string) *Client {
 }
 
 // Evaluate posts one System One request and decodes the response tolerantly.
-func (c *Client) Evaluate(ctx context.Context, req contract.Request) (contract.Response, *gev.Error) {
+func (c *Client) Evaluate(ctx context.Context, req contract.Request) (contract.Response, *jeq.Error) {
 	body, err := req.Encode()
 	if err != nil {
-		return contract.Response{}, withRecovery(gev.WrapError(gev.CodeRequestInvalid, err, "encoding request"),
-			"report this as a gev bug; the document came from gev's own composer")
+		return contract.Response{}, withRecovery(jeq.WrapError(jeq.CodeRequestInvalid, err, "encoding request"),
+			"report this as a jeq bug; the document came from jeq's own composer")
 	}
 
 	raw, cerr := c.call(ctx, http.MethodPost, "/v1/systemone", body)
@@ -95,7 +95,7 @@ func (c *Client) Evaluate(ctx context.Context, req contract.Request) (contract.R
 }
 
 // Models fetches the account's model list.
-func (c *Client) Models(ctx context.Context) (contract.Models, *gev.Error) {
+func (c *Client) Models(ctx context.Context) (contract.Models, *jeq.Error) {
 	raw, cerr := c.call(ctx, http.MethodGet, "/v1/models", nil)
 	if cerr != nil {
 		return contract.Models{}, cerr
@@ -108,9 +108,9 @@ func (c *Client) Models(ctx context.Context) (contract.Models, *gev.Error) {
 	return models, nil
 }
 
-func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]byte, *gev.Error) {
+func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]byte, *jeq.Error) {
 	if c.APIKey == "" {
-		return nil, withRecovery(gev.NewError(gev.CodeAuthMissing, "TYPESAFE_API_KEY is not set"),
+		return nil, withRecovery(jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set"),
 			"export TYPESAFE_API_KEY with the account key")
 	}
 
@@ -140,7 +140,7 @@ func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]
 				sleep(wait)
 			}
 			if ctxErr := ctx.Err(); ctxErr != nil {
-				return nil, gev.WrapError(gev.CodeInterrupted, ctxErr, "interrupted while waiting to retry")
+				return nil, jeq.WrapError(jeq.CodeInterrupted, ctxErr, "interrupted while waiting to retry")
 			}
 			continue
 		}
@@ -151,14 +151,14 @@ func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]
 // attemptOnce performs exactly one HTTP exchange with bounded reads and an
 // always-closed body. Transport failures are never retried here: the caller
 // returns them immediately because a sent request may already have executed.
-func (c *Client) attemptOnce(ctx context.Context, method, path string, body []byte) (status int, header http.Header, raw []byte, cerr *gev.Error) {
+func (c *Client) attemptOnce(ctx context.Context, method, path string, body []byte) (status int, header http.Header, raw []byte, cerr *jeq.Error) {
 	var reader io.Reader
 	if body != nil {
 		reader = strings.NewReader(string(body))
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, reader)
 	if err != nil {
-		return 0, nil, nil, withRecovery(gev.WrapError(gev.CodeNetworkError, err, "building request"),
+		return 0, nil, nil, withRecovery(jeq.WrapError(jeq.CodeNetworkError, err, "building request"),
 			"check TYPESAFE_BASE_URL; it must be a valid API root")
 	}
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
@@ -172,7 +172,7 @@ func (c *Client) attemptOnce(ctx context.Context, method, path string, body []by
 		// already canceled at this point, so prefer it over the transport
 		// classification.
 		if ctxErr := ctx.Err(); errors.Is(ctxErr, context.Canceled) {
-			return 0, nil, nil, withRecovery(gev.WrapError(gev.CodeInterrupted, err, "request interrupted"),
+			return 0, nil, nil, withRecovery(jeq.WrapError(jeq.CodeInterrupted, err, "request interrupted"),
 				"rerun the command when ready")
 		}
 		return 0, nil, nil, c.transportError(err)
@@ -183,15 +183,15 @@ func (c *Client) attemptOnce(ctx context.Context, method, path string, body []by
 	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if readErr != nil {
 		if ctxErr := ctx.Err(); errors.Is(ctxErr, context.Canceled) {
-			return 0, nil, nil, withRecovery(gev.WrapError(gev.CodeInterrupted, readErr, "request interrupted"),
+			return 0, nil, nil, withRecovery(jeq.WrapError(jeq.CodeInterrupted, readErr, "request interrupted"),
 				"rerun the command when ready")
 		}
 		return 0, nil, nil, c.transportError(readErr)
 	}
 	if int64(len(raw)) > limit {
-		return 0, nil, nil, withRecovery(gev.NewError(gev.CodeResponseInvalid,
+		return 0, nil, nil, withRecovery(jeq.NewError(jeq.CodeResponseInvalid,
 			fmt.Sprintf("response body exceeds the %d byte safety bound", limit)),
-			"retry; if it persists, the server reply is too large for gev's safety bound")
+			"retry; if it persists, the server reply is too large for jeq's safety bound")
 	}
 	return resp.StatusCode, resp.Header, raw, nil
 }
@@ -242,46 +242,46 @@ func parseRetryAfter(v string, now time.Time, maxWait time.Duration) (time.Durat
 
 // classifyStatus maps every non-200 status to its stable code. Server detail
 // is sanitized: JSON message fields only, bounded, key material redacted.
-func classifyStatus(status int, body []byte, maxError int64, apiKey string) *gev.Error {
+func classifyStatus(status int, body []byte, maxError int64, apiKey string) *jeq.Error {
 	detail := sanitizeDetail(body, maxError, apiKey)
 
 	switch status {
 	case http.StatusUnauthorized:
-		e := gev.NewError(gev.CodeAuthRejected, "the server rejected the credential")
+		e := jeq.NewError(jeq.CodeAuthRejected, "the server rejected the credential")
 		e.Message = appendDetail(e.Message, detail)
 		return withRecovery(e, "check TYPESAFE_API_KEY; it is missing, revoked, or mistyped")
 	case http.StatusUnprocessableEntity:
-		e := gev.NewError(gev.CodeRequestRejected, "the server rejected request fields gev cannot check locally")
+		e := jeq.NewError(jeq.CodeRequestRejected, "the server rejected request fields jeq cannot check locally")
 		e.Message = appendDetail(e.Message, detail)
-		return withRecovery(e, "fix the field the server names and resubmit; gev validates only local rules")
+		return withRecovery(e, "fix the field the server names and resubmit; jeq validates only local rules")
 	case http.StatusTooManyRequests, 529:
-		e := gev.NewError(gev.CodeRateLimited, fmt.Sprintf("the server asked to slow down (status %d)", status))
+		e := jeq.NewError(jeq.CodeRateLimited, fmt.Sprintf("the server asked to slow down (status %d)", status))
 		e.Message = appendDetail(e.Message, detail)
 		return withRecovery(e, "retry after a delay; honor Retry-After when the server sends one")
 	}
 
 	if status >= 500 {
-		e := gev.NewError(gev.CodeServerError, fmt.Sprintf("server failure (status %d)", status))
+		e := jeq.NewError(jeq.CodeServerError, fmt.Sprintf("server failure (status %d)", status))
 		e.Message = appendDetail(e.Message, detail)
 		return withRecovery(e, "retry later; the failure is on the server side")
 	}
-	e := gev.NewError(gev.CodeResponseInvalid, fmt.Sprintf("unexpected status %d", status))
+	e := jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("unexpected status %d", status))
 	e.Message = appendDetail(e.Message, detail)
 	return withRecovery(e, "retry; if it persists the server behavior broke the contract")
 }
 
-func (c *Client) transportError(err error) *gev.Error {
+func (c *Client) transportError(err error) *jeq.Error {
 	if errors.Is(err, context.Canceled) {
-		return withRecovery(gev.WrapError(gev.CodeInterrupted, err, "request interrupted"),
+		return withRecovery(jeq.WrapError(jeq.CodeInterrupted, err, "request interrupted"),
 			"rerun the command when ready")
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() ||
 		errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrDeadlineExceeded) {
-		return withRecovery(gev.WrapError(gev.CodeTimeout, err, "the server did not answer in time"),
+		return withRecovery(jeq.WrapError(jeq.CodeTimeout, err, "the server did not answer in time"),
 			"increase --timeout or check connectivity")
 	}
-	return withRecovery(gev.WrapError(gev.CodeNetworkError, err, "request failed before a usable reply"),
+	return withRecovery(jeq.WrapError(jeq.CodeNetworkError, err, "request failed before a usable reply"),
 		"check network, DNS, TLS, and TYPESAFE_BASE_URL")
 }
 
@@ -324,6 +324,6 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-func withRecovery(e *gev.Error, recovery string) *gev.Error {
+func withRecovery(e *jeq.Error, recovery string) *jeq.Error {
 	return e.WithRecovery(recovery)
 }

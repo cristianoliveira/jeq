@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/cli"
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 type askRenderer struct {
 	response bool
-	err      *gev.Error
+	err      *jeq.Error
 }
 
 func (r *askRenderer) RenderSuccess(w io.Writer, resp contract.Response) error {
@@ -25,22 +25,22 @@ func (r *askRenderer) RenderSuccess(w io.Writer, resp contract.Response) error {
 	_, err := w.Write(append(b, '\n'))
 	return err
 }
-func (r *askRenderer) RenderError(_ io.Writer, e *gev.Error) error { r.err = e; return nil }
+func (r *askRenderer) RenderError(_ io.Writer, e *jeq.Error) error { r.err = e; return nil }
 
 type fakeClient struct {
 	request contract.Request
 	resp    contract.Response
-	err     *gev.Error
+	err     *jeq.Error
 	call    int
 }
 
-func (c *fakeClient) Evaluate(_ context.Context, req contract.Request) (contract.Response, *gev.Error) {
+func (c *fakeClient) Evaluate(_ context.Context, req contract.Request) (contract.Response, *jeq.Error) {
 	c.call++
 	c.request = req
 	return c.resp, c.err
 }
 
-func (c *fakeClient) Models(context.Context) (contract.Models, *gev.Error) {
+func (c *fakeClient) Models(context.Context) (contract.Models, *jeq.Error) {
 	return contract.Models{Models: []contract.ModelInfo{{Name: "jev-latest"}, {Name: "jev-preview"}}}, c.err
 }
 
@@ -49,13 +49,13 @@ func testDeps(t *testing.T, client *fakeClient, getenv func(string) string) (cli
 	var stdin bytes.Buffer
 	var reads int
 	deps := cli.AskDeps{
-		ReadFile: func(_ string, _ int64) ([]byte, *gev.Error) {
+		ReadFile: func(_ string, _ int64) ([]byte, *jeq.Error) {
 			reads++
 			return []byte(`{"questions":{"q":{"type":"noul","instructions":"i"}}}`), nil
 		},
-		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) {
+		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) {
 			reads++
-			return nil, gev.NewError(gev.CodeInputInvalid, "unexpected stdin")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "unexpected stdin")
 		},
 		NewClient: func(_ string, _ time.Duration, _ string, _ int, diagnostic func(string)) cli.APIClient {
 			_ = diagnostic
@@ -86,7 +86,7 @@ func TestAskNativeHappyPath(t *testing.T) {
 		}
 		return ""
 	})
-	deps.ReadFile = func(path string, _ int64) ([]byte, *gev.Error) {
+	deps.ReadFile = func(path string, _ int64) ([]byte, *jeq.Error) {
 		*reads++
 		if path != "native.json" {
 			t.Errorf("path = %q", path)
@@ -130,7 +130,7 @@ func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--request", "a", "--questions", "b"}, deps)
-	if code != 2 || renderer.err != nil || *reads != 0 || client.call != 0 || !strings.Contains(stderr, "GEV_SOURCE_CONFLICT") {
+	if code != 2 || renderer.err != nil || *reads != 0 || client.call != 0 || !strings.Contains(stderr, "JEQ_SOURCE_CONFLICT") {
 		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, *reads, client.call, stderr)
 	}
 }
@@ -139,7 +139,7 @@ func TestAskRejectsDualStdinBeforeRead(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "-", "--state-json", "-"}, deps)
-	if code != 2 || renderer.err != nil || !strings.Contains(stderr, "GEV_SOURCE_CONFLICT") || *reads != 0 {
+	if code != 2 || renderer.err != nil || !strings.Contains(stderr, "JEQ_SOURCE_CONFLICT") || *reads != 0 {
 		t.Fatalf("code=%d err=%v reads=%d", code, renderer.err, *reads)
 	}
 }
@@ -150,7 +150,7 @@ func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
 	created := false
 	deps.NewClient = func(string, time.Duration, string, int, func(string)) cli.APIClient { created = true; return client }
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "q", "--state", "s"}, deps)
-	if code != 1 || renderer.err != nil || !strings.Contains(stderr, "GEV_AUTH_MISSING") || created {
+	if code != 1 || renderer.err != nil || !strings.Contains(stderr, "JEQ_AUTH_MISSING") || created {
 		t.Fatalf("code=%d err=%v created=%v", code, renderer.err, created)
 	}
 }
@@ -200,7 +200,7 @@ func TestAskReadsExplicitStdinOnce(t *testing.T) {
 		}
 		return ""
 	})
-	deps.ReadStdin = func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) {
+	deps.ReadStdin = func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) {
 		*reads++
 		return []byte(`{"state":"s","model":"m","questions":{"q":{"type":"noul","instructions":"i"}}}`), nil
 	}
@@ -211,7 +211,7 @@ func TestAskReadsExplicitStdinOnce(t *testing.T) {
 }
 
 func TestAskFailureRendersStableDocumentAndRetryDiagnostics(t *testing.T) {
-	client := &fakeClient{err: gev.WrapError(gev.CodeRateLimited, errors.New("wrapped dependency secret"), "slow")}
+	client := &fakeClient{err: jeq.WrapError(jeq.CodeRateLimited, errors.New("wrapped dependency secret"), "slow")}
 	deps, _, _ := testDeps(t, client, func(key string) string {
 		if key == "TYPESAFE_API_KEY" {
 			return "secret"
@@ -221,7 +221,7 @@ func TestAskFailureRendersStableDocumentAndRetryDiagnostics(t *testing.T) {
 	var out, errOut bytes.Buffer
 	r := &askRenderer{}
 	code := cli.RunWithDeps([]string{"ask", "--questions", "q", "--state", "s"}, &out, &errOut, r, deps)
-	if code != 1 || r.err != nil || !strings.Contains(errOut.String(), "GEV_RATE_LIMITED") || strings.Contains(errOut.String(), "wrapped dependency secret") || out.Len() != 0 {
+	if code != 1 || r.err != nil || !strings.Contains(errOut.String(), "JEQ_RATE_LIMITED") || strings.Contains(errOut.String(), "wrapped dependency secret") || out.Len() != 0 {
 		t.Fatalf("code=%d err=%v stdout=%q", code, r.err, out.String())
 	}
 }

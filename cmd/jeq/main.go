@@ -1,4 +1,4 @@
-// Command gev is the agent-first CLI for TypeSafe System One.
+// Command jeq is the agent-first CLI for TypeSafe System One.
 // main is the composition root: it wires infra adapters into cli and runs.
 package main
 
@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/cli"
-	"github.com/cristianoliveira/gev/internal/infra/render"
-	"github.com/cristianoliveira/gev/internal/infra/source"
-	"github.com/cristianoliveira/gev/internal/infra/typesafeapi"
+	"github.com/cristianoliveira/jeq/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/infra/render"
+	"github.com/cristianoliveira/jeq/internal/infra/source"
+	"github.com/cristianoliveira/jeq/internal/infra/typesafeapi"
 )
 
 // The composition root keeps cli and infra wired together; this compile

@@ -13,7 +13,7 @@ Retest of fix `0ba21126368a69eae0e2905a3c0715eb82868c4c` (`fix: harden map and g
 - Focused regression tests passed:
   - `TestMapAndGateRejectUnsupportedOutputBeforeDependencies` (map and gate cases).
   - `TestHomeDiscoveryIncludesAvailableMapAndGate`.
-- Compiled binary: `nix develop -c go build -o /tmp/gev-task0024-fixed ./cmd/gev` passed.
+- Compiled binary: `nix develop -c go build -o /tmp/jeq-task0024-fixed ./cmd/jeq` passed.
 
 ### B1 — incident jq compatibility
 
@@ -42,11 +42,11 @@ Unknown catalog values are no longer silently filtered as an apparently successf
 Asserted the final request and receipts:
 
 ```text
-._gev.category.answers.category.choice == "technical"
+._jeq.category.answers.category.choice == "technical"
 .request.questions.runbook.instructions ==
   "Select the approved runbook for category technical"
-._gev.runbook.answers.runbook.choice == "technical-api-outage"
-._gev.incident_policy.decision == "pass"
+._jeq.runbook.answers.runbook.choice == "technical-api-outage"
+._jeq.incident_policy.decision == "pass"
 ```
 
 Result: **PASS**. The request now uses the actual category evidence path and does not produce `category unknown` for a recognized answer.
@@ -56,9 +56,9 @@ Result: **PASS**. The request now uses the actual category evidence path and doe
 Ran the compiled binary with `--output text` for both commands, using unavailable/missing dependencies to prove validation ordering:
 
 ```text
-gev map  --output text ... -> exit 2, GEV_INPUT_INVALID,
+jeq map  --output text ... -> exit 2, JEQ_INPUT_INVALID,
   unsupported output format "text"; reads/env/client calls: 0
-gev gate --output text ... -> exit 2, GEV_INPUT_INVALID,
+jeq gate --output text ... -> exit 2, JEQ_INPUT_INVALID,
   unsupported output format "text"; reads/env/client calls: 0
 ```
 

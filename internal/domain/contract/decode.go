@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev/codes"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq/codes"
 )
 
 // DecodeRequest parses a native request document strictly: valid UTF-8, no
@@ -146,7 +146,7 @@ func checkCriteriaJSON(raw json.RawMessage) *codes.Error {
 
 // DecodeResponse parses an evaluation response tolerantly: unknown server
 // fields survive; a missing or mistyped documented-required field classifies
-// as GEV_RESPONSE_INVALID.
+// as JEQ_RESPONSE_INVALID.
 func DecodeResponse(data []byte) (Response, *codes.Error) {
 	if err := scanDoc(data); err != nil {
 		return Response{}, codes.WrapError(codes.CodeResponseInvalid, err, "response document")
@@ -429,7 +429,7 @@ func answerErr(aerr *codes.Error, id string) *codes.Error {
 
 // CheckStateValue verifies a raw state value against the API shape:
 // string, object, or array, non-empty. Exported for composed mode, where
-// gev assembles the state from resolved sources.
+// jeq assembles the state from resolved sources.
 func CheckStateValue(raw json.RawMessage) *codes.Error {
 	return checkStateJSON(raw)
 }

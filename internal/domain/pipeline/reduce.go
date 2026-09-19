@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 // Reduce evaluates one bounded collection as one request and returns a stable
 // envelope. It is deliberately not an iterative fold: one input collection,
 // one request, one response.
-func Reduce(ctx context.Context, items []byte, name string, request contract.Request, evaluator Evaluator) ([]byte, *gev.Error) {
+func Reduce(ctx context.Context, items []byte, name string, request contract.Request, evaluator Evaluator) ([]byte, *jeq.Error) {
 	if err := validateName(name); err != nil {
 		return nil, inputError(err.Error())
 	}
@@ -44,19 +44,19 @@ func Reduce(ctx context.Context, items []byte, name string, request contract.Req
 	}
 	encoded, encodeErr := response.Encode()
 	if encodeErr != nil {
-		return nil, gev.WrapError(gev.CodeResponseInvalid, encodeErr, "encoding evaluator response")
+		return nil, jeq.WrapError(jeq.CodeResponseInvalid, encodeErr, "encoding evaluator response")
 	}
 	nameJSON, _ := json.Marshal(name)
 	var output bytes.Buffer
 	output.WriteString(`{"items":`)
 	output.Write(trimmed)
-	output.WriteString(`,"_gev":{`)
+	output.WriteString(`,"_jeq":{`)
 	output.Write(nameJSON)
 	output.WriteByte(':')
 	output.Write(encoded)
 	output.WriteString("}}")
 	if !json.Valid(output.Bytes()) {
-		return nil, gev.NewError(gev.CodeResponseInvalid, fmt.Sprintf("encoding reduce envelope %q", name))
+		return nil, jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("encoding reduce envelope %q", name))
 	}
 	return output.Bytes(), nil
 }

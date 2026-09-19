@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +21,8 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 	var request, questions, state, stateFile, stateJSON, model string
 	cmd := &cobra.Command{
 		Use: "validate", Short: "Validate one request without network access",
-		Example: `  gev validate --questions questions.json --state-json state.json
-  gev examples ask-native`,
+		Example: `  jeq validate --questions questions.json --state-json state.json
+  jeq examples ask-native`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			flags := askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON, model: model,
@@ -43,25 +43,25 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 }
 
 func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
-	sources := gev.Sources{Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet, StateFile: f.stateFileSet, StateJSON: f.stateJSONSet}
-	if err := gev.CheckSources(sources); err != nil {
+	sources := jeq.Sources{Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet, StateFile: f.stateFileSet, StateJSON: f.stateJSONSet}
+	if err := jeq.CheckSources(sources); err != nil {
 		return err
 	}
-	if err := gev.CheckStdin(f.requestSet && f.request == "-", f.questionsSet && f.questions == "-", (f.stateFileSet && f.stateFile == "-") || (f.stateJSONSet && f.stateJSON == "-")); err != nil {
+	if err := jeq.CheckStdin(f.requestSet && f.request == "-", f.questionsSet && f.questions == "-", (f.stateFileSet && f.stateFile == "-") || (f.stateJSONSet && f.stateJSON == "-")); err != nil {
 		return err
 	}
-	read := func(path string) ([]byte, *gev.Error) {
+	read := func(path string) ([]byte, *jeq.Error) {
 		if path == "-" {
 			if deps.Stdin == nil {
-				return nil, gev.NewError(gev.CodeInputInvalid, "stdin is unavailable").WithRecovery("provide an explicit file or stdin stream")
+				return nil, jeq.NewError(jeq.CodeInputInvalid, "stdin is unavailable").WithRecovery("provide an explicit file or stdin stream")
 			}
 			return deps.ReadStdin(deps.Stdin, SourceLimit, true)
 		}
 		return deps.ReadFile(path, SourceLimit)
 	}
 	var requestDoc, questionsDoc []byte
-	var stateInput gev.StateInput
-	var err *gev.Error
+	var stateInput jeq.StateInput
+	var err *jeq.Error
 	if f.requestSet {
 		requestDoc, err = read(f.request)
 	} else {
@@ -69,15 +69,15 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 		if err == nil {
 			switch {
 			case f.stateSet:
-				stateInput = gev.StateInput{Kind: gev.SourceStateText, Text: f.state}
+				stateInput = jeq.StateInput{Kind: jeq.SourceStateText, Text: f.state}
 			case f.stateFileSet:
 				var data []byte
 				data, err = read(f.stateFile)
-				stateInput = gev.StateInput{Kind: gev.SourceStateText, Text: string(data)}
+				stateInput = jeq.StateInput{Kind: jeq.SourceStateText, Text: string(data)}
 			case f.stateJSONSet:
 				var data []byte
 				data, err = read(f.stateJSON)
-				stateInput = gev.StateInput{Kind: gev.SourceStateJSON, JSON: data}
+				stateInput = jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: data}
 			}
 		}
 	}
@@ -88,7 +88,7 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if !f.requestSet {
 		resolvedModel = ResolveModel(f.model, deps.Getenv)
 	}
-	req, composeErr := gev.Compose(gev.ComposeInput{RequestDoc: requestDoc, QuestionsDoc: questionsDoc, State: stateInput, Model: resolvedModel})
+	req, composeErr := jeq.Compose(jeq.ComposeInput{RequestDoc: requestDoc, QuestionsDoc: questionsDoc, State: stateInput, Model: resolvedModel})
 	if composeErr != nil {
 		return composeErr
 	}
@@ -99,7 +99,7 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)}
 	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.QuestionCount)
 	if writeErr != nil {
-		return gev.WrapError(gev.CodeResponseInvalid, writeErr, "writing validation output")
+		return jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing validation output")
 	}
 	return nil
 }

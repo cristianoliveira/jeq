@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ func NewVersionCmdWithDeps(_ AskDeps) *cobra.Command {
 	return &cobra.Command{
 		Use: "version", Short: "Print build information",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			doc := versionDocument{Name: "gev", Version: Version, Commit: Commit}
+			doc := versionDocument{Name: "jeq", Version: Version, Commit: Commit}
 			return writeVersion(cmd.OutOrStdout(), doc)
 		},
 	}
@@ -44,11 +44,11 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			timeout, parseErr := time.ParseDuration(timeoutText)
 			if parseErr != nil || timeout <= 0 {
-				return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", timeoutText)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
+				return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", timeoutText)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
 			}
 			apiKey := deps.Getenv("TYPESAFE_API_KEY")
 			if strings.TrimSpace(apiKey) == "" {
-				return gev.NewError(gev.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
+				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 			}
 			if baseURL == "" {
 				baseURL = deps.Getenv("TYPESAFE_BASE_URL")
@@ -57,14 +57,14 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 				baseURL = DefaultBaseURL
 			}
 			if parsed, parseErr := url.Parse(baseURL); parseErr != nil || parsed.Scheme == "" || parsed.Host == "" {
-				return gev.NewError(gev.CodeInputInvalid, "--base-url must be an absolute URL").WithRecovery("set --base-url to an https:// or http:// API root")
+				return jeq.NewError(jeq.CodeInputInvalid, "--base-url must be an absolute URL").WithRecovery("set --base-url to an https:// or http:// API root")
 			}
 			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 			modelsClient, ok := client.(interface {
-				Models(context.Context) (contract.Models, *gev.Error)
+				Models(context.Context) (contract.Models, *jeq.Error)
 			})
 			if !ok {
-				return gev.NewError(gev.CodeResponseInvalid, "configured client cannot list models").WithRecovery("run gev through its standard composition root")
+				return jeq.NewError(jeq.CodeResponseInvalid, "configured client cannot list models").WithRecovery("run jeq through its standard composition root")
 			}
 			models, callErr := modelsClient.Models(cmd.Context())
 			if callErr != nil {

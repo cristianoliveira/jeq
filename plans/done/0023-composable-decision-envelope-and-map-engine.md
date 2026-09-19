@@ -13,12 +13,12 @@ tags: []
 Single-response commands force callers to discard or manually rejoin their input. A monolithic workflow would hide intermediate stages. Unix composition needs a stable record that survives each semantic transformation.
 
 ## Desired outcome
-One gev operation can enrich one JSON record with one named typed judgment, and its output can feed the same operation again without losing input data or previous evidence.
+One jeq operation can enrich one JSON record with one named typed judgment, and its output can feed the same operation again without losing input data or previous evidence.
 
 ## Acceptance criteria
 - [ ] ADR 0004 defines the composability law, envelope v1, collision/privacy policy, and why workflows are deferred until they can compile to visible primitives.
-- [ ] An envelope is a strict JSON object; arbitrary original members remain byte-semantically lossless, while gev appends one result at reserved `_gev.<name>`.
-- [ ] Names are bounded safe identifiers; existing `_gev.<name>` is rejected rather than overwritten; pre-existing `_gev` must be an object with strict duplicate-key handling.
+- [ ] An envelope is a strict JSON object; arbitrary original members remain byte-semantically lossless, while jeq appends one result at reserved `_jeq.<name>`.
+- [ ] Names are bounded safe identifiers; existing `_jeq.<name>` is rejected rather than overwritten; pre-existing `_jeq` must be an object with strict duplicate-key handling.
 - [ ] RFC 6901 JSON Pointer selects the state value from the original record. Missing/invalid pointers and unsupported root shapes fail locally before evaluator construction.
 - [ ] One injected evaluator receives a normal composed TypeSafe request and returns a typed response; the engine appends answers/model/usage without interpreting them or executing actions.
 - [ ] Transformation is deterministic, preserves unknown input/server fields and numeric precision, emits no credentials, and never uses model output as a path, command, or authority.

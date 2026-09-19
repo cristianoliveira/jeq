@@ -2,7 +2,7 @@
 
 Status: independent QA verification + one paid production run through the real Go client. No code or plans changed; nothing committed.
 Commits under test: **96718b7** (typesafeapi client), **c1da38c** (JSON renderer), **d8812e9** (source readers).
-Verification environment: detached worktree at d8812e9 (`git worktree add /tmp/gev-d2w1 d8812e9`), because the main tree carries uncommitted WIP for TASK-0020 (`internal/domain/contract/empty_state_test.go`, untracked) that currently **breaks the contract-package test build** (duplicate `ruleNames` declaration) — see Findings. The D2 commits themselves are clean on the committed tree: full suite green.
+Verification environment: detached worktree at d8812e9 (`git worktree add /tmp/jeq-d2w1 d8812e9`), because the main tree carries uncommitted WIP for TASK-0020 (`internal/domain/contract/empty_state_test.go`, untracked) that currently **breaks the contract-package test build** (duplicate `ruleNames` declaration) — see Findings. The D2 commits themselves are clean on the committed tree: full suite green.
 
 ## Result summary
 
@@ -31,7 +31,7 @@ Verification environment: detached worktree at d8812e9 (`git worktree add /tmp/g
 ### Local httptest suites (committed tree, d8812e9)
 
 ```
-$ go test ./internal/...  → all 9 packages ok (arch, cli, contract, gev, fixtures, render, source, typesafeapi)
+$ go test ./internal/...  → all 9 packages ok (arch, cli, contract, jeq, fixtures, render, source, typesafeapi)
 $ go test ./internal/infra/typesafeapi/... -v
   PASS TestEvaluateHitsSystemOneWithBearerAndContentType   PASS TestModelsHitsModelsWithBearer
   PASS TestMissingKeyFailsPreNetwork                       PASS TestStatusClassification
@@ -45,9 +45,9 @@ $ go test ./internal/infra/source/... -v    → 8/8 PASS (exact bytes within lim
 
 ### Code inspection (requested focus points)
 
-- **Body closure/bounds**: `defer resp.Body.Close()` on every path; success bodies read via `io.LimitReader(limit+1)` (8 MiB default) with deterministic oversize rejection (`GEV_RESPONSE_INVALID`); error bodies bounded to 64 KiB (`TestErrorBodyReadBounded`, `TestOversizeReplyRejected`).
+- **Body closure/bounds**: `defer resp.Body.Close()` on every path; success bodies read via `io.LimitReader(limit+1)` (8 MiB default) with deterministic oversize rejection (`JEQ_RESPONSE_INVALID`); error bodies bounded to 64 KiB (`TestErrorBodyReadBounded`, `TestOversizeReplyRejected`).
 - **Key redaction**: `sanitizeDetail` extracts only JSON `message`/`detail`/`error` string fields, truncates to 200 chars, and `strings.ReplaceAll(secret, "[redacted]")`; non-JSON error bodies produce **no** detail at all (`TestSecretNeverLeaksIntoErrors`). Error docs expose only code/message/recovery — cause unreachable from the renderer.
-- **Status classification**: 401→`GEV_AUTH_REJECTED` · 422→`GEV_REQUEST_REJECTED` (new registry code, golden updated in-commit — contract discipline held) · 429/529→`GEV_RATE_LIMITED` · ≥500→`GEV_SERVER_ERROR` · timeout→`GEV_TIMEOUT` · connect→`GEV_NETWORK_ERROR`. `exit.go` maps the new code to exit 1. Missing key fails **before request construction** (`TestMissingKeyFailsPreNetwork`, server count 0).
+- **Status classification**: 401→`JEQ_AUTH_REJECTED` · 422→`JEQ_REQUEST_REJECTED` (new registry code, golden updated in-commit — contract discipline held) · 429/529→`JEQ_RATE_LIMITED` · ≥500→`JEQ_SERVER_ERROR` · timeout→`JEQ_TIMEOUT` · connect→`JEQ_NETWORK_ERROR`. `exit.go` maps the new code to exit 1. Missing key fails **before request construction** (`TestMissingKeyFailsPreNetwork`, server count 0).
 - **Deterministic JSON + exact newline**: renderer writes the response's lossless self-encoding + exactly one `\n` (`TestRenderSuccessOneDocumentOneNewline`, `TestRenderSuccessIsDeterministic`, escaping test proves newlines inside strings can't split the document).
 - **Unknown-field round trip**: `TestRenderSuccessRoundTrips` over `response_unknown_fields.json` — extras survive decode→render.
 - **Source read/TTY/dual-stdin semantics**: `ReadStdin` fails fast **before any read** when `isTTY()` (never blocks), oversize bounded, empty forbidden; `ReadFile` distinguishes missing / unreadable / directory / empty / oversize with stable codes and named paths; directories detected pre-read. Dual-stdin ambiguity cannot arise: stdin is only read for explicit `-` (source matrix D1-9 governs flag conflicts).

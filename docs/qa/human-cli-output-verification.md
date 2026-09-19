@@ -31,7 +31,7 @@ From an empty home/config environment:
 - help used standard Cobra prose on stdout;
 - unknown `--output` exited 2 with `Error: unknown flag: --output` on stderr and empty stdout;
 - misspelled commands used Cobra's native suggestion;
-- coded failures used `Error: GEV_*` on stderr and did not expose wrapped causes or server-supplied secrets;
+- coded failures used `Error: JEQ_*` on stderr and did not expose wrapped causes or server-supplied secrets;
 - gate pass/reject/uncertain kept exits 0/10/11, JSON output, and empty stderr;
 - ask/map/reduce fake-endpoint successes remained parseable, lossless JSON/NDJSON.
 

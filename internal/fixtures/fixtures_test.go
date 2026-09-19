@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
 )
 
 func TestContractFixturesLoad(t *testing.T) {
@@ -24,8 +24,8 @@ func TestInvalidManifestParses(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, entry := range manifest {
-		if !strings.HasPrefix(entry.Code, "GEV_") {
-			t.Errorf("fixture %s: code %q is not a GEV code", entry.Fixture, entry.Code)
+		if !strings.HasPrefix(entry.Code, "JEQ_") {
+			t.Errorf("fixture %s: code %q is not a JEQ code", entry.Fixture, entry.Code)
 		}
 		if entry.Rule == "" {
 			t.Errorf("fixture %s: missing rule", entry.Fixture)

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 type questionSourceFlags struct {
@@ -22,17 +22,17 @@ func addQuestionSourceFlags(flags interface {
 	flags.StringVar(&source.inline, "questions-json", "", "inline questions document JSON")
 }
 
-func checkQuestionSource(source questionSourceFlags) *gev.Error {
+func checkQuestionSource(source questionSourceFlags) *jeq.Error {
 	if source.fileSet == source.inlineSet {
-		return gev.NewError(gev.CodeSourceConflict, "choose exactly one of --questions or --questions-json")
+		return jeq.NewError(jeq.CodeSourceConflict, "choose exactly one of --questions or --questions-json")
 	}
 	if source.fileSet && strings.TrimSpace(source.file) == "-" {
-		return gev.NewError(gev.CodeSourceConflict, "--questions cannot read stdin while input records use stdin")
+		return jeq.NewError(jeq.CodeSourceConflict, "--questions cannot read stdin while input records use stdin")
 	}
 	return nil
 }
 
-func readQuestionSource(deps AskDeps, source questionSourceFlags) (map[string]contract.Question, map[string]json.RawMessage, *gev.Error) {
+func readQuestionSource(deps AskDeps, source questionSourceFlags) (map[string]contract.Question, map[string]json.RawMessage, *jeq.Error) {
 	var document []byte
 	if source.fileSet {
 		data, err := deps.ReadFile(source.file, MapMaxRecordBytes)
@@ -42,7 +42,7 @@ func readQuestionSource(deps AskDeps, source questionSourceFlags) (map[string]co
 		document = data
 	} else {
 		if len([]byte(source.inline)) > MapMaxRecordBytes {
-			return nil, nil, gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("--questions-json exceeds the %d byte limit", MapMaxRecordBytes))
+			return nil, nil, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("--questions-json exceeds the %d byte limit", MapMaxRecordBytes))
 		}
 		document = []byte(source.inline)
 	}

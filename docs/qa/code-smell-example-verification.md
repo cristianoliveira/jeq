@@ -18,7 +18,7 @@ No code was changed during this retest. Only this report amendment is intended t
 Built the compiled binary with:
 
 ```sh
-nix develop -c go build -o /tmp/gev-task0026 ./cmd/gev
+nix develop -c go build -o /tmp/jeq-task0026 ./cmd/jeq
 ```
 
 A recording local fake API verified a successful script invocation with:
@@ -30,7 +30,7 @@ A recording local fake API verified a successful script invocation with:
 - a path containing a newline;
 - the six bounded primary-smell criteria;
 - cohesive wording defining `high=yes` and safe to pass;
-- response extras preserved under `_gev.code_smells`;
+- response extras preserved under `_jeq.code_smells`;
 - exit status 0 and no stderr;
 - no `--model` flag, an isolated empty `HOME`/`XDG_CONFIG_HOME`, and request model `jev-latest`, proving the true built-in default.
 
@@ -50,10 +50,10 @@ All of these returned the expected status and made no API request where applicab
 | directory | exit 2, readable-regular-file error |
 | mode-000 unreadable file | exit 2, readable-regular-file error |
 | 256 KiB + 1 byte | exit 2, size error |
-| unavailable `GEV_BIN` | exit 127, explicit dependency error |
+| unavailable `JEQ_BIN` | exit 127, explicit dependency error |
 | unavailable `JQ_BIN` | exit 127, explicit dependency error |
 
-Temporary files created by invalid preflight paths were absent. After `785deaf`, successful review, API failure, and evaluator failure all left zero `gev-code-smells.*` files in isolated `TMPDIR` directories. The created file mode remains 600.
+Temporary files created by invalid preflight paths were absent. After `785deaf`, successful review, API failure, and evaluator failure all left zero `jeq-code-smells.*` files in isolated `TMPDIR` directories. The created file mode remains 600.
 
 ### Questions, semantics, privacy, and cost
 
@@ -72,7 +72,7 @@ Under the project-supported Bash/JQ environment, these examples passed against t
 
 - explicit-file invocation;
 - `jq 'del(.items)'` safe projection while retaining evidence;
-- optional offline `gev gate` with a pass decision;
+- optional offline `jeq gate` with a pass decision;
 - NUL-delimited Git-diff invocation, preserving all 3 selected paths.
 
 ### Bash portability
@@ -93,8 +93,8 @@ The README now uses a `while IFS= read -r -d ''` array loop instead of `mapfile`
 `785deaf` removed `exec` so the `EXIT` trap runs after both successful and failed evaluator commands. The focused test `TestCodeSmellReviewCleansTemporaryBundleAfterSuccessAndFailure` passed. Manual isolated-TMPDIR checks also proved:
 
 - success: exit 0, one API request, JSON stdout, empty stderr, zero bundles;
-- API 500: exit 1 with `GEV_SERVER_ERROR` JSON stdout, empty stderr, zero bundles;
-- evaluator exit 7: exit 7, empty stdout, exact `fake gev failure` stderr, zero bundles.
+- API 500: exit 1 with `JEQ_SERVER_ERROR` JSON stdout, empty stderr, zero bundles;
+- evaluator exit 7: exit 7, empty stdout, exact `fake jeq failure` stderr, zero bundles.
 
 ### Resolved R2 — macOS Bash portability
 

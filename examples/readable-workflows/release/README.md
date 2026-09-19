@@ -5,10 +5,10 @@ network call. The command returns `0` for all pass records, `10` when any record
 is rejected, and `11` when none are rejected but at least one is uncertain.
 
 ```sh
-GEV_BIN=${GEV_BIN:-gev}
-"$GEV_BIN" map --as risk --questions questions.json --state-pointer /change |
-  "$GEV_BIN" gate --as release_policy \
-    --value-pointer /_gev/risk/answers/risk/score \
+JEQ_BIN=${JEQ_BIN:-jeq}
+"$JEQ_BIN" map --as risk --questions questions.json --state-pointer /change |
+  "$JEQ_BIN" gate --as release_policy \
+    --value-pointer /_jeq/risk/answers/risk/score \
     --pass-min 0.80 --reject-max 0.30
 ```
 
@@ -16,19 +16,19 @@ The original change is deliberately carried for the next operation. Use a
 projection before logs or incident output:
 
 ```sh
-... | jq 'del(.change, ._gev.risk)'
+... | jq 'del(.change, ._jeq.risk)'
 ```
 
 For a bounded batch, `reduce` makes one request over the complete collection;
 there is no iterative fold or hidden per-item request:
 
 ```sh
-cat fixtures/release.json | "$GEV_BIN" reduce --as batch_risk \
+cat fixtures/release.json | "$JEQ_BIN" reduce --as batch_risk \
   --questions questions.json --input ndjson --model jev-latest
 ```
 
 The aggregate envelope retains `items` and the complete response under
-`_gev.batch_risk`. Project it before logs or sharing; map and reduce preserve
+`_jeq.batch_risk`. Project it before logs or sharing; map and reduce preserve
 input state by design.
 
 Fixture: [`fixtures/release.json`](fixtures/release.json).

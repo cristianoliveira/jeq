@@ -1,29 +1,29 @@
 // Package codes is the leaf holding the stable error-code registry and
 // the coded error type. It imports nothing internal, so both contract and
-// gev can depend on it without a cycle.
+// jeq can depend on it without a cycle.
 package codes
 
 import "strings"
 
 // Code is a stable, machine-matchable failure class.
 // Values are an automation contract: never rename, never reuse, append only.
-// Format is locked: GEV_<AREA>_<REASON>, uppercase A-Z, 0-9, underscore.
+// Format is locked: JEQ_<AREA>_<REASON>, uppercase A-Z, 0-9, underscore.
 type Code string
 
 // Stable error codes, in contractual (registry) order.
 const (
-	CodeAuthMissing     Code = "GEV_AUTH_MISSING"
-	CodeAuthRejected    Code = "GEV_AUTH_REJECTED"
-	CodeRequestInvalid  Code = "GEV_REQUEST_INVALID"  // local document validation only (exit 2)
-	CodeRequestRejected Code = "GEV_REQUEST_REJECTED" // server 422: the server rejected fields gev cannot check locally
-	CodeSourceConflict  Code = "GEV_SOURCE_CONFLICT"
-	CodeInputInvalid    Code = "GEV_INPUT_INVALID"
-	CodeRateLimited     Code = "GEV_RATE_LIMITED"
-	CodeServerError     Code = "GEV_SERVER_ERROR"
-	CodeResponseInvalid Code = "GEV_RESPONSE_INVALID"
-	CodeNetworkError    Code = "GEV_NETWORK_ERROR"
-	CodeTimeout         Code = "GEV_TIMEOUT"
-	CodeInterrupted     Code = "GEV_INTERRUPTED"
+	CodeAuthMissing     Code = "JEQ_AUTH_MISSING"
+	CodeAuthRejected    Code = "JEQ_AUTH_REJECTED"
+	CodeRequestInvalid  Code = "JEQ_REQUEST_INVALID"  // local document validation only (exit 2)
+	CodeRequestRejected Code = "JEQ_REQUEST_REJECTED" // server 422: the server rejected fields jeq cannot check locally
+	CodeSourceConflict  Code = "JEQ_SOURCE_CONFLICT"
+	CodeInputInvalid    Code = "JEQ_INPUT_INVALID"
+	CodeRateLimited     Code = "JEQ_RATE_LIMITED"
+	CodeServerError     Code = "JEQ_SERVER_ERROR"
+	CodeResponseInvalid Code = "JEQ_RESPONSE_INVALID"
+	CodeNetworkError    Code = "JEQ_NETWORK_ERROR"
+	CodeTimeout         Code = "JEQ_TIMEOUT"
+	CodeInterrupted     Code = "JEQ_INTERRUPTED"
 )
 
 // Codes returns every stable code in contractual order.

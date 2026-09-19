@@ -1,7 +1,7 @@
 # Probabilistic code-smell review
 
 `review.sh` sends an explicitly selected, bounded set of source files through one
-`gev reduce` request. It adds probabilistic design evidence that complements
+`jeq reduce` request. It adds probabilistic design evidence that complements
 compiler errors, tests, linters, and static analysis; it is not a linter, proof,
 a refactoring tool, or a replacement for deterministic checks.
 
@@ -13,7 +13,7 @@ questions. A successful review is advisory and exits 0.
 ## Run it
 
 ```sh
-GEV_BIN=gev JQ_BIN=jq \
+JEQ_BIN=jeq JQ_BIN=jq \
   ./examples/code-smell-review/review.sh \
   internal/cli/map.go internal/domain/pipeline/reduce.go
 ```
@@ -61,7 +61,7 @@ top-level `quality_floor` as their minimum:
 ```sh
 ./examples/code-smell-review/review.sh path/to/file.go |
 jq 'del(.items)
-  | ._gev.code_smells.answers as $answers
+  | ._jeq.code_smells.answers as $answers
   | ($answers | to_entries | map({id: .key, noul: .value.noul}) | sort_by(.noul)) as $dimensions
   | {dimensions: $dimensions, quality_floor: ($dimensions | map(.noul) | min)}'
 ```
@@ -75,10 +75,10 @@ quality floor with offline thresholds:
 review=$(./examples/code-smell-review/review.sh path/to/file.go)
 printf '%s\n' "$review" |
 jq 'del(.items)
-  | ._gev.code_smells.answers as $answers
+  | ._jeq.code_smells.answers as $answers
   | ($answers | to_entries | map({id: .key, noul: .value.noul}) | sort_by(.noul)) as $dimensions
   | {dimensions: $dimensions, quality_floor: ($dimensions | map(.noul) | min)}' |
-  gev gate --as code_smell_quality \
+  jeq gate --as code_smell_quality \
     --value-pointer /quality_floor \
     --pass-min 0.80 --reject-max 0.40
 ```

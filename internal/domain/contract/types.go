@@ -2,7 +2,7 @@
 // answer, response, and models documents. Decode is strict (no duplicate
 // keys, valid UTF-8, known-field types) yet lossless (unknown fields pass
 // through byte-semantically). It depends on the standard library and
-// domain/gev codes only.
+// domain/jeq codes only.
 package contract
 
 import (
@@ -53,7 +53,7 @@ type Usage struct {
 
 // Response is the evaluation result. Decode is tolerant: unknown server
 // fields survive in Extra; missing documented-required fields classify as
-// GEV_RESPONSE_INVALID.
+// JEQ_RESPONSE_INVALID.
 type Response struct {
 	Model   string
 	Answers map[string]Answer

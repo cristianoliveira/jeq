@@ -11,25 +11,25 @@ Runtime / dependency diff vs the v1 release candidate **96bab2c**: empty (TASK-0
 | `examples` E2E suite green (all 15 subtests + 3 top-level cases, including 1/2/130 propagation and the new permanent boundary / record-2 / missing-id / missing-score cases) | **PASS** |
 | ZERO production network in test code (no `https://api.typesafe.ai` references in `examples/`) | **PASS** |
 | `jq` available in `nix develop` (scripts depend on it) | **PASS** |
-| Compiled `gev` used (TestMain builds via `exec.Command("go", "build", …)` once) | **PASS** |
+| Compiled `jeq` used (TestMain builds via `exec.Command("go", "build", …)` once) | **PASS** |
 | Routing: allowlisted route → fixed queue label | **PASS** |
 | Routing: low confidence (< 0.70) → `human_review` | **PASS** |
 | Routing: unknown route value → `human_review` | **PASS** |
-| Routing: operational gev failure forwarded unchanged | **PASS** |
+| Routing: operational jeq failure forwarded unchanged | **PASS** |
 | Routing: one JSON receipt, trailing newline, no executable model output | **PASS** |
 | Gate: boundary `0.30` → `review_or_block`, exit 10 | **PASS** |
 | Gate: boundary `0.3001` → `uncertain`, exit 11 | **PASS** |
 | Gate: boundary `0.7999` → `uncertain`, exit 11 | **PASS** |
 | Gate: boundary `0.80` → `pass`, exit 0 | **PASS** |
-| Gate: malformed model response → GEV error forwarded, exit 1 | **PASS** |
+| Gate: malformed model response → JEQ error forwarded, exit 1 | **PASS** |
 | Gate: missing Noul in response → script's own `uncertain` receipt, exit 11 | **PASS** |
-| Gate: gev exit 1/2/130 propagation (suite assertions) | **PASS** |
+| Gate: jeq exit 1/2/130 propagation (suite assertions) | **PASS** |
 | Gate: `0.30` boundary now a permanent subtest (`exact review boundary`) | **PASS** |
 | Gate: `0.3001` boundary now a permanent subtest (`just above review boundary`) | **PASS** |
 | Gate: `0.7999` boundary now a permanent subtest (`just below pass boundary`) | **PASS** |
 | Gate: `0.80` boundary now a permanent subtest (`exact pass boundary`) | **PASS** |
 | Ranking: valid 3-line NDJSON → 3 ordered receipts | **PASS** |
-| Ranking: second operational error preserves partial output and stops (line 1 receipt + line 2 `GEV_SERVER_ERROR`, exactly 2 paid requests, no third) | **PASS** |
+| Ranking: second operational error preserves partial output and stops (line 1 receipt + line 2 `JEQ_SERVER_ERROR`, exactly 2 paid requests, no third) | **PASS** |
 | Ranking: missing id is local input error → `input_invalid`/exit 2 | **PASS** |
 | Ranking: non-string id is local input error → `input_invalid`/exit 2 | **PASS** |
 | Ranking: invalid JSON line → `input_invalid` | **PASS** |
@@ -60,10 +60,10 @@ $ go test ./examples/... -count=1       → ok (all 3 top-level cases; 15 subtes
 $ rg "https?://api\.typesafe\.ai" examples/
                                        → (no matches in code; only README documentation)
 $ rg "exec\.Command.*go.*build" examples/examples_test.go
-                                       → TestMain builds the binary once with `go build -o $gevBin ./cmd/gev`
+                                       → TestMain builds the binary once with `go build -o $jeqBin ./cmd/jeq`
 ```
 
-Boundary value evidence was captured live against the compiled `gev` (release-shaped build at `/tmp/gev-d21/gev`) with a path-mode fake HTTP server. Raws under `.tmp/d21/raw/`.
+Boundary value evidence was captured live against the compiled `jeq` (release-shaped build at `/tmp/jeq-d21/jeq`) with a path-mode fake HTTP server. Raws under `.tmp/d21/raw/`.
 
 ### Routing (`examples/support-routing/route.sh`)
 
@@ -75,7 +75,7 @@ Verified each action mapping through `TestSupportRoutingReceiptsAndAllowlist`:
 | `billing` | 0.40 | `human_review` | `action=human_review`, `route=billing`, `route_confidence=0.40` | **PASS** |
 | `other` (unknown) | 0.99 | `human_review` | `action=human_review`, `route=other`, `route_confidence=0.99` | **PASS** |
 
-Operational-status propagation is asserted by the suite for the gate script (analogous contract in route.sh): `if response=$(run_gev ...); then : else status=$?; printf '%s\n' "$response"; exit "$status"; fi` — gev's structured stdout and exit code are forwarded unchanged. Stderr is empty across every routing path.
+Operational-status propagation is asserted by the suite for the gate script (analogous contract in route.sh): `if response=$(run_jeq ...); then : else status=$?; printf '%s\n' "$response"; exit "$status"; fi` — jeq's structured stdout and exit code are forwarded unchanged. Stderr is empty across every routing path.
 
 ### Gate (`examples/change-risk-gate/gate.sh`) — exact boundary values
 
@@ -92,10 +92,10 @@ Boundary semantics are deterministic at the exact float values: 0.30 lands in `r
 
 Additional operational paths verified:
 
-- Malformed server response (200 non-JSON) → gev returns `GEV_RESPONSE_INVALID`, exit 1; gate forwards gev's structured doc and exit 1 unchanged (suite assertion: `gev status 1 is unchanged`).
+- Malformed server response (200 non-JSON) → jeq returns `JEQ_RESPONSE_INVALID`, exit 1; gate forwards jeq's structured doc and exit 1 unchanged (suite assertion: `jeq status 1 is unchanged`).
 - Missing Noul in response → gate's own `uncertain` receipt with `reason="missing_or_invalid_safe_to_ship_signal"`, exit 11. Distinguishes "model gave no signal" from "operational failure".
-- GEV exit 2 (`--output toon` rejection) forwarded unchanged: structured `GEV_INPUT_INVALID` doc, exit 2 (suite assertion via `wrapper` script).
-- GEV exit 130 (interrupt simulation via wrapper) forwarded unchanged: structured `GEV_INTERRUPTED` doc, exit 130 (suite assertion).
+- JEQ exit 2 (`--output toon` rejection) forwarded unchanged: structured `JEQ_INPUT_INVALID` doc, exit 2 (suite assertion via `wrapper` script).
+- JEQ exit 130 (interrupt simulation via wrapper) forwarded unchanged: structured `JEQ_INTERRUPTED` doc, exit 130 (suite assertion).
 
 ### Ranking (`examples/issue-ranking/rank.sh`) — stream semantics (now permanent tests)
 
@@ -104,7 +104,7 @@ All scenarios below are pinned as named subtests in `TestIssueRankingOrderReques
 | Scenario (subtest name) | Behavior | Status |
 | --- | --- | --- |
 | Valid 3-line NDJSON | 3 ordered receipts, `order` 1–3, IDs preserved in input order; stderr empty | **PASS** |
-| `second operational error preserves partial output and stops` | Line 1 (success) receipt preserved + line 2 `GEV_SERVER_ERROR` doc, exit 1, **exactly 2 paid requests**, no third | **PASS** |
+| `second operational error preserves partial output and stops` | Line 1 (success) receipt preserved + line 2 `JEQ_SERVER_ERROR` doc, exit 1, **exactly 2 paid requests**, no third | **PASS** |
 | `missing and invalid IDs are local input errors` | Both `{"title":"missing id"}` (no `id` field) and `{"id":42,"title":"non-string id"}` (non-string) → `input_invalid`, exit 2, structured reason | **PASS** |
 | Invalid JSON line | Same `input_invalid` reason (jq `-e` rejects), exit 2 | **PASS** |
 | `missing numeric score is uncertain` | Server returns one Score + one Noul where the script requires two Scores → script's own `uncertain` receipt with `reason="response did not contain numeric priority and impact scores"`, exit 11, `id` preserved | **PASS** |
@@ -125,12 +125,12 @@ Each receipt: `id` from the request, `order` matches input position, `priority_s
 
 | Criterion | Verified |
 | --- | --- |
-| Copy-paste instructions from repo root | YES — `GEV_BIN=gev GEV_MODEL=jev-latest ./support-routing/route.sh < support-routing/fixtures/ticket.txt` works |
+| Copy-paste instructions from repo root | YES — `JEQ_BIN=jeq JEQ_MODEL=jev-latest ./support-routing/route.sh < support-routing/fixtures/ticket.txt` works |
 | `jq` available in dev shell | YES — `flake.nix` adds `jq`; `nix develop -c jq --version` → `jq-1.8.2` |
 | Key / cost disclosure | YES — "A live run requires an exported `TYPESAFE_API_KEY`, spends account budget, and must remain opt-in. Do not put the key in a command argument, fixture, or output." |
 | Non-calibrated thresholds explicit | YES — gate README: "The thresholds are examples for workflow design, not calibrated release policy." support-routing README: "The confidence threshold is a demonstration policy, not a production calibration." |
 | Safety / no executable model output | YES — top-level README: "Model output is data. Scripts never `eval` it or construct shell commands from it." Verified by code grep: no `eval`, no `sh -c "$model"` patterns. |
-| GEV exit-class propagation documented | YES — gate README: "GEV operational, usage, and interruption exits (1, 2, and 130) are returned unchanged with GEV's structured JSON error document." |
+| JEQ exit-class propagation documented | YES — gate README: "JEQ operational, usage, and interruption exits (1, 2, and 130) are returned unchanged with JEQ's structured JSON error document." |
 | Fail-fast and bounded spend documented | YES — ranking README and top-level: "A valid input with n lines makes exactly n paid evaluation requests." |
 
 ## Findings
@@ -140,7 +140,7 @@ Each receipt: `id` from the request, `order` matches input position, `priority_s
 **H-D21-1 (forward-looking, LOW) — CLOSED in 384cec0**: the original report flagged that the shipped suite covered only mid-band values (0.20 / 0.50 / 0.90) and did not pin the exact boundary floats 0.30 / 0.3001 / 0.7999 / 0.80. Commit 384cec0 ("test: pin Unix workflow boundary contracts (TASK-0021)") turned every boundary and every failure-mode assertion into a permanent test case. The suite now asserts:
 
 - Gate: `0.30` → `review_or_block`/exit 10; `0.3001` → `uncertain`/exit 11; `0.50` → `uncertain`/exit 11; `0.7999` → `uncertain`/exit 11; `0.80` → `pass`/exit 0 — all as named subtests in `TestChangeRiskGatePolicyAndOperationalStatus`.
-- Ranking: `second operational error preserves partial output and stops` — line 1 receipt preserved + line 2 `GEV_SERVER_ERROR` doc, exactly 2 paid requests, no third.
+- Ranking: `second operational error preserves partial output and stops` — line 1 receipt preserved + line 2 `JEQ_SERVER_ERROR` doc, exactly 2 paid requests, no third.
 - Ranking: `missing and invalid IDs are local input errors` — both `{"title":"missing id"}` (no `id` field) and `{"id":42,"title":"non-string id"}` (non-string) produce `input_invalid`/exit 2 with a structured reason.
 - Ranking: `missing numeric score is uncertain` — server returns one Score and one Noul where the script requires two Scores; script emits `uncertain`/exit 11 with `id` preserved.
 
@@ -176,7 +176,7 @@ File summary:
 | `routing.err` | 0 B | 0 | empty | no diagnostics, no Cobra prose |
 | `gate.err` | 0 B | 0 | empty | no diagnostics, no Cobra prose |
 | `ranking.err` | 0 B | 0 | empty | no diagnostics, no Cobra prose |
-| `gev` | 9 511 330 B | 41318 | binary | release-shaped `gev` used for the live run |
+| `jeq` | 9 511 330 B | 41318 | binary | release-shaped `jeq` used for the live run |
 
 Per-receipt status / action / ranges (read from the captures):
 
@@ -204,11 +204,11 @@ A 2-character lowercase string that does appear inside `gate.json` is the substr
 Residual non-blocking observations (preserved from the original report):
 
 - `jq` was added to `flake.nix` by commit 22a499c; the v1 release candidate 96bab2c did not include it. Anyone replicating the prior v1 dev shell without re-running `nix develop` will see `jq: command not found` against the new examples.
-- `gev status 130 is unchanged` in the suite is enforced through a **wrapper script** (`GEV_BIN` set to a shim that prints a `GEV_INTERRUPTED` document and `exit 130`) rather than a real `SIGINT`. This is the right design choice — `os.Interrupt` against a child shell process is racy and platform-dependent — but the README does not call this out. Anyone reading the test may misread "130 is forwarded unchanged" as a SIGINT end-to-end test.
-- The CLI does not validate `--base-url` as an absolute URL at flag-validation time for `gev ask` (it does for `gev models`). An unparseable URL therefore produces `GEV_NETWORK_ERROR` (exit 1) from the HTTP client, not `GEV_INPUT_INVALID` (exit 2). The wrapper-shim test for `gev_status_2_is_unchanged` works around this by passing `--output toon` instead; the asymmetry is invisible to the shipped example workflows but is a real consistency gap if future shell-side validation is unified. **Not raised by the example workflows themselves** — recorded for any future `gev gate` / `gev map` primitive to address.
+- `jeq status 130 is unchanged` in the suite is enforced through a **wrapper script** (`JEQ_BIN` set to a shim that prints a `JEQ_INTERRUPTED` document and `exit 130`) rather than a real `SIGINT`. This is the right design choice — `os.Interrupt` against a child shell process is racy and platform-dependent — but the README does not call this out. Anyone reading the test may misread "130 is forwarded unchanged" as a SIGINT end-to-end test.
+- The CLI does not validate `--base-url` as an absolute URL at flag-validation time for `jeq ask` (it does for `jeq models`). An unparseable URL therefore produces `JEQ_NETWORK_ERROR` (exit 1) from the HTTP client, not `JEQ_INPUT_INVALID` (exit 2). The wrapper-shim test for `jeq_status_2_is_unchanged` works around this by passing `--output toon` instead; the asymmetry is invisible to the shipped example workflows but is a real consistency gap if future shell-side validation is unified. **Not raised by the example workflows themselves** — recorded for any future `jeq gate` / `jeq map` primitive to address.
 
 ## Cross-references
 
-- TASK-0019 paid evidence (docs/qa/live-gev-verification.md) remains valid because the runtime/dependency diff from the release candidate is empty.
-- TASK-0015 release gate (docs/qa/release-verdict.md) — verified the gate is still green at 57a0166; the examples README correctly states the examples are "evidence for future `gev gate` and `gev map` primitives".
+- TASK-0019 paid evidence (docs/qa/live-jeq-verification.md) remains valid because the runtime/dependency diff from the release candidate is empty.
+- TASK-0015 release gate (docs/qa/release-verdict.md) — verified the gate is still green at 57a0166; the examples README correctly states the examples are "evidence for future `jeq gate` and `jeq map` primitives".
 - D3 home/version/models/validate/default-JSON (docs/qa/d3-verification.md) — the example scripts assume exactly the JSON-only default documented in D3 and exercised by the release binary.

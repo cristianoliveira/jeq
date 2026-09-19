@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/cli"
 )
 
 func TestVersionCommandPrintsPlainBuildInformation(t *testing.T) {
@@ -20,7 +20,7 @@ func TestVersionCommandPrintsPlainBuildInformation(t *testing.T) {
 	}
 
 	// Then concise human-readable build information is printed.
-	want := "gev dev\nCommit: unknown\n"
+	want := "jeq dev\nCommit: unknown\n"
 	if out.String() != want {
 		t.Fatalf("output = %q, want %q", out.String(), want)
 	}

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/fixtures"
-	"github.com/cristianoliveira/gev/internal/infra/typesafeapi"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/infra/typesafeapi"
 )
 
 // recordingSleeper records every wait; tests never really sleep.
@@ -84,8 +84,8 @@ func Test429ExhaustsBound(t *testing.T) {
 
 	sleeper := &recordingSleeper{}
 	_, err := newScriptClient(t, srv.URL, 2, sleeper).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeRateLimited {
-		t.Fatalf("expected %q, got %v", gev.CodeRateLimited, err)
+	if err == nil || err.Code != jeq.CodeRateLimited {
+		t.Fatalf("expected %q, got %v", jeq.CodeRateLimited, err)
 	}
 	if got := calls.Load(); got != 3 {
 		t.Errorf("requests = %d, want 3 (default 2 retries)", got)
@@ -132,8 +132,8 @@ func TestZeroRetriesMeansSingleAttempt(t *testing.T) {
 
 	sleeper := &recordingSleeper{}
 	_, err := newScriptClient(t, srv.URL, 0, sleeper).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeRateLimited {
-		t.Fatalf("expected %q, got %v", gev.CodeRateLimited, err)
+	if err == nil || err.Code != jeq.CodeRateLimited {
+		t.Fatalf("expected %q, got %v", jeq.CodeRateLimited, err)
 	}
 	if got := calls.Load(); got != 1 {
 		t.Errorf("requests = %d, want 1", got)
@@ -268,8 +268,8 @@ func TestNeverRetryOtherStatusesOrTransport(t *testing.T) {
 		srv.Close()
 		sleeper := &recordingSleeper{}
 		_, err := newScriptClient(t, srv.URL, 2, sleeper).Evaluate(context.Background(), sampleRequest(t))
-		if err == nil || err.Code != gev.CodeNetworkError {
-			t.Fatalf("expected %q, got %v", gev.CodeNetworkError, err)
+		if err == nil || err.Code != jeq.CodeNetworkError {
+			t.Fatalf("expected %q, got %v", jeq.CodeNetworkError, err)
 		}
 		if len(sleeper.waits) != 0 {
 			t.Errorf("waits = %v; ambiguous transport failures must never be replayed", sleeper.waits)

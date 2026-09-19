@@ -1,4 +1,4 @@
-module github.com/cristianoliveira/gev
+module github.com/cristianoliveira/jeq
 
 go 1.26
 

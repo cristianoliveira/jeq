@@ -19,7 +19,7 @@ The shell contract (exit codes, stdout/stderr separation, trailing newline) must
 - [ ] Build the real binary once; execute it as a subprocess against fixtures and local fake servers—never call cli.Run directly.
 - [ ] Matrix covers home/version/help/models/validate/ask, native/composed/file/stdin, default/explicit JSON, and all stable exit classes 0/1/2/130.
 - [ ] Every operational case asserts parseable single-document stdout, exactly one trailing newline, stderr separation, no color/TTY variance, and no secret/stack/raw dependency leak; help/completion are explicit conventional-prose exceptions with exit 0.
-- [ ] SIGINT a deliberately blocked request and assert prompt exit 130; `--timeout 50ms` produces GEV_TIMEOUT/exit 1 deterministically.
+- [ ] SIGINT a deliberately blocked request and assert prompt exit 130; `--timeout 50ms` produces JEQ_TIMEOUT/exit 1 deterministically.
 - [ ] Unknown command/flag names the way out; low-confidence response exits 0; ambiguous connection drop sends exactly one request.
 - [ ] Suite is bounded, parallel-safe, uses no production network, and runs under `make check`.
 

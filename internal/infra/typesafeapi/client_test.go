@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/fixtures"
-	"github.com/cristianoliveira/gev/internal/infra/typesafeapi"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/infra/typesafeapi"
 )
 
 const testKey = "sekret-test-key-123"
@@ -93,8 +93,8 @@ func TestMissingKeyFailsPreNetwork(t *testing.T) {
 	c.APIKey = ""
 
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeAuthMissing {
-		t.Fatalf("expected %q, got %v", gev.CodeAuthMissing, err)
+	if err == nil || err.Code != jeq.CodeAuthMissing {
+		t.Fatalf("expected %q, got %v", jeq.CodeAuthMissing, err)
 	}
 	if hits.Load() != 0 {
 		t.Errorf("missing key made %d requests; must fail pre-network", hits.Load())
@@ -106,16 +106,16 @@ func TestStatusClassification(t *testing.T) {
 		name     string
 		status   int
 		body     string
-		wantCode gev.Code
+		wantCode jeq.Code
 	}{
-		{"401 is auth rejected", http.StatusUnauthorized, `{"message":"bad key"}`, gev.CodeAuthRejected},
-		{"422 is request rejected", http.StatusUnprocessableEntity, `{"message":"criteria unknown"}`, gev.CodeRequestRejected},
-		{"429 is rate limited", http.StatusTooManyRequests, `{"message":"slow down"}`, gev.CodeRateLimited},
-		{"529 is rate limited", 529, `{"message":"overloaded"}`, gev.CodeRateLimited},
-		{"500 is server error", http.StatusInternalServerError, `oops`, gev.CodeServerError},
-		{"503 is server error", http.StatusServiceUnavailable, ``, gev.CodeServerError},
-		{"400 is a protocol breach", http.StatusBadRequest, `{"message":"nope"}`, gev.CodeResponseInvalid},
-		{"200 with malformed body is response invalid", http.StatusOK, `{not json`, gev.CodeResponseInvalid},
+		{"401 is auth rejected", http.StatusUnauthorized, `{"message":"bad key"}`, jeq.CodeAuthRejected},
+		{"422 is request rejected", http.StatusUnprocessableEntity, `{"message":"criteria unknown"}`, jeq.CodeRequestRejected},
+		{"429 is rate limited", http.StatusTooManyRequests, `{"message":"slow down"}`, jeq.CodeRateLimited},
+		{"529 is rate limited", 529, `{"message":"overloaded"}`, jeq.CodeRateLimited},
+		{"500 is server error", http.StatusInternalServerError, `oops`, jeq.CodeServerError},
+		{"503 is server error", http.StatusServiceUnavailable, ``, jeq.CodeServerError},
+		{"400 is a protocol breach", http.StatusBadRequest, `{"message":"nope"}`, jeq.CodeResponseInvalid},
+		{"200 with malformed body is response invalid", http.StatusOK, `{not json`, jeq.CodeResponseInvalid},
 	}
 
 	for _, tt := range tests {
@@ -142,8 +142,8 @@ func Test422SurfacesSanitizedServerDetail(t *testing.T) {
 	defer srv.Close()
 
 	_, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeRequestRejected {
-		t.Fatalf("expected %q, got %v", gev.CodeRequestRejected, err)
+	if err == nil || err.Code != jeq.CodeRequestRejected {
+		t.Fatalf("expected %q, got %v", jeq.CodeRequestRejected, err)
 	}
 	if !strings.Contains(err.Message, "questions.department.criteria") {
 		t.Errorf("message %q does not surface the server's field detail", err.Message)
@@ -161,8 +161,8 @@ func TestOversizeReplyRejected(t *testing.T) {
 
 	c := newTestClient(t, srv.URL, func(c *typesafeapi.Client) { c.MaxBodyBytes = 64 })
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeResponseInvalid {
-		t.Fatalf("expected %q for oversize reply, got %v", gev.CodeResponseInvalid, err)
+	if err == nil || err.Code != jeq.CodeResponseInvalid {
+		t.Fatalf("expected %q for oversize reply, got %v", jeq.CodeResponseInvalid, err)
 	}
 }
 
@@ -175,8 +175,8 @@ func TestErrorBodyReadBounded(t *testing.T) {
 
 	c := newTestClient(t, srv.URL, func(c *typesafeapi.Client) { c.MaxErrorBytes = 1024 })
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeServerError {
-		t.Fatalf("expected %q, got %v", gev.CodeServerError, err)
+	if err == nil || err.Code != jeq.CodeServerError {
+		t.Fatalf("expected %q, got %v", jeq.CodeServerError, err)
 	}
 }
 
@@ -190,8 +190,8 @@ func TestTimeoutClassifiesAsTimeout(t *testing.T) {
 		c.HTTP = &http.Client{Timeout: 20 * time.Millisecond}
 	})
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeTimeout {
-		t.Fatalf("expected %q, got %v", gev.CodeTimeout, err)
+	if err == nil || err.Code != jeq.CodeTimeout {
+		t.Fatalf("expected %q, got %v", jeq.CodeTimeout, err)
 	}
 }
 
@@ -200,8 +200,8 @@ func TestConnectionFailureClassifiesAsNetworkError(t *testing.T) {
 	srv.Close() // dead endpoint
 
 	_, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != gev.CodeNetworkError {
-		t.Fatalf("expected %q, got %v", gev.CodeNetworkError, err)
+	if err == nil || err.Code != jeq.CodeNetworkError {
+		t.Fatalf("expected %q, got %v", jeq.CodeNetworkError, err)
 	}
 }
 

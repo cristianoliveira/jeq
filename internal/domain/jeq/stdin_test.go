@@ -1,16 +1,16 @@
-package gev_test
+package jeq_test
 
 import (
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 func TestCheckStdinRejectsDoubleStdin(t *testing.T) {
 	tests := []struct {
 		name                      string
 		forRequest, forQ, forSted bool
-		wantCode                  gev.Code // "" means allowed
+		wantCode                  jeq.Code // "" means allowed
 	}{
 		{name: "stdin for questions only", forQ: true},
 		{name: "stdin for request only", forRequest: true},
@@ -20,26 +20,26 @@ func TestCheckStdinRejectsDoubleStdin(t *testing.T) {
 			name:     "stdin for questions and state",
 			forQ:     true,
 			forSted:  true,
-			wantCode: gev.CodeSourceConflict,
+			wantCode: jeq.CodeSourceConflict,
 		},
 		{
 			name:       "stdin for request and questions",
 			forRequest: true,
 			forQ:       true,
-			wantCode:   gev.CodeSourceConflict,
+			wantCode:   jeq.CodeSourceConflict,
 		},
 		{
 			name:       "stdin for all three",
 			forRequest: true,
 			forQ:       true,
 			forSted:    true,
-			wantCode:   gev.CodeSourceConflict,
+			wantCode:   jeq.CodeSourceConflict,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := gev.CheckStdin(tt.forRequest, tt.forQ, tt.forSted)
+			err := jeq.CheckStdin(tt.forRequest, tt.forQ, tt.forSted)
 			if tt.wantCode == "" {
 				if err != nil {
 					t.Fatalf("expected allowed, got %v", err)

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 func TestGateAppendsDecisionAndPreservesEvidence(t *testing.T) {
@@ -12,7 +12,7 @@ func TestGateAppendsDecisionAndPreservesEvidence(t *testing.T) {
 		name, record, pointer string
 		want                  GateDecision
 	}{
-		{"pass", `{"score":0.9,"_gev":{"first":{"kept":true}}}`, "/score", DecisionPass},
+		{"pass", `{"score":0.9,"_jeq":{"first":{"kept":true}}}`, "/score", DecisionPass},
 		{"reject", `{"score":0.1}`, "/score", DecisionReject},
 		{"uncertain", `{"score":0.5}`, "/score", DecisionUncertain},
 	} {
@@ -26,7 +26,7 @@ func TestGateAppendsDecisionAndPreservesEvidence(t *testing.T) {
 				t.Fatal(err)
 			}
 			var evidence map[string]json.RawMessage
-			if err := json.Unmarshal(doc["_gev"], &evidence); err != nil {
+			if err := json.Unmarshal(doc["_jeq"], &evidence); err != nil {
 				t.Fatal(err)
 			}
 			if evidence["policy"] == nil {
@@ -44,14 +44,14 @@ func TestGateRejectsInvalidInputBeforeDecision(t *testing.T) {
 		name, record, pointer string
 		policy                GatePolicy
 	}{
-		{"collision", `{"value":0.9,"_gev":{"policy":{}}}`, "/value", GatePolicy{PassMin: .8, RejectMax: .2}},
+		{"collision", `{"value":0.9,"_jeq":{"policy":{}}}`, "/value", GatePolicy{PassMin: .8, RejectMax: .2}},
 		{"nonnumeric", `{"value":"0.9"}`, "/value", GatePolicy{PassMin: .8, RejectMax: .2}},
 		{"out of range", `{"value":2}`, "/value", GatePolicy{PassMin: .8, RejectMax: .2}},
 		{"bad thresholds", `{"value":0.9}`, "/value", GatePolicy{PassMin: .2, RejectMax: .2}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy); err == nil || err.Code != gev.CodeInputInvalid {
+			if _, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy); err == nil || err.Code != jeq.CodeInputInvalid {
 				t.Fatalf("err=%v", err)
 			}
 		})

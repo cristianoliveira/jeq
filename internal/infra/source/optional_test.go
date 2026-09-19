@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/infra/source"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/infra/source"
 )
 
 func TestReadOptionalFileMissingAndReadsOneBoundedStream(t *testing.T) {
-	data, err, found := source.ReadOptionalFile("/definitely/missing/gev-config.json", 32)
+	data, err, found := source.ReadOptionalFile("/definitely/missing/jeq-config.json", 32)
 	if err != nil || found || data != nil {
 		t.Fatalf("data=%q err=%v found=%v", data, err, found)
 	}
@@ -27,13 +27,13 @@ func TestReadOptionalFileMissingAndReadsOneBoundedStream(t *testing.T) {
 func TestReadOptionalFileReportsOversizeAndReadFailure(t *testing.T) {
 	open := func(string) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("abcd")), nil }
 	_, err, found := source.ReadOptionalFileWithOpener("config.json", 3, open)
-	if err == nil || err.Code != gev.CodeInputInvalid || !found {
+	if err == nil || err.Code != jeq.CodeInputInvalid || !found {
 		t.Fatalf("err=%v found=%v", err, found)
 	}
 	readErr := errors.New("boom")
 	bad := func(string) (io.ReadCloser, error) { return &failingCloser{err: readErr}, nil }
 	_, err, found = source.ReadOptionalFileWithOpener("config.json", 32, bad)
-	if err == nil || err.Code != gev.CodeInputInvalid || !found {
+	if err == nil || err.Code != jeq.CodeInputInvalid || !found {
 		t.Fatalf("read err=%v found=%v", err, found)
 	}
 }

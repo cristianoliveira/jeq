@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 type reduceEvaluator struct {
 	calls   int
 	request contract.Request
-	err     *gev.Error
+	err     *jeq.Error
 }
 
-func (e *reduceEvaluator) Evaluate(_ context.Context, request contract.Request) (contract.Response, *gev.Error) {
+func (e *reduceEvaluator) Evaluate(_ context.Context, request contract.Request) (contract.Response, *jeq.Error) {
 	e.calls++
 	e.request = request
 	if e.err != nil {
@@ -37,13 +37,13 @@ func TestReduceSendsOneExactCollectionAndPreservesResponseExtras(t *testing.T) {
 }
 
 func TestReduceRejectsEmptyCollectionAndEvaluatorErrors(t *testing.T) {
-	e := &reduceEvaluator{err: gev.NewError(gev.CodeServerError, "boom")}
+	e := &reduceEvaluator{err: jeq.NewError(jeq.CodeServerError, "boom")}
 	request := contract.Request{Model: "m", State: json.RawMessage(`[]`), Questions: map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}}
 	if _, err := Reduce(context.Background(), []byte(`[]`), "batch", request, e); err == nil || e.calls != 0 {
 		t.Fatalf("empty err=%v calls=%d", err, e.calls)
 	}
 	request.State = json.RawMessage(`[1]`)
-	if _, err := Reduce(context.Background(), []byte(`[1]`), "batch", request, e); err == nil || err.Code != gev.CodeServerError || e.calls != 1 {
+	if _, err := Reduce(context.Background(), []byte(`[1]`), "batch", request, e); err == nil || err.Code != jeq.CodeServerError || e.calls != 1 {
 		t.Fatalf("eval err=%v calls=%d", err, e.calls)
 	}
 }

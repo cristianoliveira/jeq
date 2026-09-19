@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/fixtures"
-	"github.com/cristianoliveira/gev/internal/infra/render"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/fixtures"
+	"github.com/cristianoliveira/jeq/internal/infra/render"
 )
 
 // Regenerate goldens with: nix develop -c go test ./internal/infra/render -update

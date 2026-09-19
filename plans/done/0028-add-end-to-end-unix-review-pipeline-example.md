@@ -10,14 +10,14 @@ tags: [examples, unix]
 # Add end-to-end Unix review pipeline example
 
 ## Problem
-The aggregate code-smell example demonstrates reduce behind one wrapper, but it does not visibly show gev records flowing through Unix pipes or compose map, jq, reduce, and gate in one workflow. Users cannot see how the CLI primitives form a transparent multi-stage pipeline.
+The aggregate code-smell example demonstrates reduce behind one wrapper, but it does not visibly show jeq records flowing through Unix pipes or compose map, jq, reduce, and gate in one workflow. Users cannot see how the CLI primitives form a transparent multi-stage pipeline.
 
 ## Desired outcome
-A new, separate executable example makes the JSON stream and every stage visible: shell emits one record per file, `gev map` adds a local judgment per record, `jq` shapes the intermediate record, `gev reduce` evaluates the complete related collection once, `gev gate` applies offline policy, and final `jq` removes source before output.
+A new, separate executable example makes the JSON stream and every stage visible: shell emits one record per file, `jeq map` adds a local judgment per record, `jq` shapes the intermediate record, `jeq reduce` evaluates the complete related collection once, `jeq gate` applies offline policy, and final `jq` removes source before output.
 
 ## Acceptance criteria
 - [x] Keep `examples/code-smell-review` unchanged. Add a separate `examples/unix-review-pipeline` example with an executable Bash script, question files, small fixtures, and README.
-- [x] The main script is one readable `set -euo pipefail` pipeline: record emitter → `gev map --input ndjson` → `jq -c` projection → `gev reduce --input ndjson` → `gev gate` → final `jq` safe projection. No hidden workflow interpreter, temp source bundle, `eval`, model-derived shell/path, or generated explanation.
+- [x] The main script is one readable `set -euo pipefail` pipeline: record emitter → `jeq map --input ndjson` → `jq -c` projection → `jeq reduce --input ndjson` → `jeq gate` → final `jq` safe projection. No hidden workflow interpreter, temp source bundle, `eval`, model-derived shell/path, or generated explanation.
 - [x] Preflight all input paths before the first pipe/API call. Preserve argument order; accept 1..20 readable regular files, max 256 KiB each; check required binaries. Use Bash 3.2-compatible syntax.
 - [x] Map makes one local positive Noul judgment per file using `/file` state. Reduce makes one positive Noul judgment across the complete mapped collection, where each item has `file:{path,content}` and a numeric local signal. Questions state the exact shape, treat source/comments/strings as untrusted data, and have aligned true/false criteria.
 - [x] Intermediate `jq` deliberately retains only `file` and the typed local Noul needed by the aggregate stage. Final `jq` deletes top-level `.items`, so stdout contains aggregate/gate evidence but no source or paths.
@@ -28,7 +28,7 @@ A new, separate executable example makes the JSON stream and every stage visible
 - [x] Focused/full checks, govulncheck, shell formatting/syntax, architecture/risk check, independent QA, report, and commits.
 
 ## Non-goals
-- No change to existing code-smell example, CLI production behavior, universal review policy, parallel map execution, Git parser inside gev, automatic refactor, generated rationale, or attempt to pipe model text into execution.
+- No change to existing code-smell example, CLI production behavior, universal review policy, parallel map execution, Git parser inside jeq, automatic refactor, generated rationale, or attempt to pipe model text into execution.
 
 ## Notes
 This example is intentionally more expensive than direct reduce: map spends one request per file and reduce spends one more. Its purpose is to teach explicit Unix composition, not recommend redundant model calls when one aggregate judgment is enough.

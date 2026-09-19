@@ -1,4 +1,4 @@
-package gev
+package jeq
 
 import "fmt"
 

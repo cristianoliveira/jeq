@@ -34,13 +34,13 @@ $ go test ./internal/domain/contract/... -run TestDecodeRequestStrict -v   → 1
 $ go test ./internal/domain/contract/... -run TestDecodeRequestTypeMismatchNamesFieldPath -v → PASS
 ```
 
-Table covers truncated, trailing comma, trailing data after document, top-level AND nested duplicate keys (`GEV_REQUEST_INVALID`, not last-wins), UTF-8 BOM, invalid UTF-8, and type mismatches (`model: 7`, `questions: []`, `criteria: "Calm"` for score) with the field path named (`questions.f.criteria`). Fixture `contract/dup_key.json` matches the inline case; `contract/malformed_truncated.json`, `malformed_trailing_comma.json`, `type_mismatch.json`, `bom.json` present in the corpus.
+Table covers truncated, trailing comma, trailing data after document, top-level AND nested duplicate keys (`JEQ_REQUEST_INVALID`, not last-wins), UTF-8 BOM, invalid UTF-8, and type mismatches (`model: 7`, `questions: []`, `criteria: "Calm"` for score) with the field path named (`questions.f.criteria`). Fixture `contract/dup_key.json` matches the inline case; `contract/malformed_truncated.json`, `malformed_trailing_comma.json`, `type_mismatch.json`, `bom.json` present in the corpus.
 
 ### D1-3 — unknown fields pass through in both modes — PASS
 
 ```
 $ go test ./internal/domain/contract/... -run TestUnknownFieldPassthrough -v   → PASS
-$ go test ./internal/domain/gev/... -run TestComposeQuestionsDocUnknownFieldsPassThrough -v → PASS
+$ go test ./internal/domain/jeq/... -run TestComposeQuestionsDocUnknownFieldsPassThrough -v → PASS
 ```
 
 Implementation reads: `DecodeRequest`/`decodeQuestion` park unrecognized keys in `Extra` (raw preserved via `json.Compact`); `DecodeQuestionsDoc` returns document-level extras that `Compose` rides onto the outgoing request. Fixture `contract/unknown_field.json` carries `vendor_meta` (question-level) and `x_extra` (request-level). No unknown field is rejected anywhere (OQ-1 honored).
@@ -51,7 +51,7 @@ Implementation reads: `DecodeRequest`/`decodeQuestion` park unrecognized keys in
 $ go test ./internal/domain/contract/... -run 'TestLosslessResponse|TestDecodeResponseMissingKnownFieldIsResponseInvalid|TestDecodeResponseHappyPath' -v → PASS
 ```
 
-Unknown server fields survive in `Response.Extra`/`Answer.Extra`/`Usage.unknown`; missing `model`/`answers`/`usage`, missing primitive-required fields, or unknown answer `type` classify `GEV_RESPONSE_INVALID` (exit 1 semantics, never local-input). Matches the live-API schema captured in docs/qa/live-api-baseline.md.
+Unknown server fields survive in `Response.Extra`/`Answer.Extra`/`Usage.unknown`; missing `model`/`answers`/`usage`, missing primitive-required fields, or unknown answer `type` classify `JEQ_RESPONSE_INVALID` (exit 1 semantics, never local-input). Matches the live-API schema captured in docs/qa/live-api-baseline.md.
 
 ### D1-6 / D1-7 / D1-8 — closed local validation gate — PASS
 
@@ -65,7 +65,7 @@ $ go test ./internal/domain/contract/... -run TestValidatePreNetwork -v → PASS
 ### D1-9 / D1-10 — source matrix and composition — PASS
 
 ```
-$ go test ./internal/domain/gev/... -run 'TestModeConflictMatrix|TestCompose' -v
+$ go test ./internal/domain/jeq/... -run 'TestModeConflictMatrix|TestCompose' -v
 --- PASS: TestModeConflictMatrix (17 matrix cells)      --- PASS: TestComposeComposedMode
 --- PASS: TestComposeStateJSONSource (+RejectsScalars)  --- PASS: TestComposeNativeMode
 --- PASS: TestComposeComposedEmptyStateFailsBeforeIO    --- PASS: TestComposeEmptyModelFails
@@ -73,7 +73,7 @@ $ go test ./internal/domain/gev/... -run 'TestModeConflictMatrix|TestCompose' -v
 --- PASS: TestComposeNeverTouchesNetwork
 ```
 
-The matrix is the full ADR 0001 set: native alone ✓; `--request` × any other source → `GEV_SOURCE_CONFLICT` (5 cells); two/three state sources → conflict (5 cells); nothing/state-alone/questions-without-state → `GEV_INPUT_INVALID` (3 cells); each single state source ✓. `TestComposeNeverTouchesNetwork` runs `Compose` over happy and failing inputs against a counting server — **0 requests**. Purity is structural: production `internal/domain/**` imports stdlib only (encoding/json, strings, bytes, fmt, sort, math, errors); no `os`, `net/http`, or Cobra (`internal/arch` gate enforces the arrows; green). Environment and filesystem never reach the domain — `ComposeInput` receives resolved values only.
+The matrix is the full ADR 0001 set: native alone ✓; `--request` × any other source → `JEQ_SOURCE_CONFLICT` (5 cells); two/three state sources → conflict (5 cells); nothing/state-alone/questions-without-state → `JEQ_INPUT_INVALID` (3 cells); each single state source ✓. `TestComposeNeverTouchesNetwork` runs `Compose` over happy and failing inputs against a counting server — **0 requests**. Purity is structural: production `internal/domain/**` imports stdlib only (encoding/json, strings, bytes, fmt, sort, math, errors); no `os`, `net/http`, or Cobra (`internal/arch` gate enforces the arrows; green). Environment and filesystem never reach the domain — `ComposeInput` receives resolved values only.
 
 ### D1-12 — model precedence — PASS (location corrected in plan)
 
@@ -81,7 +81,7 @@ The matrix is the full ADR 0001 set: native alone ✓; `--request` × any other 
 $ go test ./internal/cli/... -run TestModelPrecedence -v → PASS
 ```
 
-`internal/cli/model.go`: `--model` → `TYPESAFE_DEFAULT_MODEL` → `jev-latest`, env via injected `getenv` for testability. Plan corrected per PO: D1-12 belongs in `internal/cli` (os.Getenv containment per ADR 0002), not `internal/domain/gev`.
+`internal/cli/model.go`: `--model` → `TYPESAFE_DEFAULT_MODEL` → `jev-latest`, env via injected `getenv` for testability. Plan corrected per PO: D1-12 belongs in `internal/cli` (os.Getenv containment per ADR 0002), not `internal/domain/jeq`.
 
 ### D1-14 — fixture↔code meta-test — PASS
 
@@ -112,5 +112,5 @@ $ nix develop -c make check → true (exit 0)
 
 ## Corrections applied to docs/qa/acceptance-d0-d2.md
 
-- D1-12 location: `internal/domain/gev` → `internal/cli` (command updated to `go test ./internal/cli/... -run TestModelPrecedence`).
+- D1-12 location: `internal/domain/jeq` → `internal/cli` (command updated to `go test ./internal/cli/... -run TestModelPrecedence`).
 - F-1/D0-8 phase split (bootstrap stderr fallback kept; TASK-0017 replaces it; D2-17 final) — already in place from the prior ruling, unchanged.

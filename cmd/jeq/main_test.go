@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/cli"
-	"github.com/cristianoliveira/gev/internal/infra/render"
+	"github.com/cristianoliveira/jeq/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/infra/render"
 )
 
 // runCLI drives the real composition: the real renderer, the real tree.

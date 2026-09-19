@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 // Run is the dependency-free command entry point used by offline commands.
@@ -52,13 +52,13 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 // publicCLIError keeps wrapped implementation details internal while Cobra
 // owns the standard human-facing "Error:" rendering.
 func publicCLIError(err error) error {
-	var coded *gev.Error
+	var coded *jeq.Error
 	if errors.As(err, &coded) {
 		message := coded.Message
-		if coded.Code == gev.CodeAuthRejected {
+		if coded.Code == jeq.CodeAuthRejected {
 			message = "the server rejected the credential"
 		}
-		return gev.NewError(coded.Code, message)
+		return jeq.NewError(coded.Code, message)
 	}
 	return err
 }

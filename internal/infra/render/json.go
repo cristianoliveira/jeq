@@ -1,4 +1,4 @@
-// Package render writes gev's machine output: deterministic, lossless
+// Package render writes jeq's machine output: deterministic, lossless
 // documents with exactly one trailing newline. It is the only importer of
 // encoding details for output and implements the cli.Renderer port.
 package render
@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
 
 // JSON is the version 1 renderer: lossless JSON documents with the

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 func TestMapAndGateRejectUnknownOutputFlagBeforeDependencies(t *testing.T) {
@@ -15,8 +15,8 @@ func TestMapAndGateRejectUnknownOutputFlagBeforeDependencies(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			reads := 0
 			deps := AskDeps{
-				ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) { reads++; return nil, nil },
-				ReadFile:  func(string, int64) ([]byte, *gev.Error) { reads++; return nil, nil },
+				ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) { reads++; return nil, nil },
+				ReadFile:  func(string, int64) ([]byte, *jeq.Error) { reads++; return nil, nil },
 				Getenv:    func(string) string { reads++; return "" },
 				NewClient: func(string, time.Duration, string, int, func(string)) APIClient { reads++; return nil },
 				Renderer:  streamRenderer{},
@@ -37,8 +37,8 @@ func TestMapAndGateRejectUnknownOutputFlagBeforeDependencies(t *testing.T) {
 
 func TestRootHelpIncludesAvailableMapAndGate(t *testing.T) {
 	deps := AskDeps{
-		ReadFile:  func(string, int64) ([]byte, *gev.Error) { return nil, nil },
-		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *gev.Error) { return nil, nil },
+		ReadFile:  func(string, int64) ([]byte, *jeq.Error) { return nil, nil },
+		ReadStdin: func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) { return nil, nil },
 		Getenv:    func(string) string { return "" },
 		NewClient: func(string, time.Duration, string, int, func(string)) APIClient { return nil },
 		Renderer:  streamRenderer{},

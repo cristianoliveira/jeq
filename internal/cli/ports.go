@@ -3,13 +3,13 @@ package cli
 import (
 	"io"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 // CodedError is the shell-facing alias for stable domain failures. It keeps
 // the composition root from importing the domain package directly.
-type CodedError = gev.Error
+type CodedError = jeq.Error
 
 // Renderer emits successful machine result documents. Human output and errors
 // stay at the Cobra boundary; infra/render satisfies this result-only port.

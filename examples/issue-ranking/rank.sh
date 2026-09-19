@@ -3,21 +3,21 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-GEV_BIN=${GEV_BIN:-gev}
-GEV_MODEL=${GEV_MODEL:-jev-latest}
-GEV_BASE_URL=${GEV_BASE_URL:-}
-TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gev-rank.XXXXXX")
+JEQ_BIN=${JEQ_BIN:-jeq}
+JEQ_MODEL=${JEQ_MODEL:-jev-latest}
+JEQ_BASE_URL=${JEQ_BASE_URL:-}
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/jeq-rank.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-GEV_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$GEV_MODEL")
-if [[ -n "$GEV_BASE_URL" ]]; then
-  GEV_ARGS+=(--base-url "$GEV_BASE_URL")
+JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$JEQ_MODEL")
+if [[ -n "$JEQ_BASE_URL" ]]; then
+  JEQ_ARGS+=(--base-url "$JEQ_BASE_URL")
 fi
 
-run_gev() {
+run_jeq() {
   local state_json=$1
   local status
-  if printf '%s\n' "$state_json" | "$GEV_BIN" "${GEV_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
+  if printf '%s\n' "$state_json" | "$JEQ_BIN" "${JEQ_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
     status=0
   else
     status=$?
@@ -39,7 +39,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     exit 2
   fi
 
-  if response=$(run_gev "$state_json"); then
+  if response=$(run_jeq "$state_json"); then
     :
   else
     status=$?

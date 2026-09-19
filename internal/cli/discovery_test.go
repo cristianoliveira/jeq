@@ -7,18 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/cli"
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 type valueRenderer struct {
 	values []any
-	errors []*gev.Error
+	errors []*jeq.Error
 }
 
 func (r *valueRenderer) RenderSuccess(io.Writer, contract.Response) error { return nil }
-func (r *valueRenderer) RenderError(_ io.Writer, e *gev.Error) error {
+func (r *valueRenderer) RenderError(_ io.Writer, e *jeq.Error) error {
 	r.errors = append(r.errors, e)
 	return nil
 }
@@ -82,7 +82,7 @@ func TestVersionUsesInjectedBuildValuesAndModelsUseAuth(t *testing.T) {
 		Renderer: r,
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps); code != 0 || !strings.Contains(out.String(), "gev v-test\nCommit: abc123\n") || len(r.values) != 0 {
+	if code := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps); code != 0 || !strings.Contains(out.String(), "jeq v-test\nCommit: abc123\n") || len(r.values) != 0 {
 		t.Fatalf("version code=%d output=%q renderer-values=%d", code, out.String(), len(r.values))
 	}
 	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 0 || gotURL != "https://env-url" || client.call != 0 {
@@ -105,7 +105,7 @@ func TestModelsMissingCredentialDoesNotCreateClient(t *testing.T) {
 	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 1 {
 		t.Fatalf("exit=%d errors=%v out=%q", code, r.errors, out.String())
 	}
-	if created || len(r.errors) != 0 || !strings.Contains(errOut.String(), "GEV_AUTH_MISSING") {
+	if created || len(r.errors) != 0 || !strings.Contains(errOut.String(), "JEQ_AUTH_MISSING") {
 		t.Fatalf("created=%v errors=%v stderr=%q", created, r.errors, errOut.String())
 	}
 }
@@ -115,8 +115,8 @@ func TestValidateConflictsAndFailuresAreUsageErrors(t *testing.T) {
 	reads := 0
 	deps := cli.AskDeps{
 		Getenv:    func(string) string { t.Fatal("validate conflict read environment"); return "" },
-		ReadFile:  func(string, int64) ([]byte, *gev.Error) { reads++; return nil, nil },
-		ReadStdin: func(io.Reader, int64, bool) ([]byte, *gev.Error) { reads++; return nil, nil },
+		ReadFile:  func(string, int64) ([]byte, *jeq.Error) { reads++; return nil, nil },
+		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { reads++; return nil, nil },
 		Renderer:  r,
 	}
 	var out, errOut bytes.Buffer
@@ -125,7 +125,7 @@ func TestValidateConflictsAndFailuresAreUsageErrors(t *testing.T) {
 	}
 
 	deps.Getenv = func(string) string { return "" }
-	deps.ReadFile = func(string, int64) ([]byte, *gev.Error) {
+	deps.ReadFile = func(string, int64) ([]byte, *jeq.Error) {
 		reads++
 		return []byte(`{"state":"s","model":"m","questions":{}}`), nil
 	}
@@ -147,10 +147,10 @@ func TestValidateNeverCreatesClientAndDoesNotExposeState(t *testing.T) {
 			}
 			return ""
 		},
-		ReadFile: func(string, int64) ([]byte, *gev.Error) {
+		ReadFile: func(string, int64) ([]byte, *jeq.Error) {
 			return []byte(`{"questions":{"q":{"type":"noul","instructions":"i"}}}`), nil
 		},
-		ReadStdin: func(io.Reader, int64, bool) ([]byte, *gev.Error) { t.Fatal("unexpected stdin"); return nil, nil },
+		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { t.Fatal("unexpected stdin"); return nil, nil },
 		NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient {
 			created = true
 			return &fakeClient{}

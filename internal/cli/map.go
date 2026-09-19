@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
-	"github.com/cristianoliveira/gev/internal/domain/pipeline"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/domain/pipeline"
 	"github.com/spf13/cobra"
 )
 
@@ -32,8 +32,8 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "map",
 		Short: "Enrich each JSON record with one named judgment",
-		Example: `  printf '%s\n' '{"change":"small"}' | gev map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
-  gev examples map-gate`,
+		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
+  jeq examples map-gate`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
 				name: name, input: input, source: source, config: config, statePointer: statePointer,
@@ -71,47 +71,47 @@ type mapFlags struct {
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if !f.nameSet || f.name == "" {
-		return gev.NewError(gev.CodeInputInvalid, "--as is required")
+		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}
 	if err := pipeline.ValidateName(f.name); err != nil {
-		return gev.NewError(gev.CodeInputInvalid, err.Error())
+		return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
 	if err := pipeline.ValidatePointer(f.statePointer); err != nil {
-		return gev.NewError(gev.CodeInputInvalid, err.Error())
+		return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
 	if err := pipeline.ValidatePointer(f.requestPointer); err != nil {
-		return gev.NewError(gev.CodeInputInvalid, err.Error())
+		return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
 	if f.input != "json" && f.input != "ndjson" {
-		return gev.NewError(gev.CodeInputInvalid, "--input must be json or ndjson")
+		return jeq.NewError(jeq.CodeInputInvalid, "--input must be json or ndjson")
 	}
 	f.source.fileSet = cmd.Flags().Changed("questions")
 	f.source.inlineSet = cmd.Flags().Changed("questions-json")
 	if f.requestPointerSet == (f.source.fileSet || f.source.inlineSet) {
-		return gev.NewError(gev.CodeInputInvalid, "choose exactly one of --questions/--questions-json or --request-pointer")
+		return jeq.NewError(jeq.CodeInputInvalid, "choose exactly one of --questions/--questions-json or --request-pointer")
 	}
 	if f.configSet && strings.TrimSpace(f.config) == "" {
-		return gev.NewError(gev.CodeInputInvalid, "--config cannot be empty")
+		return jeq.NewError(jeq.CodeInputInvalid, "--config cannot be empty")
 	}
 	if f.requestPointerSet && f.configSet {
-		return gev.NewError(gev.CodeInputInvalid, "--config cannot be combined with --request-pointer")
+		return jeq.NewError(jeq.CodeInputInvalid, "--config cannot be combined with --request-pointer")
 	}
 	if err := checkQuestionSource(f.source); err != nil && !f.requestPointerSet {
 		return err
 	}
 	if f.requestPointerSet && (f.modelSet || f.statePointer != "") {
-		return gev.NewError(gev.CodeInputInvalid, "--request-pointer cannot be combined with --model or --state-pointer")
+		return jeq.NewError(jeq.CodeInputInvalid, "--request-pointer cannot be combined with --model or --state-pointer")
 	}
 
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
-		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("--max-retries must be between 0 and %d", MaxRetriesLimit))
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("--max-retries must be between 0 and %d", MaxRetriesLimit))
 	}
 	timeout, err := time.ParseDuration(f.timeout)
 	if err != nil || timeout <= 0 {
-		return gev.NewError(gev.CodeInputInvalid, "--timeout must be a positive duration")
+		return jeq.NewError(jeq.CodeInputInvalid, "--timeout must be a positive duration")
 	}
 	if deps.Stdin == nil || deps.ReadStdin == nil || deps.ReadFile == nil || deps.NewClient == nil || deps.Getenv == nil {
-		return gev.NewError(gev.CodeInputInvalid, "map dependencies are unavailable")
+		return jeq.NewError(jeq.CodeInputInvalid, "map dependencies are unavailable")
 	}
 
 	var inputDoc []byte
@@ -122,7 +122,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	var questions map[string]contract.Question
 	var extra map[string]json.RawMessage
 	if f.source.fileSet || f.source.inlineSet {
-		var sourceErr *gev.Error
+		var sourceErr *jeq.Error
 		questions, extra, sourceErr = readQuestionSource(deps, f.source)
 		if sourceErr != nil {
 			return sourceErr
@@ -134,7 +134,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	}
 	resolvedModel := "native"
 	if f.source.fileSet || f.source.inlineSet {
-		var modelErr *gev.Error
+		var modelErr *jeq.Error
 		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, f.config, deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 		if modelErr != nil {
 			return modelErr
@@ -146,7 +146,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 
 	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
 	if apiKey == "" {
-		return gev.NewError(gev.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	rootURL := f.baseURL
 	if !f.baseURLSet {
@@ -157,7 +157,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	}
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {
-			return gev.NewError(gev.CodeInputInvalid, "model is required in composed mode")
+			return jeq.NewError(jeq.CodeInputInvalid, "model is required in composed mode")
 		}
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
@@ -168,14 +168,14 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	return nil
 }
 
-func validateMapRecord(record []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string) *gev.Error {
+func validateMapRecord(record []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string) *jeq.Error {
 	if err := pipeline.ValidateRecord(record); err != nil {
-		return gev.NewError(gev.CodeInputInvalid, err.Error())
+		return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
 	if f.requestPointerSet {
 		raw, err := pipeline.Select(record, f.requestPointer)
 		if err != nil {
-			return gev.NewError(gev.CodeInputInvalid, err.Error())
+			return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 		}
 		req, decodeErr := contract.DecodeRequest(raw)
 		if decodeErr != nil {
@@ -188,13 +188,13 @@ func validateMapRecord(record []byte, f mapFlags, questions map[string]contract.
 	}
 	state, err := pipeline.Select(record, f.statePointer)
 	if err != nil {
-		return gev.NewError(gev.CodeInputInvalid, err.Error())
+		return jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
 	if stateErr := contract.CheckStateValue(state); stateErr != nil {
 		return stateErr
 	}
 	if model == "" {
-		return gev.NewError(gev.CodeInputInvalid, "model is required in composed mode")
+		return jeq.NewError(jeq.CodeInputInvalid, "model is required in composed mode")
 	}
 	req := contract.Request{Model: model, State: state, Questions: questions, Extra: extra}
 	if violations := contract.ValidateRequest(req); len(violations) > 0 {
@@ -210,11 +210,11 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 	}
 	for _, record := range records {
 		var output []byte
-		var err *gev.Error
+		var err *jeq.Error
 		if f.requestPointerSet {
 			raw, selectErr := pipeline.Select(record, f.requestPointer)
 			if selectErr != nil {
-				err = gev.NewError(gev.CodeInputInvalid, selectErr.Error())
+				err = jeq.NewError(jeq.CodeInputInvalid, selectErr.Error())
 			} else {
 				req, decodeErr := contract.DecodeRequest(raw)
 				if decodeErr != nil {
@@ -228,7 +228,7 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		} else {
 			state, selectErr := pipeline.Select(record, f.statePointer)
 			if selectErr != nil {
-				err = gev.NewError(gev.CodeInputInvalid, selectErr.Error())
+				err = jeq.NewError(jeq.CodeInputInvalid, selectErr.Error())
 			} else if stateErr := contract.CheckStateValue(state); stateErr != nil {
 				err = stateErr
 			} else {
@@ -240,16 +240,16 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 			return renderStreamError(renderer, cmd.OutOrStdout(), err, f.input == "ndjson")
 		}
 		if writeErr := renderRaw(renderer, cmd.OutOrStdout(), output); writeErr != nil {
-			return gev.WrapError(gev.CodeResponseInvalid, writeErr, "writing map output")
+			return jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing map output")
 		}
 	}
 	return nil
 }
 
-func mapRecords(input []byte, framing string) ([][]byte, *gev.Error) {
+func mapRecords(input []byte, framing string) ([][]byte, *jeq.Error) {
 	if framing == "json" {
 		if len(input) > MapMaxRecordBytes {
-			return nil, gev.NewError(gev.CodeInputInvalid, "JSON record exceeds the byte limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "JSON record exceeds the byte limit")
 		}
 		return [][]byte{bytes.TrimSpace(input)}, nil
 	}
@@ -261,15 +261,15 @@ func mapRecords(input []byte, framing string) ([][]byte, *gev.Error) {
 			continue
 		}
 		if len(line) > MapMaxRecordBytes {
-			return nil, gev.NewError(gev.CodeInputInvalid, "NDJSON record exceeds the byte limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "NDJSON record exceeds the byte limit")
 		}
 		if len(records) >= MapMaxRecords {
-			return nil, gev.NewError(gev.CodeInputInvalid, "NDJSON record count exceeds the limit")
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "NDJSON record count exceeds the limit")
 		}
 		records = append(records, line)
 	}
 	if len(records) == 0 {
-		return nil, gev.NewError(gev.CodeInputInvalid, "NDJSON input is empty")
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "NDJSON input is empty")
 	}
 	return records, nil
 }
@@ -285,7 +285,7 @@ func renderRaw(renderer Renderer, w io.Writer, raw []byte) error {
 	return renderer.(ValueRenderer).RenderValue(w, value)
 }
 
-func renderStreamError(_ Renderer, _ io.Writer, err *gev.Error, framed bool) error {
+func renderStreamError(_ Renderer, _ io.Writer, err *jeq.Error, framed bool) error {
 	if framed {
 		return err.WithRecovery("fix this record and retry the stream")
 	}

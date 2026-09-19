@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
 
 func TestReduceUsesItemsAsTheRequestStateInvariant(t *testing.T) {

@@ -1,12 +1,12 @@
-// Package gev holds gev's own rules: ask modes, source matrix, and input
+// Package jeq holds jeq's own rules: ask modes, source matrix, and input
 // composition (ADR 0002). It is pure Go: no Cobra or HTTP here.
 //
 // The stable error-code registry lives in the codes leaf so the contract
-// package can use it without an import cycle; gev re-exports it below as
+// package can use it without an import cycle; jeq re-exports it below as
 // the single public surface for the rest of the CLI.
-package gev
+package jeq
 
-import "github.com/cristianoliveira/gev/internal/domain/gev/codes"
+import "github.com/cristianoliveira/jeq/internal/domain/jeq/codes"
 
 // Code is a stable, machine-matchable failure class.
 type Code = codes.Code

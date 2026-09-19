@@ -1,6 +1,6 @@
 // Package source reads explicitly selected input files and stdin. It is the
 // only package that touches the filesystem or stdin; the domain receives
-// resolved bytes and stays pure. Failures are coded GEV_INPUT_INVALID, name
+// resolved bytes and stays pure. Failures are coded JEQ_INPUT_INVALID, name
 // the offending source, and carry one actionable recovery instruction.
 package source
 
@@ -11,7 +11,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 // Opener abstracts file opening so tests can count and inject.
@@ -22,7 +22,7 @@ func OSOpen(path string) (io.ReadCloser, error) { return os.Open(path) }
 
 // ReadFile reads an explicitly selected file source, up to limit bytes.
 // Bytes are preserved exactly within the limit.
-func ReadFile(path string, limit int64, open Opener, forbidEmpty bool) ([]byte, *gev.Error) {
+func ReadFile(path string, limit int64, open Opener, forbidEmpty bool) ([]byte, *jeq.Error) {
 	if limit <= 0 {
 		return nil, misuse("byte limit must be positive")
 	}
@@ -53,7 +53,7 @@ func ReadFile(path string, limit int64, open Opener, forbidEmpty bool) ([]byte, 
 	}
 	if over {
 		return nil, sourceError(path, fmt.Sprintf("exceeds the %d byte limit", limit),
-			"split or trim the content; gev reads at most the configured byte limit")
+			"split or trim the content; jeq reads at most the configured byte limit")
 	}
 	if forbidEmpty && len(data) == 0 {
 		return nil, sourceError(path, "is empty", "provide non-empty content for this source")
@@ -62,12 +62,12 @@ func ReadFile(path string, limit int64, open Opener, forbidEmpty bool) ([]byte, 
 }
 
 // ReadOptionalFile reads a user config without treating absence as an error.
-func ReadOptionalFile(path string, limit int64) ([]byte, *gev.Error, bool) {
+func ReadOptionalFile(path string, limit int64) ([]byte, *jeq.Error, bool) {
 	return ReadOptionalFileWithOpener(path, limit, OSOpen)
 }
 
 // ReadOptionalFileWithOpener is the injectable one-open implementation used by tests.
-func ReadOptionalFileWithOpener(path string, limit int64, open Opener) ([]byte, *gev.Error, bool) {
+func ReadOptionalFileWithOpener(path string, limit int64, open Opener) ([]byte, *jeq.Error, bool) {
 	if limit <= 0 {
 		return nil, misuse("byte limit must be positive"), true
 	}
@@ -89,35 +89,35 @@ func ReadOptionalFileWithOpener(path string, limit int64, open Opener) ([]byte, 
 		return nil, sourceError(path, fmt.Sprintf("cannot be read: %v", readErr), "check the path and try again"), true
 	}
 	if over {
-		return nil, sourceError(path, fmt.Sprintf("exceeds the %d byte limit", limit), "split or trim the content; gev reads at most the configured byte limit"), true
+		return nil, sourceError(path, fmt.Sprintf("exceeds the %d byte limit", limit), "split or trim the content; jeq reads at most the configured byte limit"), true
 	}
 	return data, nil, true
 }
 
 // ReadStdin reads explicit '-' stdin content. A terminal fails fast
-// pre-read: gev never blocks waiting for a human to type a document.
-func ReadStdin(stdin io.Reader, limit int64, isTTY func() bool, forbidEmpty bool) ([]byte, *gev.Error) {
+// pre-read: jeq never blocks waiting for a human to type a document.
+func ReadStdin(stdin io.Reader, limit int64, isTTY func() bool, forbidEmpty bool) ([]byte, *jeq.Error) {
 	if limit <= 0 {
 		return nil, misuse("byte limit must be positive")
 	}
 	if isTTY != nil && isTTY() {
-		return nil, gev.NewError(gev.CodeInputInvalid,
+		return nil, jeq.NewError(jeq.CodeInputInvalid,
 			"stdin is a terminal; '-' would block waiting for typed input"+
 				"; pipe the content or pass a file path instead").WithRecovery(
-			"pipe the document: gev ... < file.json, or pass a file path instead of '-'")
+			"pipe the document: jeq ... < file.json, or pass a file path instead of '-'")
 	}
 
 	data, over, rerr := readBounded(stdin, limit)
 	if rerr != nil {
-		return nil, gev.WrapError(gev.CodeInputInvalid, rerr,
+		return nil, jeq.WrapError(jeq.CodeInputInvalid, rerr,
 			"stdin: read failed; check the pipe and try again")
 	}
 	if over {
-		return nil, gev.NewError(gev.CodeInputInvalid,
+		return nil, jeq.NewError(jeq.CodeInputInvalid,
 			fmt.Sprintf("stdin: exceeds the %d byte limit; split or trim the piped content", limit))
 	}
 	if forbidEmpty && len(data) == 0 {
-		return nil, gev.NewError(gev.CodeInputInvalid,
+		return nil, jeq.NewError(jeq.CodeInputInvalid,
 			"stdin: provided no content; pipe the document or pass a file path instead of '-'")
 	}
 	return data, nil
@@ -136,11 +136,11 @@ func readBounded(r io.Reader, limit int64) (data []byte, over bool, err error) {
 	return data, false, nil
 }
 
-func sourceError(path, problem, recovery string) *gev.Error {
-	return gev.NewError(gev.CodeInputInvalid,
+func sourceError(path, problem, recovery string) *jeq.Error {
+	return jeq.NewError(jeq.CodeInputInvalid,
 		fmt.Sprintf("source %s: %s; %s", path, problem, recovery)).WithRecovery(recovery)
 }
 
-func misuse(msg string) *gev.Error {
-	return gev.NewError(gev.CodeInputInvalid, msg+"; this is a gev bug")
+func misuse(msg string) *jeq.Error {
+	return jeq.NewError(jeq.CodeInputInvalid, msg+"; this is a jeq bug")
 }

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GEV_BIN=${GEV_BIN:-gev}
+JEQ_BIN=${JEQ_BIN:-jeq}
 JQ_BIN=${JQ_BIN:-jq}
 MAX_FILES=20
 MAX_BYTES=$((256 * 1024))
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-if ! command -v "$GEV_BIN" >/dev/null 2>&1; then
-	printf 'unix-review-pipeline: GEV_BIN is unavailable: %s\n' "$GEV_BIN" >&2
+if ! command -v "$JEQ_BIN" >/dev/null 2>&1; then
+	printf 'unix-review-pipeline: JEQ_BIN is unavailable: %s\n' "$JEQ_BIN" >&2
 	exit 127
 fi
 if ! command -v "$JQ_BIN" >/dev/null 2>&1; then
@@ -43,8 +43,8 @@ emit_files() {
 # Keep each stage visible: emit records -> local map -> shape -> aggregate reduce
 # -> offline gate -> source-free final projection.
 emit_files "$@" |
-	"$GEV_BIN" map --as local_focus --questions "$SCRIPT_DIR/local-questions.json" --state-pointer /file --input ndjson |
-	"$JQ_BIN" -c '{file: .file, local_focus: ._gev.local_focus.answers.local_focus.noul}' |
-	"$GEV_BIN" reduce --as aggregate_focus --questions "$SCRIPT_DIR/change-questions.json" --input ndjson |
-	"$GEV_BIN" gate --as focus_policy --value-pointer /_gev/aggregate_focus/answers/aggregate_focus/noul --pass-min 0.80 --reject-max 0.40 |
+	"$JEQ_BIN" map --as local_focus --questions "$SCRIPT_DIR/local-questions.json" --state-pointer /file --input ndjson |
+	"$JQ_BIN" -c '{file: .file, local_focus: ._jeq.local_focus.answers.local_focus.noul}' |
+	"$JEQ_BIN" reduce --as aggregate_focus --questions "$SCRIPT_DIR/change-questions.json" --input ndjson |
+	"$JEQ_BIN" gate --as focus_policy --value-pointer /_jeq/aggregate_focus/answers/aggregate_focus/noul --pass-min 0.80 --reject-max 0.40 |
 	"$JQ_BIN" -c 'del(.items)'

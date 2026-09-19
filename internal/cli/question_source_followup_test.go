@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 func TestMapAndReduceRejectQuestionSourceConflictBeforeReading(t *testing.T) {
@@ -16,8 +16,8 @@ func TestMapAndReduceRejectQuestionSourceConflictBeforeReading(t *testing.T) {
 			reads := 0
 			deps := AskDeps{
 				Stdin:     strings.NewReader(`[{"x":1}]`),
-				ReadStdin: func(io.Reader, int64, bool) ([]byte, *gev.Error) { reads++; return []byte(`[{"x":1}]`), nil },
-				ReadFile:  func(string, int64) ([]byte, *gev.Error) { reads++; return []byte(`{"questions":{}}`), nil },
+				ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { reads++; return []byte(`[{"x":1}]`), nil },
+				ReadFile:  func(string, int64) ([]byte, *jeq.Error) { reads++; return []byte(`{"questions":{}}`), nil },
 				Getenv:    func(string) string { reads++; return "" },
 				NewClient: func(string, time.Duration, string, int, func(string)) APIClient { reads++; return nil },
 			}

@@ -51,7 +51,7 @@ Raw responses (git-ignored): `.tmp/live-baseline/raw_models.json`, `.tmp/live-ba
 
 ## Contract confirmations for D2 work
 
-- Response shape matches ADR 0001's lossless-output expectations: `model`, `answers` keyed by caller ids, per-answer `type`, `confidence` on Choice/Score, `legend` on Score, `usage` — nothing observed that gev's contract types (TASK-0003) must deviate from.
+- Response shape matches ADR 0001's lossless-output expectations: `model`, `answers` keyed by caller ids, per-answer `type`, `confidence` on Choice/Score, `legend` on Score, `usage` — nothing observed that jeq's contract types (TASK-0003) must deviate from.
 - Pinning behavior confirmed: sending a versioned ID returns that same versioned ID in `model` — the fake-server fixtures should mirror this (fixture `response_200_full.json` uses `jev-1.13.0`).
 - `GET /v1/models` returns aliases only — TASK-0012's models view should not expect versioned IDs in the list.
 
@@ -60,4 +60,4 @@ Raw responses (git-ignored): `.tmp/live-baseline/raw_models.json`, `.tmp/live-ba
 **None contradicting the contract.** Two non-blocking observations:
 
 1. Rate-limit/overload paths (429/529) were **not** exercised live — no such status occurred in one attempt each. Bounded-retry behavior (TASK-0007) remains verified against the fake server only; a live 429 probe would need deliberate limit-pushing and is not worth the spend for this baseline.
-2. Docs rate limits (250k tok/s, 1200 req/min) are flagged "adjusting dynamically" upstream — irrelevant to gev's correctness contract, but retry bounds should not assume those numbers stay stable.
+2. Docs rate limits (250k tok/s, 1200 req/min) are flagged "adjusting dynamically" upstream — irrelevant to jeq's correctness contract, but retry bounds should not assume those numbers stay stable.

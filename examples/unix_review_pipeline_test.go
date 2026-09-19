@@ -84,7 +84,7 @@ func TestUnixReviewPipelineGateStatusesAndNoExtraRequests(t *testing.T) {
 				t.Fatalf("exit=%d want=%d stdout=%q stderr=%q", result.exit, tc.exit, result.stdout, result.stderr)
 			}
 			doc := oneJSON(t, result.stdout)
-			receipt := doc["_gev"].(map[string]any)["focus_policy"].(map[string]any)
+			receipt := doc["_jeq"].(map[string]any)["focus_policy"].(map[string]any)
 			if receipt["decision"] != tc.name {
 				t.Fatalf("decision=%v want=%s", receipt["decision"], tc.name)
 			}

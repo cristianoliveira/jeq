@@ -10,27 +10,27 @@ tags: []
 # Probabilistic reduce and model configuration
 
 ## Problem
-`gev map` can judge each record independently, but callers cannot ask one bounded probabilistic question about a complete collection without manually reshaping it into an envelope. Normal composed commands also need a durable default model without repeating `--model` in every invocation.
+`jeq map` can judge each record independently, but callers cannot ask one bounded probabilistic question about a complete collection without manually reshaping it into an envelope. Normal composed commands also need a durable default model without repeating `--model` in every invocation.
 
 ## Desired outcome
-The existing CLI has a small map/reduce/gate algebra. `gev reduce` turns bounded JSON-array or NDJSON input into one collection envelope and performs exactly one judgment. Map and reduce resolve their model from transparent configuration by default.
+The existing CLI has a small map/reduce/gate algebra. `jeq reduce` turns bounded JSON-array or NDJSON input into one collection envelope and performs exactly one judgment. Map and reduce resolve their model from transparent configuration by default.
 
 ## Acceptance criteria
 - [ ] ADR 0005 defines `reduce` as a one-call probabilistic aggregate, not an associative or iterative fold. A true N-call evolving fold and any embedded jq/query language remain deferred.
-- [ ] `gev reduce --as <name> (--questions <file> | --questions-json <document>) [--input json|ndjson] [--model <override>]` accepts a JSON array or bounded NDJSON values, preserves order and raw JSON semantics, and produces one JSON envelope: `{"items":[...],"_gev":{"<name>":<complete response>}}`.
+- [ ] `jeq reduce --as <name> (--questions <file> | --questions-json <document>) [--input json|ndjson] [--model <override>]` accepts a JSON array or bounded NDJSON values, preserves order and raw JSON semantics, and produces one JSON envelope: `{"items":[...],"_jeq":{"<name>":<complete response>}}`.
 - [ ] Reduce sends exactly one request whose state is the complete `items` array. It reuses strict question/request validation and the append-only TASK-0023 engine; it never interprets answers or performs actions.
 - [ ] Map and reduce expose the same question-source flags and semantics: exactly one of `--questions <file>` or `--questions-json <document>`. One shared question-source component owns source selection, bounded reads, strict decoding, validation, error codes, recovery text, and help examples so the commands cannot drift.
 - [ ] `--questions-json` accepts the exact same strict, bounded document as `--questions`, without reading stdin or creating a temporary file. Selecting file and inline sources together is a local source-conflict error; shared contract tests run the same success and failure cases against both commands.
-- [ ] Empty collections, malformed values, recursive duplicate keys, excess records/bytes, `_gev` collisions, invalid flags/questions, and unavailable model configuration fail locally before client construction. API/auth/timeout/interruption preserve 1/1/1/130 behavior.
+- [ ] Empty collections, malformed values, recursive duplicate keys, excess records/bytes, `_jeq` collisions, invalid flags/questions, and unavailable model configuration fail locally before client construction. API/auth/timeout/interruption preserve 1/1/1/130 behavior.
 - [ ] Output is one JSON document even for NDJSON input. Help states collection limits, one-request cost, complete-input privacy, and the difference between aggregate and dependent fold.
 - [ ] The resolved model follows explicit precedence: `--model`, `TYPESAFE_DEFAULT_MODEL`, user or explicitly selected config, then `jev-latest`. Normal map/reduce examples omit `--model`; every response still records the resolved model.
-- [ ] Configuration is bounded strict JSON and initially permits only `default_model`. Automatic lookup uses `$XDG_CONFIG_HOME/gev/config.json`, falling back to `$HOME/.config/gev/config.json`; `--config <path>` explicitly overrides lookup. Missing default files are ignored, but a missing explicit file is an error. It never stores credentials or API endpoints, and no repository-local config is auto-discovered.
+- [ ] Configuration is bounded strict JSON and initially permits only `default_model`. Automatic lookup uses `$XDG_CONFIG_HOME/jeq/config.json`, falling back to `$HOME/.config/jeq/config.json`; `--config <path>` explicitly overrides lookup. Missing default files are ignored, but a missing explicit file is an error. It never stores credentials or API endpoints, and no repository-local config is auto-discovered.
 - [ ] Missing config is not an error; malformed, duplicate, unknown, oversized, or wrong-typed configuration fails before network with actionable recovery. Discovery exposes the resolved default model and its source without exposing secrets.
 - [ ] Tests cover JSON/NDJSON order, scalar/object/array items, unsafe numbers/Unicode, one exact request, map-to-reduce-to-gate composition, empty/malformed/oversized collections, model precedence/config failures, response extras, and operational propagation.
 - [ ] Support or incident examples include one readable aggregate decision and explicit projection before logging. Full checks, govulncheck, and an opt-in fake/live cost receipt pass.
 
 ## Non-goals
-- No embedded jq, `gev eval`, traversal language, arbitrary expressions, iterative probabilistic fold, hidden batching, concurrency, actions, or model-selected paths.
+- No embedded jq, `jeq eval`, traversal language, arbitrary expressions, iterative probabilistic fold, hidden batching, concurrency, actions, or model-selected paths.
 - No project configuration auto-discovery, credentials, base URLs, retry policy, or other network settings in the first config schema.
 
 ## Notes

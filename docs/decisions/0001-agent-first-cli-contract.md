@@ -13,7 +13,7 @@ The CLI must preserve TypeSafe's native request capabilities while remaining det
 
 ### Product direction
 
-- Name the executable `gev`.
+- Name the executable `jeq`.
 - Build it in Go with Cobra.
 - Serve both humans and agents: concise human discovery/diagnostics, lossless JSON for composable result streams.
 - Accept JSON documents only in version 1.
@@ -22,36 +22,36 @@ The CLI must preserve TypeSafe's native request capabilities while remaining det
 ### Commands
 
 ```text
-gev ask        Send one System One request
-gev map        Enrich JSON/NDJSON records with one named judgment
-gev reduce     Aggregate one bounded JSON/NDJSON collection with one judgment
-gev gate       Apply an offline numeric policy to JSON/NDJSON records
-gev validate   Validate request input without credentials or network access
-gev models     List models available to the account
-gev version    Return version information
-gev completion Generate Cobra shell completions
+jeq ask        Send one System One request
+jeq map        Enrich JSON/NDJSON records with one named judgment
+jeq reduce     Aggregate one bounded JSON/NDJSON collection with one judgment
+jeq gate       Apply an offline numeric policy to JSON/NDJSON records
+jeq validate   Validate request input without credentials or network access
+jeq models     List models available to the account
+jeq version    Return version information
+jeq completion Generate Cobra shell completions
 ```
 
-Noul, Choice, and Score remain question types in request data. They are not separate version 1 commands. `gev ask --request` is the native passthrough, so a separate API command is unnecessary.
+Noul, Choice, and Score remain question types in request data. They are not separate version 1 commands. `jeq ask --request` is the native passthrough, so a separate API command is unnecessary.
 
-With no arguments, `gev` shows standard Cobra help and performs no configuration or credential discovery. `gev examples [id]` is the explicit self-contained workflow discovery path.
+With no arguments, `jeq` shows standard Cobra help and performs no configuration or credential discovery. `jeq examples [id]` is the explicit self-contained workflow discovery path.
 
 ### Request modes
 
 A caller provides either a complete native request:
 
 ```sh
-gev ask --request request.json
-gev ask --request - < request.json
+jeq ask --request request.json
+jeq ask --request - < request.json
 ```
 
 or reusable questions plus exactly one state source:
 
 ```sh
-gev ask --questions questions.json --state "Customer message"
-gev ask --questions questions.json --state-file message.txt
-gev ask --questions questions.json --state-json state.json
-gev ask --questions questions.json --state-json - < state.json
+jeq ask --questions questions.json --state "Customer message"
+jeq ask --questions questions.json --state-file message.txt
+jeq ask --questions questions.json --state-json state.json
+jeq ask --questions questions.json --state-json - < state.json
 ```
 
 The state flags mean:
@@ -65,7 +65,7 @@ Request modes and state sources never merge implicitly. Conflicts fail before cr
 ### Configuration
 
 - Read authentication only from `TYPESAFE_API_KEY`; never accept an API key flag.
-- Resolve `map`/`reduce` models from `--model`, then `TYPESAFE_DEFAULT_MODEL`, then strict user config `${XDG_CONFIG_HOME:-$HOME/.config}/gev/config.json`, then `jev-latest`; config contains only `default_model` and `--config` overrides its path.
+- Resolve `map`/`reduce` models from `--model`, then `TYPESAFE_DEFAULT_MODEL`, then strict user config `${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`, then `jev-latest`; config contains only `default_model` and `--config` overrides its path.
 - Preserve the existing `ask`/`validate` model-resolution behavior.
 - Allow `TYPESAFE_BASE_URL` or `--base-url` for the API root.
 - Use a 10-second default timeout.

@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/contract"
-	"github.com/cristianoliveira/gev/internal/domain/gev"
+	"github.com/cristianoliveira/jeq/internal/domain/contract"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
 const (
-	defaultConfigRelativePath = "gev/config.json"
+	defaultConfigRelativePath = "jeq/config.json"
 	configMaxBytes            = 64 << 10
 )
 
@@ -21,13 +21,13 @@ type configDocument struct {
 
 // ResolveConfiguredModel applies flag > environment > user config > fallback.
 // Config is deliberately a tiny strict document and is read through the CLI port.
-func ResolveConfiguredModel(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *gev.Error)) (string, *gev.Error) {
+func ResolveConfiguredModel(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error)) (string, *jeq.Error) {
 	model, _, err := ResolveConfiguredModelWithSource(flagModel, explicitPath, getenv, readFile, nil)
 	return model, err
 }
 
 // ResolveConfiguredModelWithSource also reports which precedence layer won.
-func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *gev.Error), readOptional func(string, int64) ([]byte, *gev.Error, bool)) (string, string, *gev.Error) {
+func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (string, string, *jeq.Error) {
 	if flagModel != "" {
 		return flagModel, "flag", nil
 	}
@@ -44,7 +44,7 @@ func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv fun
 	return DefaultModel, "default", nil
 }
 
-func readUserConfig(explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *gev.Error), readOptional func(string, int64) ([]byte, *gev.Error, bool)) (string, *gev.Error) {
+func readUserConfig(explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (string, *jeq.Error) {
 	path := strings.TrimSpace(explicitPath)
 	explicit := path != ""
 	if !explicit {
@@ -88,25 +88,25 @@ func readUserConfig(explicitPath string, getenv func(string) string, readFile fu
 	return decodeUserConfig(path, data)
 }
 
-func decodeUserConfig(path string, data []byte) (string, *gev.Error) {
+func decodeUserConfig(path string, data []byte) (string, *jeq.Error) {
 	if len(data) > configMaxBytes {
-		return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s exceeds the %d byte limit", path, configMaxBytes))
+		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s exceeds the %d byte limit", path, configMaxBytes))
 	}
 	if err := contract.ValidateJSON(data); err != nil {
-		return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s: %v", path, err))
+		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s: %v", path, err))
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
-		return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s must be an object: %v", path, err))
+		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s must be an object: %v", path, err))
 	}
 	for key := range fields {
 		if key != "default_model" {
-			return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s contains unsupported field %q", path, key))
+			return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s contains unsupported field %q", path, key))
 		}
 	}
 	var doc configDocument
 	if err := json.Unmarshal(data, &doc); err != nil || strings.TrimSpace(doc.DefaultModel) == "" {
-		return "", gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("config %s.default_model must be a non-empty string", path))
+		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s.default_model must be a non-empty string", path))
 	}
 	return strings.TrimSpace(doc.DefaultModel), nil
 }

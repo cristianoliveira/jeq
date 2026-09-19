@@ -25,7 +25,7 @@ Local httptest suite (recordingSleeper, no real waits):
 ```
 $ go test ./internal/infra/typesafeapi/... -run 'TestRetry' -v
   PASS TestRetryOn429ThenSucceed             (1 retry → 200; recorded sleeps)
-  PASS Test429ExhaustsBound                  (3 attempts on 429, exit via GEV_RATE_LIMITED)
+  PASS Test429ExhaustsBound                  (3 attempts on 429, exit via JEQ_RATE_LIMITED)
   PASS Test529RetriesLike429                 (529 treated identically)
   PASS TestZeroRetriesMeansSingleAttempt     (1 attempt; no recorded sleep)
   PASS TestMaxRetriesClampedToFive           (6 requests with MaxRetries=99 → bounded to 5)
@@ -34,7 +34,7 @@ $ go test ./internal/infra/typesafeapi/... -run 'TestRetry' -v
   PASS TestRetryAfterFallbacks               (empty / malformed / cap-exceeding → backoff)
   PASS TestNeverRetryOtherStatusesOrTransport (401/422/500/connect-fail → exactly 1 request)
   PASS TestRetryDiagnosticsGoToHook          (one Diagnostic line per retry attempt)
-ok  github.com/cristianoliveira/gev/internal/infra/typesafeapi
+ok  github.com/cristianoliveira/jeq/internal/infra/typesafeapi
 ```
 
 Code inspection confirms the contract:
@@ -44,14 +44,14 @@ Code inspection confirms the contract:
 - **Request counts** — default 429 → 3 requests (1 + 2 retries); `MaxRetries=99` → 6 requests (1 + 5); 401/422/500/connect-fail → exactly 1.
 - **Recorded sleep sequence** — `recordingSleeper.Sleep` records `time.Duration`s; no real `time.Sleep` runs in tests.
 - **Diagnostic channel** — `Diagnostic(string)` injected; one line per retry attempt (format: `retry N/M after WAIT (source; status S)`). The call site **never** writes to stdout/stderr directly; the renderer remains the single stdout channel.
-- **Cancellation** — before sleeping, `ctx.Err()` is checked; on cancellation the call returns `GEV_INTERRUPTED` with the canceled cause (no further attempts).
+- **Cancellation** — before sleeping, `ctx.Err()` is checked; on cancellation the call returns `JEQ_INTERRUPTED` with the canceled cause (no further attempts).
 - **Body closure** — `attemptOnce` closes the response body via defer on every path; transport-error paths return immediately **without retry** — the design comment is explicit: a sent request may already have executed, so retries are unsafe. **No transport replay.** This is the D2-9 guarantee.
 - **Sleep/Now/Diagnostic are all injected**, keeping the policy deterministic in tests.
 
 ### D2-17 — Structured usage errors (TASK-0017) — PASS
 
 ```
-$ go build -o /tmp/gev-w2 ./cmd/gev                       → build=ok
+$ go build -o /tmp/jeq-w2 ./cmd/jeq                       → build=ok
 $ nix develop -c make check                               → true
 ```
 
@@ -59,10 +59,10 @@ Streams-separated probes:
 
 | probe | exit | stdout (one JSON doc + newline) | stderr |
 | --- | --- | --- | --- |
-| `gev badsubcommand` | **2** | `{"code":"GEV_INPUT_INVALID","message":"unknown command \"badsubcommand\"","recovery":"run 'gev --help' for the command list"}` | empty |
-| `gev versionn` | **2** | `{"code":"GEV_INPUT_INVALID","message":"unknown command \"versionn\"","recovery":"did you mean \"version\"? run 'gev --help' for the command list"}` | empty |
-| `gev --nope` | **2** | `{"code":"GEV_INPUT_INVALID","message":"unknown flag: --nope","recovery":"run 'gev --help' for the flag list"}` | empty |
-| `gev --help` / `gev help` | **0** | Cobra help prose on stdout | empty |
+| `jeq badsubcommand` | **2** | `{"code":"JEQ_INPUT_INVALID","message":"unknown command \"badsubcommand\"","recovery":"run 'jeq --help' for the command list"}` | empty |
+| `jeq versionn` | **2** | `{"code":"JEQ_INPUT_INVALID","message":"unknown command \"versionn\"","recovery":"did you mean \"version\"? run 'jeq --help' for the command list"}` | empty |
+| `jeq --nope` | **2** | `{"code":"JEQ_INPUT_INVALID","message":"unknown flag: --nope","recovery":"run 'jeq --help' for the flag list"}` | empty |
+| `jeq --help` / `jeq help` | **0** | Cobra help prose on stdout | empty |
 
 All four failure cases produce exactly **one** parseable JSON document (`jq -e .` accepts), **one** trailing newline, and **empty stderr**. The misspelling path uses `root.SuggestionsFor(typed)` to surface the closest deterministic alternative as the recovery value (TASK-0017 golden list satisfied — unknown command, misspelled-suggestion, unknown flag, help). Help exits 0 and stays as prose on stdout, which is the documented final-criterion shape for help in D0-8.
 
@@ -78,7 +78,7 @@ $ nix develop -c make check → true
 
 ## Findings
 
-**F-D2-3 (follow-up, TASK-0011): CLI `--max-retries` flag is not wired yet.** The client clamps defensively (`c.MaxRetries` forced to `[0,5]`), but no `--max-retries` flag exists in the command tree (`rg "max-retries" cmd internal/cli` returns only the client/retry-test mentions). Implication: every CLI invocation today uses `DefaultMaxRetries = 2` regardless of what the caller wants. The CLI flag must (a) reject values outside `0..5` with a usage failure (`GEV_INPUT_INVALID`, exit 2), and (b) accept `-1`, `6`, `"foo"` etc. as flag parse errors (Cobra → exit 2). Defensive clamping is not the contract; it only prevents an unbounded retry if some future caller bypasses validation. Owner: Dave, TASK-0011 follow-up. Not fixable from these two commits.
+**F-D2-3 (follow-up, TASK-0011): CLI `--max-retries` flag is not wired yet.** The client clamps defensively (`c.MaxRetries` forced to `[0,5]`), but no `--max-retries` flag exists in the command tree (`rg "max-retries" cmd internal/cli` returns only the client/retry-test mentions). Implication: every CLI invocation today uses `DefaultMaxRetries = 2` regardless of what the caller wants. The CLI flag must (a) reject values outside `0..5` with a usage failure (`JEQ_INPUT_INVALID`, exit 2), and (b) accept `-1`, `6`, `"foo"` etc. as flag parse errors (Cobra → exit 2). Defensive clamping is not the contract; it only prevents an unbounded retry if some future caller bypasses validation. Owner: Dave, TASK-0011 follow-up. Not fixable from these two commits.
 
 **F-D2-4 (informational, no action): help output is prose, not JSON.** Cobra's help text on stdout is correct per the D0-8 final criterion ("help stays exit 0 on stdout") and per the TASK-0017 goldens (`help` exit 0 is part of the golden list). Recording for the audit trail so a future check doesn't conflate "every exit is one JSON doc" with "every stdout is one JSON doc" — help prose is the documented exception.
 
