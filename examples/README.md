@@ -1,11 +1,11 @@
 # Readable Unix pipelines
 
 Start with `jeq examples` for installed, self-contained recipes. This repository
-contains expanded executable references for those workflows.
+contains expanded executable references for those workflows. A rank result can be composed explicitly, for example: `jeq rank ... | jq '.items[:3] | map(.candidate)'`. Choice probabilities are relative; include an explicit fallback candidate when needed.
 
 These examples use the composable primitives from ADR 0004. `jeq map` performs
 one named semantic judgment per record; `jq` projects, joins, and constructs
-native requests; `jeq gate` applies an explicit offline numeric policy.
+native requests; `jeq rank` ranks candidates with Choice probabilities and `jeq gate` applies an explicit offline numeric policy.
 
 The same JSON record remains the transport envelope. Before logging or sharing
 it, project away sensitive state explicitly:
@@ -15,7 +15,7 @@ jq 'del(.customer_message, .details, ._jeq.route)'
 ```
 
 A live run needs `TYPESAFE_API_KEY` and spends account budget. Use a local fake
-endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. `map` and `reduce` resolve models as `--model`, `TYPESAFE_DEFAULT_MODEL`, user config (`${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`), then `jev-latest`; the config contains only `default_model`.
+endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. `rank`, `map`, and `reduce` resolve models as `--model`, `TYPESAFE_DEFAULT_MODEL`, user config (`${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`), then `jev-latest`; the config contains only `default_model`.
 
 
 ## Recommended pipelines
@@ -30,7 +30,7 @@ endpoint for development. Model evidence is data: examples validate it as a cata
 - [`code-smell-review`](code-smell-review/README.md): explicit bounded source
   files, one aggregate judgment, and an optional offline cohesion gate.
 - [`unix-review-pipeline`](unix-review-pipeline/README.md): visible emitter,
-  map, jq, reduce, gate, and safe final projection pipeline.
+  rank, map, jq, reduce, gate, and safe final projection pipeline.
 
 The existing `support-routing`, `change-risk-gate`, and `issue-ranking`
 directories remain low-level Bash references. They expose transport mechanics

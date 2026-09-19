@@ -306,6 +306,30 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 	}
 }
 
+func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
+	t.Parallel()
+	api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request, _ int) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/systemone" {
+			http.Error(w, "wrong endpoint", http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"model":"jev-latest","answers":{"route":{"type":"choice","choice":"b","probabilities":{"a":0.2,"b":0.8},"confidence":0.8}},"usage":{"input_tokens":1,"output_tokens":1}}`))
+	})
+	input := "{\"name\":\"a\",\"description\":\"first\"}\n{\"name\":\"b\",\"description\":\"second\"}\n"
+	result := runBinary(t, input, map[string]string{"TYPESAFE_API_KEY": "rank-secret"}, "rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description", "--base-url", api.server.URL)
+	if result.exit != 0 || result.stderr != "" || api.count() != 1 {
+		t.Fatalf("exit=%d stderr=%q requests=%d stdout=%q", result.exit, result.stderr, api.count(), result.stdout)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(result.stdout), &doc); err != nil {
+		t.Fatal(err)
+	}
+	items := doc["items"].([]any)
+	if items[0].(map[string]any)["id"] != "b" || len(items) != 2 {
+		t.Fatalf("items=%#v", items)
+	}
+}
+
 func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 	t.Parallel()
 	t.Run("models success", func(t *testing.T) {

@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,18 +14,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// PickMaxOptions is the TypeSafe Choice option limit.
-const PickMaxOptions = 255
+// RankMaxOptions is the TypeSafe Choice option limit.
+const RankMaxOptions = 255
 
-// NewPickCmd creates the one-request candidate selection primitive.
-func NewPickCmd(deps AskDeps) *cobra.Command {
+// NewRankCmd creates the one-request candidate ranking primitive.
+func NewRankCmd(deps AskDeps) *cobra.Command {
 	var name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, config, baseURL, timeoutText string
 	var maxRetries int
 	cmd := &cobra.Command{
-		Use: "pick", Short: "Select one candidate with a TypeSafe Choice", Long: "Selects one original candidate and attaches complete Choice evidence under _jeq.<as>. Choice is relative: include an explicit fallback candidate when nothing may fit. Pipe the result unchanged into jq or another explicit JEQ stage.", Args: cobra.NoArgs,
-		Example: `  cat handlers.ndjson | jeq pick --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
+		Use: "rank", Short: "Rank candidates with a TypeSafe Choice", Long: "Ranks every original candidate and attaches complete Choice evidence under _jeq.<as>. Choice probabilities are relative: include an explicit fallback candidate when nothing may fit. Pick or threshold explicitly with jq or another JEQ stage.", Args: cobra.NoArgs,
+		Example: `  cat handlers.ndjson | jeq rank --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
-			return runPick(cmd, deps, pickFlags{
+			return runRank(cmd, deps, rankFlags{
 				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
 				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
 			})
@@ -46,13 +48,13 @@ func NewPickCmd(deps AskDeps) *cobra.Command {
 	return cmd
 }
 
-type pickFlags struct {
+type rankFlags struct {
 	name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, config, baseURL, timeout                         string
 	maxRetries                                                                                                                                 int
 	nameSet, inputSet, stateSet, stateFileSet, stateJSONSet, instructionSet, idPointerSet, criteriaPointerSet, modelSet, configSet, baseURLSet bool
 }
 
-func runPick(cmd *cobra.Command, deps AskDeps, f pickFlags) error {
+func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if !f.nameSet || f.name == "" || !f.instructionSet || strings.TrimSpace(f.instruction) == "" || !f.idPointerSet || !f.criteriaPointerSet {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as, --instruction, --id-pointer, and --criteria-pointer are required")
 	}
@@ -95,9 +97,9 @@ func runPick(cmd *cobra.Command, deps AskDeps, f pickFlags) error {
 		return jeq.NewError(jeq.CodeInputInvalid, "--timeout must be a positive duration")
 	}
 	if deps.Stdin == nil || deps.ReadStdin == nil || deps.ReadFile == nil || deps.NewClient == nil || deps.Getenv == nil {
-		return jeq.NewError(jeq.CodeInputInvalid, "pick dependencies are unavailable")
+		return jeq.NewError(jeq.CodeInputInvalid, "Rank dependencies are unavailable")
 	}
-	stateBytes, stateErr := pickState(deps, f)
+	stateBytes, stateErr := rankState(deps, f)
 	if stateErr != nil {
 		return stateErr
 	}
@@ -105,11 +107,11 @@ func runPick(cmd *cobra.Command, deps AskDeps, f pickFlags) error {
 	if readErr != nil {
 		return readErr
 	}
-	records, framingErr := mapRecords(candidatesBytes, f.input)
+	records, framingErr := rankRecords(candidatesBytes, f.input)
 	if framingErr != nil {
 		return framingErr
 	}
-	if len(records) > PickMaxOptions {
+	if len(records) > RankMaxOptions {
 		return jeq.NewError(jeq.CodeInputInvalid, "candidate count exceeds the 255 Choice option limit")
 	}
 	ids := make(map[string]struct{}, len(records))
@@ -118,7 +120,7 @@ func runPick(cmd *cobra.Command, deps AskDeps, f pickFlags) error {
 		if slotErr := pipeline.CheckEvidenceAvailable(record, f.name); slotErr != nil {
 			return slotErr
 		}
-		id, criteriaValue, err := pickCandidate(record, f.idPointer, f.criteriaPointer)
+		id, criteriaValue, err := rankCandidate(record, f.idPointer, f.criteriaPointer)
 		if err != nil {
 			return err
 		}
@@ -176,22 +178,94 @@ func runPick(cmd *cobra.Command, deps AskDeps, f pickFlags) error {
 	if _, ok := ids[*selected]; !ok {
 		return jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("Choice selected unknown candidate id %q", *selected))
 	}
-	var selectedRecord []byte
-	for _, record := range records {
-		id, _, _ := pickCandidate(record, f.idPointer, f.criteriaPointer)
-		if id == *selected {
-			selectedRecord = record
-			break
+	if len(answer.Probs) != len(ids) {
+		return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must contain every candidate exactly once")
+	}
+	scoredCandidates := make([]rankScored, 0, len(records))
+	for index, record := range records {
+		id, _, candidateErr := rankCandidate(record, f.idPointer, f.criteriaPointer)
+		if candidateErr != nil {
+			return candidateErr
+		}
+		probability, ok := answer.Probs[id]
+		if !ok || math.IsNaN(probability) || math.IsInf(probability, 0) || probability < 0 {
+			return jeq.NewError(jeq.CodeResponseInvalid, "Choice probabilities must be finite and non-negative for every candidate")
+		}
+		scoredCandidates = append(scoredCandidates, rankScored{id: id, probability: probability, record: record, order: index})
+	}
+	for id := range answer.Probs {
+		if _, ok := ids[id]; !ok {
+			return jeq.NewError(jeq.CodeResponseInvalid, fmt.Sprintf("Choice probability has unknown candidate id %q", id))
 		}
 	}
-	output, attachErr := pipeline.AttachResponse(selectedRecord, f.name, response)
+	maxProbability := scoredCandidates[0].probability
+	for _, candidate := range scoredCandidates[1:] {
+		if candidate.probability > maxProbability {
+			maxProbability = candidate.probability
+		}
+	}
+	sort.SliceStable(scoredCandidates, func(i, j int) bool {
+		if scoredCandidates[i].probability != scoredCandidates[j].probability {
+			return scoredCandidates[i].probability > scoredCandidates[j].probability
+		}
+		if scoredCandidates[i].id == *selected {
+			return true
+		}
+		if scoredCandidates[j].id == *selected {
+			return false
+		}
+		return scoredCandidates[i].order < scoredCandidates[j].order
+	})
+	if maxCount := countProbability(scoredCandidates, maxProbability); maxCount == 1 && scoredCandidates[0].id != *selected {
+		return jeq.NewError(jeq.CodeResponseInvalid, "Choice selected id is not the highest-probability candidate")
+	}
+	items := make([]map[string]json.RawMessage, 0, len(scoredCandidates))
+	for _, candidate := range scoredCandidates {
+		probability, _ := json.Marshal(candidate.probability)
+		items = append(items, map[string]json.RawMessage{"id": json.RawMessage(strconvQuote(candidate.id)), "probability": probability, "candidate": candidate.record})
+	}
+	itemsJSON, _ := json.Marshal(items)
+	envelope, _ := json.Marshal(map[string]json.RawMessage{"items": itemsJSON})
+	output, attachErr := pipeline.AttachResponse(envelope, f.name, response)
 	if attachErr != nil {
 		return attachErr
 	}
 	return renderRaw(deps.Renderer, cmd.OutOrStdout(), output)
 }
 
-func pickState(deps AskDeps, f pickFlags) ([]byte, *jeq.Error) {
+func rankRecords(input []byte, framing string) ([][]byte, *jeq.Error) {
+	if framing != "json" {
+		return mapRecords(input, framing)
+	}
+	var records []json.RawMessage
+	if err := json.Unmarshal(input, &records); err != nil || len(records) == 0 {
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "JSON input must be a non-empty candidate array")
+	}
+	out := make([][]byte, len(records))
+	for i, record := range records {
+		out[i] = append([]byte(nil), record...)
+	}
+	return out, nil
+}
+
+type rankScored struct {
+	id          string
+	probability float64
+	record      json.RawMessage
+	order       int
+}
+
+func countProbability(candidates []rankScored, value float64) int {
+	count := 0
+	for _, candidate := range candidates {
+		if candidate.probability == value {
+			count++
+		}
+	}
+	return count
+}
+
+func rankState(deps AskDeps, f rankFlags) ([]byte, *jeq.Error) {
 	if f.stateSet {
 		return []byte(strconvQuote(f.state)), nil
 	}
@@ -219,7 +293,7 @@ func pickState(deps AskDeps, f pickFlags) ([]byte, *jeq.Error) {
 	return b, nil
 }
 
-func pickCandidate(record []byte, idPointer, criteriaPointer string) (string, json.RawMessage, *jeq.Error) {
+func rankCandidate(record []byte, idPointer, criteriaPointer string) (string, json.RawMessage, *jeq.Error) {
 	if err := pipeline.ValidateRecord(record); err != nil {
 		return "", nil, jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}

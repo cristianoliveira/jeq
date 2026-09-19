@@ -73,7 +73,7 @@ composed request construction. Stable error codes live in
 | `jeq models` | Yes | Plain model list |
 | `jeq validate` | No | Plain validation receipt |
 | `jeq ask` | Yes | JSON evaluation response |
-| `jeq map` / `jeq reduce` / `jeq gate` / `jeq pick` | Map/reduce/pick: yes; gate: no | JSON/NDJSON result stream |
+| `jeq map` / `jeq reduce` / `jeq gate` / `jeq rank` | Map/reduce/rank: yes; gate: no | JSON/NDJSON result stream |
 | `jeq help` / `jeq --help` | No | Cobra prose |
 | `jeq completion <shell>` | No | Shell script prose |
 
