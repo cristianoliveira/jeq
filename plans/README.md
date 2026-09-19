@@ -27,13 +27,13 @@ Deliverable: `gev ask` works end to end against `httptest`: adapters for HTTP (a
 
 Tasks: TASK-0009, TASK-0012, TASK-0013 · Owner: Dave
 
-Deliverable: TOON default output (or a recorded spike decision that changes ADR 0001), `gev models`, `gev validate` offline, and the no-argument home view. The full accepted v1 command surface exists.
+Deliverable: recorded TOON conformance decision (ADR 0003), lossless JSON-only v1 output, `gev models`, `gev validate` offline, and the no-argument home view. The full accepted v1 command surface exists.
 
 ### D4 — Release-ready v1
 
 Tasks: TASK-0014, TASK-0015, TASK-0018, TASK-0019 · Owner: Dave · QA: Kelly
 
-Deliverable: black-box binary suite (exit codes, stdout/stderr separation, trailing newline, SIGINT), govulncheck triaged, cross-build smoke, TOON round-trip suite, paid live TypeSafe baseline plus live release-candidate verification, `docs/ARCHITECTURE.md` and `DEVELOPMENT.md`.
+Deliverable: black-box binary suite (exit codes, stdout/stderr separation, trailing newline, SIGINT), govulncheck triaged, cross-build smoke, paid live TypeSafe baseline plus live release-candidate verification, `docs/ARCHITECTURE.md` and `DEVELOPMENT.md`.
 
 ## Working agreements
 
@@ -45,6 +45,6 @@ Deliverable: black-box binary suite (exit codes, stdout/stderr separation, trail
 
 ## Sequencing decisions (QA open questions resolved)
 
-- OQ-5: D2 ships JSON as the interim default output. TASK-0009 (D3) introduces TOON and flips the default. No external contract exists before the v1 tag (D4), so this is not a breaking change.
+- OQ-5 (superseded by ADR 0003): D2 established lossless JSON. TASK-0009 tested two Go encoders against current TOON v4.1.1; both failed values gev must preserve. v1 remains JSON-only. Revisit TOON only when a current-spec dependency passes the full encoder and gev semantic corpora.
 - OQ-6: `models`/`version`/home-view acceptance belongs to D3 (TASK-0012). D2 end-to-end acceptance covers `ask` only.
 - OQ-4: binary-level timeout tests use the existing `--timeout` flag; no new knob.

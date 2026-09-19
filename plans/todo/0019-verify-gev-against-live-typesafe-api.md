@@ -10,16 +10,15 @@ tags: []
 # Verify gev against live TypeSafe API
 
 ## Problem
-Before v1 ships, the compiled CLI must prove its JSON and TOON paths against the paid production TypeSafe service, not only fixtures.
+Before v1 ships, the compiled JSON-only CLI must prove its full command path against the paid production TypeSafe service, not only fixtures.
 
 ## Context
 (Optional: approach, links, related tasks.)
 
 ## Acceptance criteria
-- [ ] Build the release candidate and run real `gev models`, `gev ask --output json`, default-TOON `gev ask`, and `gev validate` (offline control).
-- [ ] Use synthetic state and a pinned model; batch Noul + Choice + Score into one paid ask per renderer.
-- [ ] Assert exit codes, structured parsing, response shape/ranges, resolved model, and usage; never exact judgments.
-- [ ] Compare JSON and decoded TOON semantically for the same response shape.
+- [ ] Build the release candidate and run real `gev models`, default JSON `gev ask`, explicit `--output json`, and `gev validate` (offline control).
+- [ ] Use synthetic state and a pinned model; batch Noul + Choice + Score into one paid ask (a second only if needed to prove explicit-output equivalence).
+- [ ] Assert exit codes, structured parsing, response shape/ranges, resolved model, usage, and default/explicit JSON semantic equality; never exact judgments.
 - [ ] Run one unhappy live path with an intentionally invalid key isolated to the process; assert GEV_AUTH_REJECTED/exit 1 and secret redaction.
 - [ ] Record sanitized commands/evidence, latency, token usage, approximate cost, and release commit in `docs/qa/live-gev-verification.md`.
 
