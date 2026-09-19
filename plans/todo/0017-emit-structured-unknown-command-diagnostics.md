@@ -1,7 +1,7 @@
 ---
 id: TASK-0017
 title: Emit structured unknown-command diagnostics
-status: todo
+status: doing
 depends_on: [TASK-0002, TASK-0008]
 priority: high
 tags: []
