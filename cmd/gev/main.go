@@ -35,8 +35,15 @@ func main() {
 			c.Diagnostic = diagnostic
 			return c
 		},
-		Getenv: os.Getenv,
-		Stdin:  os.Stdin,
+		Getenv:   os.Getenv,
+		Stdin:    os.Stdin,
+		Renderer: render.TOON{},
+		RendererFor: func(format string) cli.Renderer {
+			if format == "json" {
+				return render.JSON{}
+			}
+			return render.TOON{}
+		},
 	}
-	os.Exit(cli.RunWithDeps(os.Args[1:], os.Stdout, os.Stderr, render.JSON{}, deps))
+	os.Exit(cli.RunWithDeps(os.Args[1:], os.Stdout, os.Stderr, render.TOON{}, deps))
 }

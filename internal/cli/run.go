@@ -46,8 +46,15 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 		}
 		var coded *gev.Error
 		if errors.As(err, &coded) {
-			if renderer != nil {
-				_ = renderer.RenderError(stdout, ensureRecovery(coded))
+			errorRenderer := renderer
+			if deps.RendererFor != nil {
+				format := root.Annotations[rendererFormatAnnotation]
+				if selected := deps.RendererFor(format); selected != nil {
+					errorRenderer = selected
+				}
+			}
+			if errorRenderer != nil {
+				_ = errorRenderer.RenderError(stdout, ensureRecovery(coded))
 			}
 			return ExitCode(coded)
 		}
