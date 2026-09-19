@@ -1,11 +1,26 @@
 # Unix decision workflow examples
 
-These examples treat `gev` as a semantic Unix filter. Bash owns composition,
-thresholds, exit policy, and side effects. `jq` owns JSON parsing and receipt
-construction. `gev` owns typed judgment requests and structured operational
-errors. No example adds a subcommand or workflow DSL.
+These examples treat `gev` as a semantic Unix filter. Python and Bash own
+composition, thresholds, exit policy, and side effects; `jq` owns JSON parsing
+for the low-level references. `gev` owns typed judgment requests and
+structured operational errors. No example adds a subcommand or workflow DSL.
 
-## Workflows
+## Recommended start: readable Python
+
+The standard-library workflows in [`python/`](python/) show the decision story
+from top to bottom: named judgment, confidence policy, allowlists, and receipts.
+They are the learning path for multi-stage decisions. They invoke the compiled
+CLI only; they are not a package or workflow DSL.
+
+```sh
+python3 examples/python/support_router.py < examples/support-routing/fixtures/ticket.txt
+```
+
+## Low-level Unix references
+
+The Bash workflows below expose the same contracts with minimal shell tools.
+They are useful for pipelines and portability, but keep more transport mechanics
+visible.
 
 | Directory | Input | Decision |
 | --- | --- | --- |

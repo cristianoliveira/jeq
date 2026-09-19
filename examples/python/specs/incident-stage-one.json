@@ -1,0 +1,22 @@
+{
+  "questions": {
+    "category": {
+      "type": "choice",
+      "instructions": "Which incident category best fits this report?",
+      "criteria": {
+        "billing": "Payments, invoices, or payouts",
+        "technical": "Product failure, outage, or degraded service",
+        "security": "Suspicious access, data exposure, or abuse"
+      }
+    },
+    "severity": {
+      "type": "score",
+      "instructions": "Score incident severity from 0 (minor) to 1 (critical).",
+      "criteria": ["minor", "moderate", "major", "critical"]
+    },
+    "page": {
+      "type": "noul",
+      "instructions": "Should the on-call team be paged immediately?"
+    }
+  }
+}

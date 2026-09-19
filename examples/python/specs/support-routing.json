@@ -1,0 +1,21 @@
+{
+  "questions": {
+    "route": {
+      "type": "choice",
+      "instructions": "Which allowlisted team should receive this support ticket?",
+      "criteria": {
+        "billing": "Payments, invoices, and refunds",
+        "technical": "Bugs, outages, and broken behavior",
+        "sales": "Plans, upgrades, and new business"
+      }
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does the ticket describe urgent customer impact?"
+    },
+    "escalate": {
+      "type": "noul",
+      "instructions": "Should a human handle this ticket now?"
+    }
+  }
+}

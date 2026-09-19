@@ -1,0 +1,6 @@
+{
+  "change_id": "release-2026-09-19",
+  "tests_passed": true,
+  "known_vulnerabilities": [],
+  "rollout_notes": "Small backward-compatible change with rollback ready."
+}

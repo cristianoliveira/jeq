@@ -38,6 +38,7 @@
               govulncheck
               jq
               nixfmt
+              python3
             ];
 
             GOTOOLCHAIN = "local";
