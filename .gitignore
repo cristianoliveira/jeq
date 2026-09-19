@@ -1,2 +1,4 @@
 .watch.sock
 !.watch.yaml
+__pycache__/
+*.py[cod]
