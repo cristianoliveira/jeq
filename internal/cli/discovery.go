@@ -20,12 +20,13 @@ type versionDocument struct {
 }
 
 type homeDocument struct {
-	Identity        string   `json:"identity"`
-	Purpose         string   `json:"purpose"`
-	CredentialReady bool     `json:"credential_ready"`
-	DefaultModel    string   `json:"default_model"`
-	Commands        []string `json:"commands"`
-	NextStep        string   `json:"next_step"`
+	Identity           string   `json:"identity"`
+	Purpose            string   `json:"purpose"`
+	CredentialReady    bool     `json:"credential_ready"`
+	DefaultModel       string   `json:"default_model"`
+	DefaultModelSource string   `json:"default_model_source"`
+	Commands           []string `json:"commands"`
+	NextStep           string   `json:"next_step"`
 }
 
 func depsForRoot(deps ...AskDeps) AskDeps {
@@ -60,7 +61,7 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 	}
 	commands := []string{"version", "help"}
 	if deps.valid() {
-		commands = append([]string{"ask", "map"}, commands...)
+		commands = append([]string{"ask", "map", "reduce"}, commands...)
 	}
 	if deps.ReadStdin != nil && deps.Renderer != nil {
 		commands = append([]string{"gate"}, commands...)
@@ -71,13 +72,18 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 	if deps.sourceReady() {
 		commands = append([]string{"validate"}, commands...)
 	}
+	model, source, modelErr := ResolveConfiguredModelWithSource("", "", deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	if modelErr != nil {
+		return modelErr
+	}
 	doc := homeDocument{
-		Identity:        "gev",
-		Purpose:         "agent-first TypeSafe System One client",
-		CredentialReady: strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY")) != "",
-		DefaultModel:    ResolveModel("", deps.Getenv),
-		Commands:        commands,
-		NextStep:        "run gev ask --help",
+		Identity:           "gev",
+		Purpose:            "agent-first TypeSafe System One client",
+		CredentialReady:    strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY")) != "",
+		DefaultModel:       model,
+		DefaultModelSource: source,
+		Commands:           commands,
+		NextStep:           "run gev ask --help",
 	}
 	return renderer.RenderValue(cmd.OutOrStdout(), doc)
 }

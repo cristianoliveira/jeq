@@ -34,12 +34,13 @@ type APIClient interface {
 // production adapters; tests supply bounded readers and an httptest-backed
 // client. This keeps source I/O and HTTP out of the shell policy.
 type AskDeps struct {
-	ReadFile  func(path string, limit int64) ([]byte, *gev.Error)
-	ReadStdin func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *gev.Error)
-	NewClient func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
-	Getenv    func(string) string
-	Stdin     io.Reader
-	Renderer  Renderer
+	ReadFile         func(path string, limit int64) ([]byte, *gev.Error)
+	ReadOptionalFile func(path string, limit int64) ([]byte, *gev.Error, bool)
+	ReadStdin        func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *gev.Error)
+	NewClient        func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
+	Getenv           func(string) string
+	Stdin            io.Reader
+	Renderer         Renderer
 }
 
 func (d AskDeps) sourceReady() bool {

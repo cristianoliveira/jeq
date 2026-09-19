@@ -26,29 +26,34 @@ const (
 
 // NewMapCmd creates the sequential, one-request-per-record map primitive.
 func NewMapCmd(deps AskDeps) *cobra.Command {
-	var name, input, questions, statePointer, requestPointer, model, baseURL, timeoutText string
+	var name, input, statePointer, requestPointer, model, config, baseURL, timeoutText string
+	var source questionSourceFlags
 	var maxRetries int
 	cmd := &cobra.Command{
 		Use:   "map",
 		Short: "Enrich each JSON record with one named judgment",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMap(cmd, deps, mapFlags{
-				name: name, input: input, questions: questions, statePointer: statePointer,
+			if err := runMap(cmd, deps, mapFlags{
+				name: name, input: input, source: source, config: config, statePointer: statePointer,
 				requestPointer: requestPointer, model: model, baseURL: baseURL,
 				timeout: timeoutText, maxRetries: maxRetries,
 				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"),
-				questionsSet: cmd.Flags().Changed("questions"), requestPointerSet: cmd.Flags().Changed("request-pointer"),
-				modelSet: cmd.Flags().Changed("model"), baseURLSet: cmd.Flags().Changed("base-url"),
-			})
+				requestPointerSet: cmd.Flags().Changed("request-pointer"),
+				modelSet:          cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
+			}); err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&name, "as", "", "evidence name (required)")
 	flags.StringVar(&input, "input", "json", "input framing: json or ndjson")
-	flags.StringVar(&questions, "questions", "", "questions document file")
+	addQuestionSourceFlags(flags, &source)
 	flags.StringVar(&statePointer, "state-pointer", "", "RFC 6901 pointer to state")
 	flags.StringVar(&requestPointer, "request-pointer", "", "RFC 6901 pointer to a native request")
 	flags.StringVar(&model, "model", "", "composed-mode model")
+	flags.StringVar(&config, "config", "", "user config JSON path")
 	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
@@ -56,14 +61,15 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 }
 
 type mapFlags struct {
-	name, input, questions, statePointer, requestPointer, model, baseURL, timeout string
-	maxRetries                                                                    int
-	nameSet, inputSet, questionsSet, requestPointerSet, modelSet, baseURLSet      bool
+	name, input, statePointer, requestPointer, model, config, baseURL, timeout string
+	source                                                                     questionSourceFlags
+	maxRetries                                                                 int
+	nameSet, inputSet, requestPointerSet, modelSet, configSet, baseURLSet      bool
 }
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
-	if output, err := cmd.Flags().GetString("output"); err != nil || output != "json" {
-		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unsupported output format %q", output)).WithRecovery("set --output json")
+	if output, err := commandOutput(cmd); err != nil || output != "json" {
+		return unsupportedOutput(output)
 	}
 	if !f.nameSet || f.name == "" {
 		return gev.NewError(gev.CodeInputInvalid, "--as is required")
@@ -80,15 +86,24 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if f.input != "json" && f.input != "ndjson" {
 		return gev.NewError(gev.CodeInputInvalid, "--input must be json or ndjson")
 	}
-	if f.requestPointerSet == f.questionsSet {
-		return gev.NewError(gev.CodeInputInvalid, "choose exactly one of --questions or --request-pointer")
+	f.source.fileSet = cmd.Flags().Changed("questions")
+	f.source.inlineSet = cmd.Flags().Changed("questions-json")
+	if f.requestPointerSet == (f.source.fileSet || f.source.inlineSet) {
+		return gev.NewError(gev.CodeInputInvalid, "choose exactly one of --questions/--questions-json or --request-pointer")
+	}
+	if f.configSet && strings.TrimSpace(f.config) == "" {
+		return gev.NewError(gev.CodeInputInvalid, "--config cannot be empty")
+	}
+	if f.requestPointerSet && f.configSet {
+		return gev.NewError(gev.CodeInputInvalid, "--config cannot be combined with --request-pointer")
+	}
+	if err := checkQuestionSource(f.source); err != nil && !f.requestPointerSet {
+		return err
 	}
 	if f.requestPointerSet && (f.modelSet || f.statePointer != "") {
 		return gev.NewError(gev.CodeInputInvalid, "--request-pointer cannot be combined with --model or --state-pointer")
 	}
-	if f.questions == "-" {
-		return gev.NewError(gev.CodeSourceConflict, "--questions cannot read stdin while input records use stdin")
-	}
+
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
 		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("--max-retries must be between 0 and %d", MaxRetriesLimit))
 	}
@@ -107,26 +122,26 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	}
 	var questions map[string]contract.Question
 	var extra map[string]json.RawMessage
-	if f.questionsSet {
-		questionsDoc, fileErr := deps.ReadFile(f.questions, MapMaxRecordBytes)
-		if fileErr != nil {
-			return fileErr
-		}
-		var decodeErr *gev.Error
-		questions, extra, decodeErr = contract.DecodeQuestionsDoc(questionsDoc)
-		if decodeErr != nil {
-			return decodeErr
-		}
-		probe := contract.Request{Model: "probe", State: json.RawMessage(`"probe"`), Questions: questions}
-		if violations := contract.ValidateRequest(probe); len(violations) > 0 {
-			return violations[0].Error
+	if f.source.fileSet || f.source.inlineSet {
+		var sourceErr *gev.Error
+		questions, extra, sourceErr = readQuestionSource(deps, f.source)
+		if sourceErr != nil {
+			return sourceErr
 		}
 	}
 	records, framingErr := mapRecords(inputDoc, f.input)
 	if framingErr != nil {
 		return framingErr
 	}
-	if err := validateMapRecord(records[0], f, questions, extra, modelForValidation(f, deps.Getenv)); err != nil {
+	resolvedModel := "native"
+	if f.source.fileSet || f.source.inlineSet {
+		var modelErr *gev.Error
+		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, f.config, deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+		if modelErr != nil {
+			return modelErr
+		}
+	}
+	if err := validateMapRecord(records[0], f, questions, extra, resolvedModel); err != nil {
 		return err
 	}
 
@@ -141,26 +156,17 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 			rootURL = DefaultBaseURL
 		}
 	}
-	resolvedModel := f.model
-	if f.questionsSet && resolvedModel == "" {
-		resolvedModel = ResolveModel("", deps.Getenv)
-	}
-	if f.questionsSet && resolvedModel == "" {
-		return gev.NewError(gev.CodeInputInvalid, "model is required in composed mode")
+	if f.source.fileSet || f.source.inlineSet {
+		if resolvedModel == "" {
+			return gev.NewError(gev.CodeInputInvalid, "model is required in composed mode")
+		}
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	evaluator := client
-	return processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator)
-}
-
-func modelForValidation(f mapFlags, getenv func(string) string) string {
-	if f.model != "" {
-		return f.model
+	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator); processErr != nil {
+		return processErr
 	}
-	if f.questionsSet {
-		return ResolveModel("", getenv)
-	}
-	return "native"
+	return nil
 }
 
 func validateMapRecord(record []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string) *gev.Error {

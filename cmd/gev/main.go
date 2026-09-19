@@ -23,6 +23,9 @@ func main() {
 		ReadFile: func(path string, limit int64) ([]byte, *cli.CodedError) {
 			return source.ReadFile(path, limit, source.OSOpen, true)
 		},
+		ReadOptionalFile: func(path string, limit int64) ([]byte, *cli.CodedError, bool) {
+			return source.ReadOptionalFile(path, limit)
+		},
 		ReadStdin: func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *cli.CodedError) {
 			return source.ReadStdin(stdin, limit, func() bool {
 				info, err := os.Stdin.Stat()

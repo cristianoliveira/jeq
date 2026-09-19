@@ -57,7 +57,7 @@ func TestHomeDiscoveryIncludesAvailableMapAndGate(t *testing.T) {
 	for _, command := range doc.Commands {
 		seen[command] = true
 	}
-	if !seen["map"] || !seen["gate"] {
+	if !seen["map"] || !seen["reduce"] || !seen["gate"] {
 		t.Fatalf("commands=%v", doc.Commands)
 	}
 }

@@ -12,8 +12,8 @@ jq 'del(.customer_message, .details, ._gev.route)'
 ```
 
 A live run needs `TYPESAFE_API_KEY` and spends account budget. Use a local fake
-endpoint for development. Model evidence is data: examples validate it as a
-catalog key or a numeric value, and never execute it.
+endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. `map` and `reduce` resolve models as `--model`, `TYPESAFE_DEFAULT_MODEL`, user config (`${XDG_CONFIG_HOME:-$HOME/.config}/gev/config.json`), then `jev-latest`; the config contains only `default_model`.
+
 
 ## Recommended pipelines
 

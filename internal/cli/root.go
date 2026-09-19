@@ -27,6 +27,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 	if len(deps) > 0 && deps[0].valid() {
 		root.AddCommand(NewAskCmd(deps[0]))
 		root.AddCommand(NewMapCmd(deps[0]))
+		root.AddCommand(NewReduceCmd(deps[0]))
 	}
 	if len(deps) > 0 && deps[0].modelsReady() {
 		root.AddCommand(NewModelsCmd(deps[0]))

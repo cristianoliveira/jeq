@@ -17,6 +17,9 @@ type scanError struct {
 
 func (e *scanError) Error() string { return e.msg }
 
+// ValidateJSON performs the strict raw-document checks shared by CLI config and documents.
+func ValidateJSON(data []byte) error { return scanDoc(data) }
+
 // scanDoc performs the raw-document checks that encoding/json cannot:
 // valid UTF-8, no BOM, well-formed JSON, no duplicate keys, no trailing
 // data. It returns a *scanError; callers wrap it with the stable code for

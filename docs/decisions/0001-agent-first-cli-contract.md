@@ -24,6 +24,7 @@ The CLI must preserve TypeSafe's native request capabilities while remaining det
 ```text
 gev ask        Send one System One request
 gev map        Enrich JSON/NDJSON records with one named judgment
+gev reduce     Aggregate one bounded JSON/NDJSON collection with one judgment
 gev gate       Apply an offline numeric policy to JSON/NDJSON records
 gev validate   Validate request input without credentials or network access
 gev models     List models available to the account
@@ -64,7 +65,8 @@ Request modes and state sources never merge implicitly. Conflicts fail before cr
 ### Configuration
 
 - Read authentication only from `TYPESAFE_API_KEY`; never accept an API key flag.
-- Resolve the composed-mode model from `--model`, then `TYPESAFE_DEFAULT_MODEL`, then `jev-latest`.
+- Resolve `map`/`reduce` models from `--model`, then `TYPESAFE_DEFAULT_MODEL`, then strict user config `${XDG_CONFIG_HOME:-$HOME/.config}/gev/config.json`, then `jev-latest`; config contains only `default_model` and `--config` overrides its path.
+- Preserve the existing `ask`/`validate` model-resolution behavior.
 - Allow `TYPESAFE_BASE_URL` or `--base-url` for the API root.
 - Use a 10-second default timeout.
 - Retry only documented `429` and `529` responses with bounded backoff and `Retry-After` support.
@@ -106,4 +108,4 @@ never calls the API, and does not reinterpret model text as an action.
 - Reusable question files separate stable judgments from changing application state.
 - Explicit input sources prevent blocking and ambiguous precedence.
 - The CLI must maintain strict structured-output and backwards-compatibility tests.
-- Convenience primitive commands, YAML, interactive credential storage, policy gates, and a TUI remain outside version 1.
+- YAML, interactive credential storage, and a TUI remain outside version 1; `map`, one-call `reduce`, and offline numeric `gate` are the supported primitives.

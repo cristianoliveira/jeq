@@ -61,6 +61,20 @@ func ReadFile(path string, limit int64, open Opener, forbidEmpty bool) ([]byte, 
 	return data, nil
 }
 
+// ReadOptionalFile reads a user config without treating absence as an error.
+func ReadOptionalFile(path string, limit int64) ([]byte, *gev.Error, bool) {
+	f, err := OSOpen(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil, false
+		}
+		return nil, sourceError(path, fmt.Sprintf("cannot be opened: %v", err), "check the path and try again"), true
+	}
+	_ = f.Close()
+	data, readErr := ReadFile(path, limit, OSOpen, true)
+	return data, readErr, true
+}
+
 // ReadStdin reads explicit '-' stdin content. A terminal fails fast
 // pre-read: gev never blocks waiting for a human to type a document.
 func ReadStdin(stdin io.Reader, limit int64, isTTY func() bool, forbidEmpty bool) ([]byte, *gev.Error) {

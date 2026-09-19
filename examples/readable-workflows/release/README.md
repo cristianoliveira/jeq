@@ -19,4 +19,16 @@ projection before logs or incident output:
 ... | jq 'del(.change, ._gev.risk)'
 ```
 
+For a bounded batch, `reduce` makes one request over the complete collection;
+there is no iterative fold or hidden per-item request:
+
+```sh
+cat fixtures/release.json | "$GEV_BIN" reduce --as batch_risk \
+  --questions questions.json --input ndjson --model jev-latest
+```
+
+The aggregate envelope retains `items` and the complete response under
+`_gev.batch_risk`. Project it before logs or sharing; map and reduce preserve
+input state by design.
+
 Fixture: [`fixtures/release.json`](fixtures/release.json).
