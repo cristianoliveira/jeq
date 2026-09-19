@@ -1,9 +1,9 @@
 # Unix review pipeline
 
-This copyable Bash pipeline makes every gev primitive visible: emit one record
-per file, map a local judgment, shape it with jq, reduce the related collection,
-gate the aggregate offline, then project safe output. `ask` remains the
-standalone one-state primitive.
+This copyable Bash pipeline makes every composable gev pipeline primitive
+visible: emit one record per file, map a local judgment, shape it with jq,
+reduce the related collection, gate the aggregate offline, then project safe
+output. `ask` remains the standalone one-state primitive.
 
 ```sh
 ./examples/unix-review-pipeline/review.sh \
