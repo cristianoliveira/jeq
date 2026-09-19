@@ -1,0 +1,14 @@
+{
+  "questions": {
+    "priority": {
+      "type": "score",
+      "instructions": "How urgent is this issue to address?",
+      "criteria": ["low", "medium", "high", "critical"]
+    },
+    "impact": {
+      "type": "score",
+      "instructions": "How broad is the customer impact of this issue?",
+      "criteria": ["single user", "small group", "many users"]
+    }
+  }
+}

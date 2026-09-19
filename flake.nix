@@ -36,6 +36,7 @@
               golangci-lint
               gopls
               govulncheck
+              jq
               nixfmt
             ];
 

@@ -1,0 +1,26 @@
+# Issue ranking
+
+This workflow reads one issue object per NDJSON line and makes exactly one gev
+request per valid line. It emits one correlated NDJSON line in input order:
+`id`, `order`, the two score values, and a deterministic `rank_score`.
+Downstream tools can sort explicitly, for example:
+
+```sh
+./rank.sh < fixtures/issues.ndjson | jq -s 'sort_by(-.rank_score)'
+```
+
+The example chooses **fail-fast** semantics. The first malformed input, missing
+ID, operational gev error, or unusable score stops the stream. Prior output is
+kept, the error document or receipt is emitted, and no later records are sent.
+This makes request count and spend predictable. A valid input with `n` lines
+makes exactly `n` paid evaluation requests.
+
+```sh
+GEV_BIN=gev GEV_MODEL=jev-latest \
+  ./rank.sh < fixtures/issues.ndjson
+```
+
+Set `GEV_BASE_URL` for a local fake server or an explicitly approved live
+endpoint. Each line is a separate paid evaluation when pointed at production;
+use small synthetic fixtures and a pinned model. The script never evaluates or
+executes any model-produced value.

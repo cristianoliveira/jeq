@@ -1,0 +1,1 @@
+Customer reports that every payout has failed since this morning. The billing page returns an error and the account cannot pay an invoice. Please route this to the right team and flag any urgent escalation.

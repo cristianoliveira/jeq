@@ -1,0 +1,29 @@
+{
+  "questions": {
+    "route": {
+      "type": "choice",
+      "instructions": "Which allowlisted team should receive this support ticket?",
+      "criteria": {
+        "billing": "Payments, invoices, and refunds",
+        "technical": "Bugs, outages, and broken behavior",
+        "sales": "Plans, upgrades, and new business"
+      }
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does the ticket describe an urgent customer impact?",
+      "criteria": {
+        "true": "Explicitly time-sensitive or service-blocking",
+        "false": "No urgent impact is described"
+      }
+    },
+    "escalate": {
+      "type": "noul",
+      "instructions": "Should this ticket be escalated to a human now?",
+      "criteria": {
+        "true": "Safety, security, executive, or unresolved high-impact issue",
+        "false": "Routine issue suitable for the selected team"
+      }
+    }
+  }
+}

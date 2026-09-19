@@ -1,0 +1,3 @@
+{"id":"ISSUE-101","title":"Payouts fail for one account","details":"A single customer cannot complete a payout."}
+{"id":"ISSUE-102","title":"Dashboard outage","details":"Many customers see a blank dashboard after login."}
+{"id":"ISSUE-103","title":"Typo in settings","details":"A label has a spelling mistake."}

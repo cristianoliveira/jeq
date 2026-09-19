@@ -1,0 +1,12 @@
+{
+  "questions": {
+    "safe_to_ship": {
+      "type": "noul",
+      "instructions": "Is this change safe to ship without human review?",
+      "criteria": {
+        "true": "No material regression, security, compatibility, or operational risk is visible",
+        "false": "Material risk, missing evidence, or an unsafe rollout is visible"
+      }
+    }
+  }
+}
