@@ -1,0 +1,27 @@
+on:
+  change:
+    - "**/*.go"
+    - go.mod
+    - go.sum
+    - .golangci.yml
+    - Makefile
+    - flake.nix
+    - flake.lock
+    - .watch.yaml
+  ignore:
+    - ".git/**"
+    - ".tmp/**"
+    - .watch.sock
+  socket: .watch.sock
+  respect_gitignore: true
+
+execution:
+  concurrency: 1
+  output: show-on-failure
+  timeout: 5m
+  recovery_policy: skip
+
+jobs:
+  - name: check
+    run_on_init: true
+    run: make check
