@@ -1,7 +1,7 @@
 ---
 id: TASK-0024
 title: Map and gate CLI with composable examples
-status: todo
+status: doing
 depends_on: [TASK-0023]
 priority: high
 tags: []
