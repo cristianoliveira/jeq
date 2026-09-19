@@ -1,7 +1,7 @@
 ---
 id: TASK-0038
 title: Rank candidates with TypeSafe Choice
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [cli, typesafe, composability]
@@ -64,62 +64,62 @@ Target envelope:
 
 ### Candidate contract
 
-- [ ] `jeq rank` accepts candidate objects as JSON array or NDJSON using the
+- [x] `jeq rank` accepts candidate objects as JSON array or NDJSON using the
       established `--input json|ndjson` convention.
-- [ ] `--id-pointer` resolves a unique, non-empty string id for every candidate.
-- [ ] `--criteria-pointer` resolves each Choice description and preserves
+- [x] `--id-pointer` resolves a unique, non-empty string id for every candidate.
+- [x] `--criteria-pointer` resolves each Choice description and preserves
       supported structured JSON descriptions.
-- [ ] Before credential lookup or network access, reject empty/invalid input,
+- [x] Before credential lookup or network access, reject empty/invalid input,
       duplicate or non-string ids, missing pointer values, and more than
       TypeSafe's 255 Choice options.
-- [ ] JEQ never invents a `none` option. The caller supplies an explicit
+- [x] JEQ never invents a `none` option. The caller supplies an explicit
       candidate or a separate Noul when all candidates may be unsuitable.
 
 ### Request and ranked response
 
-- [ ] `--instruction` becomes one Choice question and `--as` is its stable
+- [x] `--instruction` becomes one Choice question and `--as` is its stable
       question/evidence name.
-- [ ] Exactly one explicit state source is required from `--state`,
+- [x] Exactly one explicit state source is required from `--state`,
       `--state-file`, or `--state-json`; candidate stdin cannot also be state
       stdin.
-- [ ] One invocation makes exactly one System One request regardless of
+- [x] One invocation makes exactly one System One request regardless of
       candidate count and follows existing model, endpoint, timeout, retry,
       authentication, and interruption behavior.
-- [ ] Every response probability id must match exactly one input candidate and
+- [x] Every response probability id must match exactly one input candidate and
       every input candidate must have one probability. Missing, extra,
       non-finite, negative, or otherwise invalid distributions are response
       errors, not partial rankings.
-- [ ] Success writes one JSON envelope whose `items` contains every candidate
+- [x] Success writes one JSON envelope whose `items` contains every candidate
       exactly once as `{id, probability, candidate}` sorted by descending
       probability.
-- [ ] Ties are deterministic: the API's selected `choice` comes first when tied,
+- [x] Ties are deterministic: the API's selected `choice` comes first when tied,
       then remaining tied candidates retain input order.
-- [ ] `_jeq.<as>` preserves the complete lossless response: selected Choice,
+- [x] `_jeq.<as>` preserves the complete lossless response: selected Choice,
       distribution, confidence, resolved model, usage, and unknown fields.
-- [ ] The selected Choice id must match an input candidate and the first ranked
+- [x] The selected Choice id must match an input candidate and the first ranked
       item when probabilities have a unique maximum.
 
 ### Composition and policy
 
-- [ ] Picking one is `jq '.items[0].candidate'`; top-k is
+- [x] Picking one is `jq '.items[0].candidate'`; top-k is
       `jq '.items[:N] | map(.candidate)'`; switching uses
       `._jeq.<as>.answers.<as>.choice`.
-- [ ] `rank` has no hidden top-k, thresholds, default fallback, actions, or
+- [x] `rank` has no hidden top-k, thresholds, default fallback, actions, or
       automatic second-stage rerank. It exposes evidence; callers own policy.
-- [ ] Documentation explains that Choice probabilities are relative. Absolute
+- [x] Documentation explains that Choice probabilities are relative. Absolute
       suitability requires an explicit fallback candidate or independent Noul.
-- [ ] Do not retain a separate `jeq pick` command: one general ranking primitive
+- [x] Do not retain a separate `jeq pick` command: one general ranking primitive
       must cover switch, pick-one, and top-k without duplicated API semantics.
 
 ### Verification and documentation
 
-- [ ] Domain and CLI tests cover happy paths, stable sorting/ties, lossless
+- [x] Domain and CLI tests cover happy paths, stable sorting/ties, lossless
       evidence, and every validation/failure path above with fake evaluators.
-- [ ] A built-binary black-box test verifies stdin/stdout/stderr, exit status,
+- [x] A built-binary black-box test verifies stdin/stdout/stderr, exit status,
       one-request behavior, and composition without production network access.
-- [ ] Root help, `jeq rank --help`, README command tables, architecture guide,
+- [x] Root help, `jeq rank --help`, README command tables, architecture guide,
       and a self-contained executable example describe the primitive.
-- [ ] `nix develop -c make check` passes.
+- [x] `nix develop -c make check` passes.
 
 ## Constraints
 
