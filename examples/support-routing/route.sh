@@ -59,6 +59,7 @@ jq -c --arg model "$GEV_MODEL" --argjson min_confidence "$ROUTE_CONFIDENCE_MIN" 
     urgent: $urgent,
     escalate: $escalate,
     model: (.model // $model),
+    usage: (.usage // {}),
     policy: {minimum_route_confidence: $min_confidence, unknown_route: "human_review"}
   }
 ' <<<"$response"

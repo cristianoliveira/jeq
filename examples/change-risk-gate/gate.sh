@@ -38,11 +38,12 @@ else
   exit "$status"
 fi
 
+usage_json=$(jq -c '.usage // {}' <<<"$response" 2>/dev/null || printf '{}')
 if ! safe_to_ship=$(jq -er '
   .answers.safe_to_ship.noul as $value |
   if (($value | type) == "number" and $value >= 0 and $value <= 1) then $value else empty end
 ' <<<"$response" 2>/dev/null); then
-  jq -cn --arg model "$GEV_MODEL" --argjson pass_min "$PASS_MIN" --argjson review_max "$REVIEW_MAX" '{workflow:"change-risk-gate",status:"uncertain",reason:"missing_or_invalid_safe_to_ship_signal",model:$model,thresholds:{pass_min:$pass_min,review_or_block_max:$review_max}}'
+  jq -cn --arg model "$GEV_MODEL" --argjson usage "$usage_json" --argjson pass_min "$PASS_MIN" --argjson review_max "$REVIEW_MAX" '{workflow:"change-risk-gate",status:"uncertain",reason:"missing_or_invalid_safe_to_ship_signal",model:$model,usage:$usage,thresholds:{pass_min:$pass_min,review_or_block_max:$review_max}}'
   exit 11
 fi
 
@@ -60,7 +61,8 @@ jq -cn \
   --arg status "$policy_status" \
   --argjson safe "$safe_to_ship" \
   --arg model "$GEV_MODEL" \
+  --argjson usage "$usage_json" \
   --argjson pass_min "$PASS_MIN" \
   --argjson review_max "$REVIEW_MAX" \
-  '{workflow:"change-risk-gate",status:$status,safe_to_ship:$safe,model:$model,thresholds:{pass_min:$pass_min,review_or_block_max:$review_max}}'
+  '{workflow:"change-risk-gate",status:$status,safe_to_ship:$safe,model:$model,usage:$usage,thresholds:{pass_min:$pass_min,review_or_block_max:$review_max}}'
 exit "$exit_code"

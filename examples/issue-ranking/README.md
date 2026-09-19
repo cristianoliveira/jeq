@@ -2,8 +2,10 @@
 
 This workflow reads one issue object per NDJSON line and makes exactly one gev
 request per valid line. It emits one correlated NDJSON line in input order:
-`id`, `order`, the two score values, and a deterministic `rank_score`.
-Downstream tools can sort explicitly, for example:
+`id`, `order`, the two score values, both score confidences, usage, and a
+deterministic `rank_score`. Keeping this judgment evidence makes cost and
+confidence auditable without copying raw issue state. Downstream tools can sort
+explicitly, for example:
 
 ```sh
 ./rank.sh < fixtures/issues.ndjson | jq -s 'sort_by(-.rank_score)'

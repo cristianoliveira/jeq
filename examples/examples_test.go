@@ -166,8 +166,12 @@ func answerNoul(value float64) map[string]any {
 }
 
 func answerScore(value float64) map[string]any {
+	return answerScoreWithConfidence(value, 0.9)
+}
+
+func answerScoreWithConfidence(value, confidence float64) map[string]any {
 	return map[string]any{
-		"type": "score", "score": value, "confidence": 0.9,
+		"type": "score", "score": value, "confidence": confidence,
 		"legend":        map[string]string{"0": "low", "1": "medium", "2": "high", "3": "critical"},
 		"probabilities": map[string]float64{"0": 0.1, "1": 0.2, "2": 0.3, "3": 0.4},
 	}
@@ -233,6 +237,14 @@ func assertQuestions(t *testing.T, body map[string]any, names ...string) {
 	}
 }
 
+func assertUsage(t *testing.T, document map[string]any) {
+	t.Helper()
+	usage, ok := document["usage"].(map[string]any)
+	if !ok || usage["input_tokens"] != float64(10) || usage["output_tokens"] != float64(2) {
+		t.Fatalf("usage=%#v", document["usage"])
+	}
+}
+
 func TestSupportRoutingReceiptsAndAllowlist(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -262,6 +274,7 @@ func TestSupportRoutingReceiptsAndAllowlist(t *testing.T) {
 			if receipt["action"] != tc.action || receipt["route"] != tc.route {
 				t.Fatalf("receipt=%#v", receipt)
 			}
+			assertUsage(t, receipt)
 			if api.count() != 1 {
 				t.Fatalf("request count=%d", api.count())
 			}
@@ -301,6 +314,7 @@ func TestChangeRiskGatePolicyAndOperationalStatus(t *testing.T) {
 			if receipt["status"] != tc.kind || receipt["safe_to_ship"] != tc.safe {
 				t.Fatalf("receipt=%#v", receipt)
 			}
+			assertUsage(t, receipt)
 			if api.count() != 1 {
 				t.Fatalf("request count=%d", api.count())
 			}
@@ -363,9 +377,11 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 	}
 	wantIDs := []string{"ISSUE-101", "ISSUE-102", "ISSUE-103"}
 	for i, line := range lines {
-		if line["id"] != wantIDs[i] || line["order"] != float64(i+1) {
+		if line["id"] != wantIDs[i] || line["order"] != float64(i+1) ||
+			line["priority_confidence"] != float64(0.9) || line["impact_confidence"] != float64(0.9) {
 			t.Fatalf("line %d=%#v", i, line)
 		}
+		assertUsage(t, line)
 		assertQuestions(t, api.body(t, i), "priority", "impact")
 	}
 	if api.body(t, 0)["state"] == nil || api.body(t, 1)["state"] == nil || api.body(t, 2)["state"] == nil {
@@ -417,6 +433,22 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 		}
 		receipt := oneJSON(t, result.stdout)
 		if receipt["status"] != "uncertain" || receipt["id"] != "ISSUE-404" {
+			t.Fatalf("receipt=%#v", receipt)
+		}
+	})
+	t.Run("out of range confidence is uncertain", func(t *testing.T) {
+		confidenceAPI := newFakeAPI(t, func(int) (int, []byte) {
+			return http.StatusOK, responseDocument(map[string]any{
+				"priority": answerScoreWithConfidence(2, 1.01),
+				"impact":   answerScoreWithConfidence(1, 0.9),
+			})
+		})
+		result := runScript(t, "examples/issue-ranking/rank.sh", "{\"id\":\"ISSUE-405\"}\n", confidenceAPI.server.URL, nil)
+		if result.exit != 11 || result.stderr != "" || confidenceAPI.count() != 1 {
+			t.Fatalf("exit=%d requests=%d stderr=%q stdout=%q", result.exit, confidenceAPI.count(), result.stderr, result.stdout)
+		}
+		receipt := oneJSON(t, result.stdout)
+		if receipt["status"] != "uncertain" || receipt["id"] != "ISSUE-405" {
 			t.Fatalf("receipt=%#v", receipt)
 		}
 	})

@@ -50,8 +50,13 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   if ! receipt=$(jq -ce --arg id "$id" --argjson order "$order" '
     .answers.priority.score as $priority |
     .answers.impact.score as $impact |
-    if (($priority | type) != "number" or ($impact | type) != "number") then
-      error("missing score")
+    .answers.priority.confidence as $priority_confidence |
+    .answers.impact.confidence as $impact_confidence |
+    if (($priority | type) != "number" or ($impact | type) != "number" or
+        ($priority_confidence | type) != "number" or ($impact_confidence | type) != "number" or
+        $priority_confidence < 0 or $priority_confidence > 1 or
+        $impact_confidence < 0 or $impact_confidence > 1) then
+      error("missing or invalid score evidence")
     else
       {
         workflow: "issue-ranking",
@@ -59,12 +64,15 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         order: $order,
         priority_score: $priority,
         impact_score: $impact,
+        priority_confidence: $priority_confidence,
+        impact_confidence: $impact_confidence,
         rank_score: (($priority * 10) + $impact),
-        model: .model
+        model: .model,
+        usage: (.usage // {})
       }
     end
   ' <<<"$response" 2>/dev/null); then
-    jq -cn --arg id "$id" --argjson order "$order" '{workflow:"issue-ranking",status:"uncertain",id:$id,order:$order,reason:"response did not contain numeric priority and impact scores"}'
+    jq -cn --arg id "$id" --argjson order "$order" '{workflow:"issue-ranking",status:"uncertain",id:$id,order:$order,reason:"response did not contain numeric scores and confidence evidence"}'
     exit 11
   fi
   printf '%s\n' "$receipt"

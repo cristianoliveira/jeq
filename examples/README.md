@@ -41,6 +41,15 @@ not put the key in a command argument, fixture, or output.
   JSON documents are forwarded unchanged. Policy exits belong only to the gate
   (`0`, `10`, `11`).
 
+Successful receipts retain GEV `usage`; ranking receipts also retain both score
+confidence values. This keeps judgment and policy evidence available for audit
+and cost accounting without exposing raw state or keys. For example:
+
+```sh
+./issue-ranking/rank.sh < issue-ranking/fixtures/issues.ndjson |
+  jq -s '{requests:length, input_tokens:(map(.usage.input_tokens // 0) | add), output_tokens:(map(.usage.output_tokens // 0) | add), average_priority_confidence:(map(.priority_confidence) | add / length)}'
+```
+
 The examples are evidence for future `gev gate` and `gev map` primitives. They
 are not a proposal for a workflow language. Future primitives should preserve
 explicit thresholds, allowlists, stream correlation, bounded spend, and clear
