@@ -69,7 +69,7 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 }
 
 // NewVersionCmdWithDeps creates the plain-text build-information command.
-func NewVersionCmdWithDeps(deps AskDeps) *cobra.Command {
+func NewVersionCmdWithDeps(_ AskDeps) *cobra.Command {
 	return &cobra.Command{
 		Use: "version", Short: "Print build information",
 		RunE: func(cmd *cobra.Command, _ []string) error {

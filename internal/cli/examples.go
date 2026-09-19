@@ -103,7 +103,7 @@ printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","cont
 }
 
 // NewExamplesCmd creates the offline workflow recipe discovery command.
-func NewExamplesCmd(deps AskDeps) *cobra.Command {
+func NewExamplesCmd(_ AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "examples [id]",
 		Short: "Discover self-contained workflow recipes",

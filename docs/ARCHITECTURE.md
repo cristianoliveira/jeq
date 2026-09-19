@@ -55,8 +55,8 @@ composed request construction. Stable error codes live in
 
 ### Infrastructure
 
-- `internal/infra/render` writes one JSON document and one trailing newline.
-  See ADR 0003: version 1 is JSON-only; TOON is not shipped.
+- `internal/infra/render` writes lossless JSON/NDJSON evaluation result streams.
+  Human-facing commands and errors use deterministic plain text at the CLI boundary; TOON is not shipped.
 - `internal/infra/source` reads only explicitly selected files or stdin and
   enforces bounded reads.
 - `internal/infra/typesafeapi` is the only wire adapter. It owns bearer auth,
@@ -67,15 +67,16 @@ composed request construction. Stable error codes live in
 
 | Command | Network | Output |
 | --- | --- | --- |
-| `gev` | No | JSON home document |
-| `gev version` | No | JSON build information |
-| `gev models` | Yes | JSON model list |
-| `gev validate` | No | JSON validation receipt |
+| `gev` / `gev examples` | No | Plain discovery text |
+| `gev version` | No | Plain build information |
+| `gev models` | Yes | Plain model list |
+| `gev validate` | No | Plain validation receipt |
 | `gev ask` | Yes | JSON evaluation response |
+| `gev map` / `gev reduce` / `gev gate` | Map/reduce: yes; gate: no | JSON/NDJSON result stream |
 | `gev help` / `gev --help` | No | Cobra prose |
 | `gev completion <shell>` | No | Shell script prose |
 
 Exit classes are stable: `0` success, `1` auth/API/network/timeout failure,
-`2` usage or local-input failure, and `130` interruption. Non-zero operational
-runs emit one structured error document on stdout. Diagnostics and retry
-progress use stderr only.
+`2` usage or local-input failure, `10` gate reject, `11` gate uncertain, and
+`130` interruption. Cobra renders errors on stderr; failed runs do not emit an
+error document on stdout. Retry progress also uses stderr.
