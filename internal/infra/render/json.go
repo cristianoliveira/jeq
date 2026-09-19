@@ -12,8 +12,8 @@ import (
 	"github.com/cristianoliveira/gev/internal/domain/gev"
 )
 
-// JSON is the D2 interim renderer: lossless JSON documents. TASK-0009 adds
-// TOON alongside it; neither changes the document-plus-newline contract.
+// JSON is the version 1 renderer: lossless JSON documents with the
+// document-plus-newline contract.
 type JSON struct{}
 
 // RenderSuccess writes the response as exactly one deterministic JSON

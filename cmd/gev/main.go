@@ -37,13 +37,7 @@ func main() {
 		},
 		Getenv:   os.Getenv,
 		Stdin:    os.Stdin,
-		Renderer: render.TOON{},
-		RendererFor: func(format string) cli.Renderer {
-			if format == "json" {
-				return render.JSON{}
-			}
-			return render.TOON{}
-		},
+		Renderer: render.JSON{},
 	}
-	os.Exit(cli.RunWithDeps(os.Args[1:], os.Stdout, os.Stderr, render.TOON{}, deps))
+	os.Exit(cli.RunWithDeps(os.Args[1:], os.Stdout, os.Stderr, render.JSON{}, deps))
 }

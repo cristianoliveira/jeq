@@ -20,11 +20,7 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "validate", Short: "Validate one request without network access",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Root().Annotations == nil {
-				cmd.Root().Annotations = map[string]string{}
-			}
 			format, _ := cmd.Flags().GetString("output")
-			cmd.Root().Annotations[rendererFormatAnnotation] = format
 			flags := askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON, model: model,
 				output: format, requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),

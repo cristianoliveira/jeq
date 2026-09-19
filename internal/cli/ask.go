@@ -12,8 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const rendererFormatAnnotation = "gev.renderer-format"
-
 const (
 	// DefaultBaseURL is the production TypeSafe API root.
 	DefaultBaseURL = "https://api.typesafe.ai"
@@ -36,13 +34,12 @@ type APIClient interface {
 // production adapters; tests supply bounded readers and an httptest-backed
 // client. This keeps source I/O and HTTP out of the shell policy.
 type AskDeps struct {
-	ReadFile    func(path string, limit int64) ([]byte, *gev.Error)
-	ReadStdin   func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *gev.Error)
-	NewClient   func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
-	Getenv      func(string) string
-	Stdin       io.Reader
-	Renderer    Renderer
-	RendererFor func(format string) Renderer
+	ReadFile  func(path string, limit int64) ([]byte, *gev.Error)
+	ReadStdin func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *gev.Error)
+	NewClient func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
+	Getenv    func(string) string
+	Stdin     io.Reader
+	Renderer  Renderer
 }
 
 func (d AskDeps) sourceReady() bool {
@@ -88,7 +85,7 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
-	flags.StringVar(&output, "output", "toon", "output format (toon or json)")
+	flags.StringVar(&output, "output", "json", "output format (json)")
 	return cmd
 }
 
@@ -100,11 +97,6 @@ type askFlags struct {
 }
 
 func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
-	if cmd.Root().Annotations == nil {
-		cmd.Root().Annotations = map[string]string{}
-	}
-	cmd.Root().Annotations[rendererFormatAnnotation] = f.output
-
 	sources := gev.Sources{
 		Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet,
 		StateFile: f.stateFileSet, StateJSON: f.stateJSONSet,
@@ -172,8 +164,8 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 		return gev.NewError(gev.CodeInputInvalid,
 			fmt.Sprintf("--max-retries must be between 0 and %d, got %d", MaxRetriesLimit, f.maxRetries)).WithRecovery("set --max-retries to an integer from 0 through 5")
 	}
-	if f.output != "json" && f.output != "toon" {
-		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unsupported output format %q", f.output)).WithRecovery("set --output toon or --output json")
+	if f.output != "json" {
+		return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unsupported output format %q", f.output)).WithRecovery("set --output json")
 	}
 	timeout, parseErr := time.ParseDuration(f.timeout)
 	if parseErr != nil || timeout <= 0 {
@@ -201,12 +193,8 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if evalErr != nil {
 		return askError(evalErr)
 	}
-	renderer := deps.Renderer
-	if deps.RendererFor != nil {
-		renderer = deps.RendererFor(f.output)
-	}
-	if renderer != nil {
-		if err := renderer.RenderSuccess(cmd.OutOrStdout(), resp); err != nil {
+	if deps.Renderer != nil {
+		if err := deps.Renderer.RenderSuccess(cmd.OutOrStdout(), resp); err != nil {
 			return askError(gev.WrapError(gev.CodeResponseInvalid, err, "rendering success document").WithRecovery("retry the request; if it persists, report the renderer failure"))
 		}
 		return nil

@@ -102,6 +102,23 @@ func TestEveryStableCodeHasAnExitClass(t *testing.T) {
 	}
 }
 
+func TestJSONIsTheOnlyOutputFormat(t *testing.T) {
+	root := cli.NewRootCmd()
+	flag := root.PersistentFlags().Lookup("output")
+	if flag == nil || flag.DefValue != "json" {
+		t.Fatalf("output default = %v, want json", flag)
+	}
+
+	var stdout, stderr bytes.Buffer
+	renderer := &stubRenderer{}
+	if got := cli.Run([]string{"version", "--output", "toon"}, &stdout, &stderr, renderer); got != 2 {
+		t.Fatalf("TOON output exit = %d, want 2", got)
+	}
+	if renderer.errDoc == nil || renderer.errDoc.Recovery != "set --output json" || strings.Contains(renderer.errDoc.Recovery, "toon") {
+		t.Fatalf("error = %#v", renderer.errDoc)
+	}
+}
+
 func TestRunExitCodesEndToEnd(t *testing.T) {
 	tests := []struct {
 		name string
@@ -176,6 +193,7 @@ type stubRenderer struct {
 }
 
 func (r *stubRenderer) RenderSuccess(_ io.Writer, _ contract.Response) error { return nil }
+func (r *stubRenderer) RenderValue(_ io.Writer, _ any) error                 { return nil }
 func (r *stubRenderer) RenderError(_ io.Writer, e *gev.Error) error {
 	r.errDoc = e
 	return nil

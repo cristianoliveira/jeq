@@ -69,13 +69,13 @@ Request modes and state sources never merge implicitly. Conflicts fail before cr
 
 ### Output
 
-- Emit lossless TOON by default.
-- Support lossless JSON through `--output json`.
+- Emit lossless JSON by default.
+- Support explicit JSON through `--output json`.
+- Reject other output formats in version 1.
 - Do not provide a human text renderer in version 1.
 - Emit exactly one structured document and one trailing newline.
 - Keep output deterministic: no TTY-dependent layout, timestamps, locale-dependent values, or color.
 - Preserve the resolved model, every answer, probabilities, confidence where available, score legends, and token usage.
-- Use a maintained, specification-compatible TOON encoder and verify semantic TOON-to-JSON round trips.
 
 Success and errors use the selected structured format on stdout. Debug diagnostics and retry progress use stderr. Output must never expose credentials, stack traces, or raw dependency failures.
 
@@ -100,5 +100,4 @@ Low confidence is not an error. Thresholds and action policies belong to the cal
 - Reusable question files separate stable judgments from changing application state.
 - Explicit input sources prevent blocking and ambiguous precedence.
 - The CLI must maintain strict structured-output and backwards-compatibility tests.
-- JSON remains available when TOON is unsuitable or unsupported by a caller.
 - Convenience primitive commands, YAML, interactive credential storage, policy gates, and a TUI remain outside version 1.

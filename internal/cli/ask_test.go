@@ -155,7 +155,7 @@ func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
 }
 
 func TestAskMaxRetriesAndInputConfigErrors(t *testing.T) {
-	for _, args := range [][]string{{"--max-retries", "6"}, {"--max-retries", "-1"}, {"--timeout", "nope"}, {"--output", "yaml"}} {
+	for _, args := range [][]string{{"--max-retries", "6"}, {"--max-retries", "-1"}, {"--timeout", "nope"}, {"--output", "toon"}} {
 		t.Run(strings.Join(args, "-"), func(t *testing.T) {
 			client := &fakeClient{}
 			deps, _, _ := testDeps(t, client, func(string) string { return "secret" })

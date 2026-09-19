@@ -41,9 +41,8 @@ func TestHomeIsOfflineAndReportsOnlyCredentialReadiness(t *testing.T) {
 			}
 			return "model-from-env"
 		},
-		Renderer:    r,
-		RendererFor: func(string) cli.Renderer { return r },
-		NewClient:   func(string, time.Duration, string, int, func(string)) cli.APIClient { clientCreates++; return nil },
+		Renderer:  r,
+		NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient { clientCreates++; return nil },
 	}
 	var out, errOut bytes.Buffer
 	if code := cli.RunWithDeps(nil, &out, &errOut, r, deps); code != 0 {
@@ -81,7 +80,7 @@ func TestVersionUsesInjectedBuildValuesAndModelsUseAuth(t *testing.T) {
 			gotURL = url
 			return client
 		},
-		Renderer: r, RendererFor: func(string) cli.Renderer { return r },
+		Renderer: r,
 	}
 	var out, errOut bytes.Buffer
 	if code := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps); code != 0 || len(r.values) != 1 {
@@ -101,7 +100,7 @@ func TestModelsMissingCredentialDoesNotCreateClient(t *testing.T) {
 			created = true
 			return &fakeClient{}
 		},
-		Renderer: r, RendererFor: func(string) cli.Renderer { return r },
+		Renderer: r,
 	}
 	var out, errOut bytes.Buffer
 	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 1 {
@@ -119,7 +118,7 @@ func TestValidateConflictsAndFailuresAreUsageErrors(t *testing.T) {
 		Getenv:    func(string) string { t.Fatal("validate conflict read environment"); return "" },
 		ReadFile:  func(string, int64) ([]byte, *gev.Error) { reads++; return nil, nil },
 		ReadStdin: func(io.Reader, int64, bool) ([]byte, *gev.Error) { reads++; return nil, nil },
-		Renderer:  r, RendererFor: func(string) cli.Renderer { return r },
+		Renderer:  r,
 	}
 	var out, errOut bytes.Buffer
 	if code := cli.RunWithDeps([]string{"validate", "--request", "a", "--questions", "b"}, &out, &errOut, r, deps); code != 2 || reads != 0 {
@@ -157,8 +156,8 @@ func TestValidateNeverCreatesClientAndDoesNotExposeState(t *testing.T) {
 			created = true
 			return &fakeClient{}
 		},
-		Renderer: r, RendererFor: func(string) cli.Renderer { return r },
-		Stdin: strings.NewReader(""),
+		Renderer: r,
+		Stdin:    strings.NewReader(""),
 	}
 	var out, errOut bytes.Buffer
 	if code := cli.RunWithDeps([]string{"validate", "--questions", "q.json", "--state", "SECRET STATE"}, &out, &errOut, r, deps); code != 0 || created || len(r.values) != 1 {

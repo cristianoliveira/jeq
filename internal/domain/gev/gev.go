@@ -1,5 +1,5 @@
 // Package gev holds gev's own rules: ask modes, source matrix, and input
-// composition (ADR 0002). It is pure Go: no Cobra, HTTP, or TOON here.
+// composition (ADR 0002). It is pure Go: no Cobra or HTTP here.
 //
 // The stable error-code registry lives in the codes leaf so the contract
 // package can use it without an import cycle; gev re-exports it below as

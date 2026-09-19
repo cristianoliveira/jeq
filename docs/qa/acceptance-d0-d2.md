@@ -120,7 +120,7 @@ Given `TYPESAFE_API_KEY` set, when a request is sent, then `Authorization: Beare
 Verify: `go test ./internal/infra/typesafeapi/... -run TestBearerAuth`; `go test ./internal/cli/... -run TestNoKeyFlag`.
 
 **D2-2 200 success renders losslessly.**
-Given a recorded 200 response, when ask completes, then exit `0` and stdout is exactly the golden JSON (resolved model, every answer, probabilities, confidence, score legends, usage) plus one trailing newline. JSON is the interim default for D2; the TOON default flips in D3 (TASK-0009, OQ-5 resolved).
+Given a recorded 200 response, when ask completes, then exit `0` and stdout is exactly the golden JSON (resolved model, every answer, probabilities, confidence, score legends, usage) plus one trailing newline. JSON is the version 1 default and only supported output (TASK-0009 conformance spike deferred TOON).
 Fixture: `contract/response_200_full.json` → golden `render/json_200_full.golden`; verify: `go test ./internal/infra/render/... -run TestJSONGolden`.
 
 **D2-3 401 classifies as auth failure, exit 1.**
@@ -196,6 +196,6 @@ Fixtures: `requests/native_with_unknown_fields.json`, `requests/composed_with_un
 - **OQ-2** → TASK-0004: local rules are exactly the client-owned invariants; server is semantic authority (422 → exit 1). (D1-7 updated.)
 - **OQ-3** → TASK-0007: default 2 retries (3 attempts max), `--max-retries` 0–5, 250ms base doubling, single wait capped 10s. (D2-6 updated.)
 - **OQ-4** → existing `--timeout` flag; no new knob. (D2-12 updated.)
-- **OQ-5** → JSON is the interim default in D2; TOON default flips in D3 with TASK-0009. (D2-2 noted.)
+- **OQ-5** → JSON remains the version 1 default and only supported output; TOON was deferred by TASK-0009 pending current-spec conformance.
 - **OQ-6** → `models`/`version`/home-view accepted in D3; out of D2 acceptance scope.
 - **OQ-7** → code format `GEV_<AREA>_<REASON>`, registry frozen in TASK-0002. (D0-3 updated.)

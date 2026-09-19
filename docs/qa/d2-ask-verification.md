@@ -52,7 +52,7 @@ $ go test ./internal/cli/... -run TestAsk -v
   PASS TestAskConflictHappensBeforeReadersAndEnvironment   (reads=0, env.Fatal on read, calls=0)
   PASS TestAskRejectsDualStdinBeforeRead                   (reads=0)
   PASS TestAskMissingKeyDoesNotCreateClient               (NewClient never constructed)
-  PASS TestAskMaxRetriesAndInputConfigErrors              (6, -1, "nope", "toon" all → exit 2 GEV_INPUT_INVALID)
+  PASS TestAskMaxRetriesAndInputConfigErrors              (6, -1, "nope", "toon" → exit 2 GEV_INPUT_INVALID; JSON remains the only supported output)
   PASS TestAskPassesBaseURLTimeoutAndRetryConfiguration   (exact flag values reach client)
   PASS TestAskReadsExplicitStdinOnce                      (reads=1)
   PASS TestAskFailureRendersStableDocumentAndRetryDiagnostics
@@ -61,7 +61,7 @@ $ nix develop -c make check  → true
 
 ### Paid production (two calls max) — through the compiled `gev` binary
 
-Both runs used `--output json`, synthetic state, pinned `jev-1.13.0`. Key read from env inside the process; never printed/argv/committed; leak-scan over raw captures clean. Raws under `.tmp/d2-e2e/raw/`.
+Both runs used JSON output (the only supported format), synthetic state, pinned `jev-1.13.0`. Key read from env inside the process; never printed/argv/committed; leak-scan over raw captures clean. Raws under `.tmp/d2-e2e/raw/`.
 
 | # | Mode | State source | Latency | Exit | Stderr | Resolved | In tokens | Out tokens | Answers |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

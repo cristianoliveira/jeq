@@ -40,14 +40,9 @@ func outputRenderer(cmd *cobra.Command, deps AskDeps) (ValueRenderer, error) {
 	if err != nil {
 		return nil, gev.WrapError(gev.CodeInputInvalid, err, "reading --output")
 	}
-	if format != "toon" && format != "json" {
+	if format != "json" {
 		return nil, gev.NewError(gev.CodeInputInvalid,
-			fmt.Sprintf("unsupported output format %q", format)).WithRecovery("set --output toon or --output json")
-	}
-	if deps.RendererFor != nil {
-		if renderer, ok := deps.RendererFor(format).(ValueRenderer); ok {
-			return renderer, nil
-		}
+			fmt.Sprintf("unsupported output format %q", format)).WithRecovery("set --output json")
 	}
 	if renderer, ok := deps.Renderer.(ValueRenderer); ok {
 		return renderer, nil
@@ -76,18 +71,13 @@ func renderHome(cmd *cobra.Command, deps AskDeps) error {
 
 // NewVersionCmdWithDeps is the renderer-aware version command. NewVersionCmd
 // remains the small JSON-only constructor used by its package-level contract
-// test and by callers that do not need the root renderer.
+// test.
 func NewVersionCmdWithDeps(deps AskDeps) *cobra.Command {
 	return &cobra.Command{
 		Use: "version", Short: "Print build information",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			renderer, err := outputRenderer(cmd, deps)
 			if err != nil {
-				// Preserve the small NewRootCmd test seam: callers that inject
-				// only the response Renderer still get deterministic JSON.
-				if _, ok := deps.Renderer.(ValueRenderer); !ok {
-					return json.NewEncoder(cmd.OutOrStdout()).Encode(versionDocument{Name: "gev", Version: Version, Commit: Commit})
-				}
 				return err
 			}
 			return renderer.RenderValue(cmd.OutOrStdout(), versionDocument{Name: "gev", Version: Version, Commit: Commit})
@@ -101,11 +91,6 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "models", Short: "List models available to the account",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Root().Annotations == nil {
-				cmd.Root().Annotations = map[string]string{}
-			}
-			format, _ := cmd.Flags().GetString("output")
-			cmd.Root().Annotations[rendererFormatAnnotation] = format
 			renderer, err := outputRenderer(cmd, deps)
 			if err != nil {
 				return err
