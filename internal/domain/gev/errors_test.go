@@ -3,6 +3,7 @@ package gev_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/cristianoliveira/gev/internal/domain/gev"
@@ -16,11 +17,16 @@ func TestStableErrorCodes(t *testing.T) {
 		want string
 	}{
 		{"auth missing", gev.CodeAuthMissing, "GEV_AUTH_MISSING"},
+		{"auth rejected", gev.CodeAuthRejected, "GEV_AUTH_REJECTED"},
 		{"request invalid", gev.CodeRequestInvalid, "GEV_REQUEST_INVALID"},
-		{"rate limited", gev.CodeRateLimited, "GEV_RATE_LIMITED"},
-		{"response invalid", gev.CodeResponseInvalid, "GEV_RESPONSE_INVALID"},
 		{"source conflict", gev.CodeSourceConflict, "GEV_SOURCE_CONFLICT"},
 		{"input invalid", gev.CodeInputInvalid, "GEV_INPUT_INVALID"},
+		{"rate limited", gev.CodeRateLimited, "GEV_RATE_LIMITED"},
+		{"server error", gev.CodeServerError, "GEV_SERVER_ERROR"},
+		{"response invalid", gev.CodeResponseInvalid, "GEV_RESPONSE_INVALID"},
+		{"network error", gev.CodeNetworkError, "GEV_NETWORK_ERROR"},
+		{"timeout", gev.CodeTimeout, "GEV_TIMEOUT"},
+		{"interrupted", gev.CodeInterrupted, "GEV_INTERRUPTED"},
 	}
 
 	for _, tt := range tests {
@@ -32,15 +38,31 @@ func TestStableErrorCodes(t *testing.T) {
 	}
 }
 
+func TestErrorCodeFormat(t *testing.T) {
+	// Locked format: GEV_<AREA>_<REASON>, uppercase A-Z, 0-9, underscore only.
+	re := regexp.MustCompile(`^GEV_[A-Z0-9_]+$`)
+
+	for _, code := range gev.Codes() {
+		if !re.MatchString(string(code)) {
+			t.Errorf("code %q violates the locked GEV_<AREA>_<REASON> format", code)
+		}
+	}
+}
+
 func TestCodesRegistry(t *testing.T) {
 	// The registry is exhaustive and ordered; nothing may be added or dropped silently.
 	want := []gev.Code{
 		gev.CodeAuthMissing,
+		gev.CodeAuthRejected,
 		gev.CodeRequestInvalid,
-		gev.CodeRateLimited,
-		gev.CodeResponseInvalid,
 		gev.CodeSourceConflict,
 		gev.CodeInputInvalid,
+		gev.CodeRateLimited,
+		gev.CodeServerError,
+		gev.CodeResponseInvalid,
+		gev.CodeNetworkError,
+		gev.CodeTimeout,
+		gev.CodeInterrupted,
 	}
 
 	got := gev.Codes()

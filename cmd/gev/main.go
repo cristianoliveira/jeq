@@ -9,7 +9,5 @@ import (
 )
 
 func main() {
-	if err := cli.NewRootCmd().Execute(); err != nil {
-		os.Exit(cli.ExitCode(err))
-	}
+	os.Exit(cli.Run(os.Args[1:], os.Stdout, os.Stderr))
 }

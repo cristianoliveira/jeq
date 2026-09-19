@@ -11,6 +11,10 @@ func NewRootCmd() *cobra.Command {
 		Short:        "Agent-first CLI for TypeSafe System One",
 		SilenceUsage: true,
 	}
+	// Flag parse failures are usage failures (exit 2), not generic errors.
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		return NewUsageError(err)
+	})
 	root.AddCommand(NewVersionCmd())
 	return root
 }
