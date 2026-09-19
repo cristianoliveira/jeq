@@ -1,7 +1,7 @@
 ---
 id: TASK-0025
 title: Probabilistic reduce and model configuration
-status: todo
+status: doing
 depends_on: [TASK-0024]
 priority: normal
 tags: []
