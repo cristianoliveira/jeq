@@ -25,10 +25,15 @@ var exampleRecipes = []exampleRecipe{
 		ID: "rate-sort", Purpose: "Rate every record with one Score rubric, then sort explicitly with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
 		Shell: `JEQ_BIN=${JEQ_BIN:-jeq}
 set -euo pipefail
+rated=$(mktemp); trap 'rm -f "$rated"' EXIT
 printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
   "$JEQ_BIN" rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \
-    --level 'Cosmetic: no functional impact' --level 'Degraded: an important workflow is impaired' --level 'Critical: service or data is at risk' |
-  jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse'`,
+    --level 'Cosmetic: no functional impact' --level 'Degraded: an important workflow is impaired' --level 'Critical: service or data is at risk' > "$rated"
+# Sort, select top-k, filter by a caller-owned threshold, and apply explicit policy offline.
+jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse' "$rated"
+jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.id)' "$rated"
+jq 'select(._jeq.severity.answers.severity.score >= 1.5)' "$rated"
+jq -s 'map(if ._jeq.severity.answers.severity.score >= 1.5 then .id else empty end)' "$rated"`,
 		InputShape: "NDJSON records with descriptions", OutputShape: "all records sorted by returned semantic Score", Privacy: "descriptions are sent independently; jq controls final output", Exits: "rate exits 0 on success; jq is offline.",
 	},
 	{
