@@ -398,6 +398,9 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		if doc["code"] != "GEV_NETWORK_ERROR" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
 		}
+		if result.stderr != "" || strings.Contains(result.stdout, "EOF") || strings.Contains(result.stdout, "connection reset") {
+			t.Fatalf("raw transport detail leaked: stdout=%q stderr=%q", result.stdout, result.stderr)
+		}
 	})
 }
 

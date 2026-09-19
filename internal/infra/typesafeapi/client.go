@@ -167,6 +167,14 @@ func (c *Client) attemptOnce(ctx context.Context, method, path string, body []by
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
+		// Signal-driven cancellation surfaces as a syscall-EINTR-wrapped
+		// error that does not unwrap to context.Canceled. The context is
+		// already canceled at this point, so prefer it over the transport
+		// classification.
+		if ctxErr := ctx.Err(); errors.Is(ctxErr, context.Canceled) {
+			return 0, nil, nil, withRecovery(gev.WrapError(gev.CodeInterrupted, err, "request interrupted"),
+				"rerun the command when ready")
+		}
 		return 0, nil, nil, c.transportError(err)
 	}
 	defer func() { _ = resp.Body.Close() }() // read-side body; nothing to act on at close
@@ -174,6 +182,10 @@ func (c *Client) attemptOnce(ctx context.Context, method, path string, body []by
 	limit := c.MaxBodyBytes
 	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if readErr != nil {
+		if ctxErr := ctx.Err(); errors.Is(ctxErr, context.Canceled) {
+			return 0, nil, nil, withRecovery(gev.WrapError(gev.CodeInterrupted, readErr, "request interrupted"),
+				"rerun the command when ready")
+		}
 		return 0, nil, nil, c.transportError(readErr)
 	}
 	if int64(len(raw)) > limit {
@@ -259,7 +271,6 @@ func classifyStatus(status int, body []byte, maxError int64, apiKey string) *gev
 }
 
 func (c *Client) transportError(err error) *gev.Error {
-	fmt.Fprintf(os.Stderr, "DEBUG transportError: err=%v isCanceled=%v isTimeout=%v isDeadline=%v\n", err, errors.Is(err, context.Canceled), errors.Is(err, os.ErrDeadlineExceeded), errors.Is(err, context.DeadlineExceeded))
 	if errors.Is(err, context.Canceled) {
 		return withRecovery(gev.WrapError(gev.CodeInterrupted, err, "request interrupted"),
 			"rerun the command when ready")
