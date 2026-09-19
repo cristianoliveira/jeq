@@ -2,7 +2,7 @@
 id: TASK-0013
 title: validate command
 status: todo
-depends_on: [TASK-0004, TASK-0005]
+depends_on: [TASK-0004, TASK-0005, TASK-0020]
 priority: normal
 tags: []
 ---
