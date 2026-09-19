@@ -4,16 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cristianoliveira/gev/internal/domain/gev"
 	"github.com/spf13/cobra"
 )
-
-type exampleSummary struct {
-	ID      string   `json:"id"`
-	Purpose string   `json:"purpose"`
-	Covers  []string `json:"covers"`
-	Cost    string   `json:"network_calls"`
-}
 
 type exampleRecipe struct {
 	ID           string   `json:"id"`
@@ -26,12 +18,6 @@ type exampleRecipe struct {
 	OutputShape  string   `json:"output_shape"`
 	Privacy      string   `json:"privacy"`
 	Exits        string   `json:"exit_semantics,omitempty"`
-	NextStep     string   `json:"next_step"`
-}
-
-type examplesCatalog struct {
-	Examples []exampleSummary `json:"examples"`
-	NextStep string           `json:"next_step"`
 }
 
 var exampleRecipes = []exampleRecipe{
@@ -43,7 +29,7 @@ set -euo pipefail
 printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
   "$GEV_BIN" validate --request -`,
 		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "plain validation receipt with valid, mode, model, and question_count lines",
-		Privacy: "validation is local and sends no state to TypeSafe.", NextStep: "run gev examples ask-native",
+		Privacy: "validation is local and sends no state to TypeSafe.",
 	},
 	{
 		ID: "ask-native", Purpose: "Send one native request from stdin.", Covers: []string{"ask"},
@@ -53,7 +39,7 @@ set -euo pipefail
 printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
   "$GEV_BIN" ask --request -`,
 		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "one response envelope with _gev-free answers and usage",
-		Privacy: "stdin state is sent to TypeSafe; project response fields before logs.", NextStep: "run gev examples map-gate",
+		Privacy: "stdin state is sent to TypeSafe; project response fields before logs.",
 	},
 	{
 		ID: "map-gate", Purpose: "Judge each record and apply an offline threshold.", Covers: []string{"map", "gate"},
@@ -67,7 +53,7 @@ printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
     --pass-min 0.80 --reject-max 0.40 |
   jq -c 'del(.change)'`,
 		InputShape: "NDJSON records containing change", OutputShape: "source-free records with _gev/risk and _gev/policy",
-		Privacy: "map sends each selected record; final jq removes change before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.", NextStep: "run gev examples reduce-gate",
+		Privacy: "map sends each selected record; final jq removes change before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.",
 	},
 	{
 		ID: "reduce-gate", Purpose: "Judge one complete collection and gate its aggregate signal.", Covers: []string{"reduce", "gate"},
@@ -81,7 +67,7 @@ printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
     --pass-min 0.80 --reject-max 0.40 |
   jq -c 'del(.items)'`,
 		InputShape: "ordered NDJSON records; reduce evaluates the complete array", OutputShape: "source-free aggregate with _gev/coherent and _gev/policy",
-		Privacy: "the complete collection is sent in one request; final jq removes .items before sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.", NextStep: "run gev examples map-reduce-gate",
+		Privacy: "the complete collection is sent in one request; final jq removes .items before sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.",
 	},
 	{
 		ID: "map-reduce-gate", Purpose: "Compose local per-record judgments with one relational aggregate gate.", Covers: []string{"map", "reduce", "gate"},
@@ -98,44 +84,32 @@ printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","cont
     --pass-min 0.80 --reject-max 0.40 |
   jq -c 'del(.items)'`,
 		InputShape: "NDJSON records with file:{path,content}", OutputShape: "source-free aggregate/gate evidence after del(.items)",
-		Privacy: "source crosses map and reduce; final jq removes .items before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain; pipefail preserves it.", NextStep: "run gev examples validate-native",
+		Privacy: "source crosses map and reduce; final jq removes .items before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain; pipefail preserves it.",
 	},
 }
 
-// NewExamplesCmd creates the offline workflow recipe discovery command.
+// NewExamplesCmd creates offline workflow recipe help using native Cobra navigation.
 func NewExamplesCmd(_ AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "examples [id]",
+		Use:   "examples",
 		Short: "Discover self-contained workflow recipes",
-		Example: `  gev examples
-  gev examples map-reduce-gate`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("examples accepts one id; received %q", strings.Join(args, " "))).WithRecovery("choose one of: " + exampleIDs())
-			}
-			if len(args) == 0 {
-				items := make([]exampleSummary, 0, len(exampleRecipes))
-				for _, recipe := range exampleRecipes {
-					items = append(items, exampleSummary{ID: recipe.ID, Purpose: recipe.Purpose, Covers: recipe.Covers, Cost: recipe.Cost})
-				}
-				doc := examplesCatalog{Examples: items, NextStep: "run gev examples map-reduce-gate"}
-				return writeExamples(cmd.OutOrStdout(), doc)
-			}
-			for _, recipe := range exampleRecipes {
-				if recipe.ID == args[0] {
-					return writeRecipe(cmd.OutOrStdout(), recipe)
-				}
-			}
-			return gev.NewError(gev.CodeInputInvalid, fmt.Sprintf("unknown example id %q", args[0])).WithRecovery("choose one of: " + exampleIDs())
-		},
+		Args:  cobra.NoArgs,
+		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	}
+	for _, recipe := range exampleRecipes {
+		recipe := recipe
+		cmd.AddCommand(&cobra.Command{
+			Use:     recipe.ID,
+			Short:   recipe.Purpose,
+			Long:    recipeLong(recipe),
+			Example: recipe.Shell,
+			Args:    cobra.NoArgs,
+			RunE:    func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+		})
 	}
 	return cmd
 }
 
-func exampleIDs() string {
-	ids := make([]string, 0, len(exampleRecipes))
-	for _, recipe := range exampleRecipes {
-		ids = append(ids, recipe.ID)
-	}
-	return strings.Join(ids, ", ")
+func recipeLong(recipe exampleRecipe) string {
+	return fmt.Sprintf("%s\n\nCommands: %s\nRequirements: %s\nNetwork calls: %s\nInput: %s\nOutput: %s\nPrivacy: %s\nExits: %s", recipe.Purpose, strings.Join(recipe.Covers, ", "), strings.Join(recipe.Requirements, ", "), recipe.Cost, recipe.InputShape, recipe.OutputShape, recipe.Privacy, recipe.Exits)
 }

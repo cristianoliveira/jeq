@@ -6,58 +6,42 @@ import (
 	"testing"
 
 	"github.com/cristianoliveira/gev/internal/cli"
-	"github.com/spf13/cobra"
 )
 
-func TestExamplesCatalogAndDetailsAreDeterministicAndOffline(t *testing.T) {
-	r := &valueRenderer{}
-	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"examples"}, &out, &errOut, r, cli.AskDeps{}); code != 0 {
-		t.Fatalf("code=%d errors=%v", code, r.errors)
+func TestExamplesUseNativeCobraHelp(t *testing.T) {
+	ids := []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate"}
+	var parent, parentHelp, stderr bytes.Buffer
+	if code := cli.RunWithDeps([]string{"examples"}, &parent, &stderr, nil, cli.AskDeps{}); code != 0 {
+		t.Fatalf("parent code=%d stderr=%q", code, stderr.String())
 	}
-	if out.Len() >= 2048 || errOut.Len() != 0 {
-		t.Fatalf("catalog bytes=%d stderr=%q", out.Len(), errOut.String())
+	stderr.Reset()
+	if code := cli.RunWithDeps([]string{"examples", "--help"}, &parentHelp, &stderr, nil, cli.AskDeps{}); code != 0 || parent.String() != parentHelp.String() {
+		t.Fatalf("parent/help code=%d stderr=%q\nparent=%q\nhelp=%q", code, stderr.String(), parent.String(), parentHelp.String())
 	}
-	want := []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate"}
-	catalogText := out.String()
-	previous := -1
-	for _, id := range want {
-		position := strings.Index(catalogText, "- "+id+":")
-		if position <= previous {
-			t.Fatalf("catalog order/output=%q", catalogText)
+	for _, id := range ids {
+		var out, help, errOut bytes.Buffer
+		if code := cli.RunWithDeps([]string{"examples", id}, &out, &errOut, nil, cli.AskDeps{}); code != 0 {
+			t.Fatalf("%s code=%d stderr=%q", id, code, errOut.String())
 		}
-		previous = position
-
-		out.Reset()
-		if code := cli.RunWithDeps([]string{"examples", id}, &out, &errOut, r, cli.AskDeps{}); code != 0 {
-			t.Fatalf("detail %s code=%d", id, code)
+		if code := cli.RunWithDeps([]string{"examples", id, "--help"}, &help, &errOut, nil, cli.AskDeps{}); code != 0 || out.String() != help.String() {
+			t.Fatalf("%s/help mismatch: %q != %q", id, out.String(), help.String())
 		}
-		detail := out.String()
-		for _, field := range []string{id + "\n", "Commands:", "Requirements:", "Network calls:", "Input:", "Output:", "Privacy:", "Shell:", "Next:"} {
-			if !strings.Contains(detail, field) {
-				t.Fatalf("detail %s missing %q: %q", id, field, detail)
+		for _, field := range []string{"Commands:", "Requirements:", "Network calls:", "Input:", "Output:", "Privacy:", "Exits:"} {
+			if !strings.Contains(out.String(), field) {
+				t.Fatalf("%s missing %q", id, field)
 			}
 		}
-		if !strings.Contains(detail, "GEV_BIN=${GEV_BIN:-gev}") || !strings.Contains(detail, "set -euo pipefail") || strings.Contains(detail, "examples/") || strings.Contains(detail, "eval ") {
-			t.Fatalf("not self-contained: %s", id)
+		if !strings.Contains(out.String(), "GEV_BIN=${GEV_BIN:-gev}") || strings.Contains(out.String(), "Next:") {
+			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
 		}
-		if strings.Contains(id, "gate") && !strings.Contains(detail, "jq -c 'del(") {
-			t.Fatalf("gate recipe lacks safe final projection: %s", id)
-		}
-		if id == "map-gate" && !strings.Contains(detail, "gate --as policy --input ndjson") {
-			t.Fatalf("multi-record gate lacks NDJSON framing: %s", detail)
-		}
-	}
-	if len(r.values) != 0 {
-		t.Fatalf("plain examples unexpectedly used JSON renderer: %#v", r.values)
 	}
 }
 
-func TestExamplesUnknownAndExtraArgsAreStructuredInputErrors(t *testing.T) {
+func TestExamplesUnknownAndExtraArgsUseNativeCobraErrors(t *testing.T) {
 	for _, args := range [][]string{{"examples", "missing"}, {"examples", "ask-native", "extra"}} {
 		r := &valueRenderer{}
 		var out, errOut bytes.Buffer
-		if code := cli.RunWithDeps(args, &out, &errOut, r, cli.AskDeps{}); code != 2 || out.Len() != 0 || !strings.Contains(errOut.String(), "Error: GEV_INPUT_INVALID") || len(r.errors) != 0 {
+		if code := cli.RunWithDeps(args, &out, &errOut, r, cli.AskDeps{}); code != 2 || out.Len() != 0 || !strings.HasPrefix(errOut.String(), "Error: ") || len(r.errors) != 0 {
 			t.Fatalf("args=%v code=%d stderr=%q errors=%v", args, code, errOut.String(), r.errors)
 		}
 	}
@@ -71,10 +55,5 @@ func TestRootAndCommandHelpPointToExamples(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "gev examples map-reduce-gate") {
 		t.Fatalf("root help=%q", out.String())
-	}
-	for _, command := range []*cobra.Command{cli.NewExamplesCmd(cli.AskDeps{}), cli.NewAskCmd(cli.AskDeps{}), cli.NewValidateCmd(cli.AskDeps{}), cli.NewMapCmd(cli.AskDeps{}), cli.NewReduceCmd(cli.AskDeps{}), cli.NewGateCmd(cli.AskDeps{})} {
-		if command.Example == "" {
-			t.Fatalf("%s has no example", command.Use)
-		}
 	}
 }

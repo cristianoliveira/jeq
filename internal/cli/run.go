@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/cristianoliveira/gev/internal/domain/gev"
 )
@@ -40,6 +41,9 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 			return policy.status
 		}
 		root.PrintErrln("Error:", publicCLIError(err))
+		if strings.Contains(err.Error(), "unknown command") || strings.Contains(err.Error(), "unknown flag") || strings.Contains(err.Error(), "requires at most") {
+			return 2
+		}
 		return ExitCode(err)
 	}
 	return 0
