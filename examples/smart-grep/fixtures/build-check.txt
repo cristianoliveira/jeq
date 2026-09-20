@@ -1,0 +1,20 @@
+warning: Git tree '/workspace/jeq' is dirty
+false
+warning: Git tree '/workspace/jeq' is dirty
+evaluating flake...
+checking flake output 'devShells'...
+checking derivation devShells.aarch64-darwin.default...
+derivation evaluated to /nix/store/REDACTED-nix-shell.drv
+warning: The check omitted these incompatible systems: aarch64-linux, x86_64-darwin, x86_64-linux
+Use '--all-systems' to check all.
+Funzzy: config valid: 7 job(s), 6 in parallel group(s), concurrency 6
+internal/cli/discovery.go:72:28: unused-parameter: parameter 'deps' seems to be unused, consider removing or renaming it as _ (revive)
+func NewVersionCmdWithDeps(deps AskDeps) *cobra.Command {
+                           ^
+internal/cli/examples.go:106:21: unused-parameter: parameter 'deps' seems to be unused, consider removing or renaming it as _ (revive)
+func NewExamplesCmd(deps AskDeps) *cobra.Command {
+                    ^
+2 issues:
+* revive: 2
+make[1]: *** [Makefile:19: check-internal] Error 1
+make: *** [Makefile:4: check] Error 1

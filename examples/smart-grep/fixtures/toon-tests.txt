@@ -1,0 +1,121 @@
+--- FAIL: TestEncodeFixtures (0.01s)
+    --- FAIL: TestEncodeFixtures/arrays-objects.json (0.00s)
+        --- FAIL: TestEncodeFixtures/arrays-objects.json/encodes_a_keyed-eligible_object_in_a_tabular_column_as_a_nested_field_group (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "a": [
+                          {
+                            "t": {
+                              "p": {
+                                "x": 1
+                              },
+                              "q": {
+                                "x": 2
+                              }
+                            },
+                            "other": 9
+                          }
+                        ]
+                      }) =
+                "a[1]:\n  - t[2:]{x}:\n      p: 1\n      q: 2\n    other: 9"
+                want
+                "a[1]{t{p{x},q{x}},other}:\n  1,2,9"
+    --- FAIL: TestEncodeFixtures/arrays-tabular.json (0.00s)
+        --- FAIL: TestEncodeFixtures/arrays-tabular.json/collapses_a_uniform_nested_object_column_into_a_nested_field_group (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "orders": [
+                          { "id": 1, "customer": { "name": "Ada", "country": "DK" }, "total": 99 },
+                          { "id": 2, "customer": { "name": "Bob", "country": "UK" }, "total": 149 }
+                        ]
+                      }) =
+                "orders[2]:\n  - id: 1\n    customer:\n      name: Ada\n      country: DK\n    total: 99\n  - id: 2\n    customer:\n      name: Bob\n      country: UK\n    total: 149"
+                want
+                "orders[2]{id,customer{name,country},total}:\n  1,Ada,DK,99\n  2,Bob,UK,149"
+        --- FAIL: TestEncodeFixtures/arrays-tabular.json/collapses_sibling_nested_field_groups_with_depth-first_row_layout (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "shipments": [
+                          { "id": "s1", "sender": { "name": "ACME", "city": "Berlin" }, "receiver": { "name": "Globex", "city": "Oslo" } }
+                        ]
+                      }) =
+                "shipments[1]:\n  - id: s1\n    sender:\n      name: ACME\n      city: Berlin\n    receiver:\n      name: Globex\n      city: Oslo"
+                want
+                "shipments[1]{id,sender{name,city},receiver{name,city}}:\n  s1,ACME,Berlin,Globex,Oslo"
+        --- FAIL: TestEncodeFixtures/arrays-tabular.json/collapses_nested_field_groups_recursively_without_a_depth_cap (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "items": [
+                          { "id": 1, "geo": { "point": { "lat": 1.5, "lon": 2.5 } } },
+                          { "id": 2, "geo": { "point": { "lat": 3, "lon": 4 } } }
+                        ]
+                      }) =
+                "items[2]:\n  - id: 1\n    geo:\n      point:\n        lat: 1.5\n        lon: 2.5\n  - id: 2\n    geo:\n      point:\n        lat: 3\n        lon: 4"
+                want
+                "items[2]{id,geo{point{lat,lon}}}:\n  1,1.5,2.5\n  2,3,4"
+        --- FAIL: TestEncodeFixtures/arrays-tabular.json/uses_the_active_delimiter_inside_nested_field_groups (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "orders": [
+                          { "id": 1, "customer": { "name": "Ada", "country": "DK" }, "total": 99 },
+                          { "id": 2, "customer": { "name": "Bob", "country": "UK" }, "total": 149 }
+                        ]
+                      }) =
+                "orders[2|]:\n  - id: 1\n    customer:\n      name: Ada\n      country: DK\n    total: 99\n  - id: 2\n    customer:\n      name: Bob\n      country: UK\n    total: 149"
+                want
+                "orders[2|]{id|customer{name|country}|total}:\n  1|Ada|DK|99\n  2|Bob|UK|149"
+        --- FAIL: TestEncodeFixtures/arrays-tabular.json/quotes_subfield_names_inside_nested_field_groups_per_key_encoding (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "items": [
+                          { "id": 1, "customer": { "full name": "Ada", "country": "UK" } }
+                        ]
+                      }) =
+                "items[1]:\n  - id: 1\n    customer:\n      \"full name\": Ada\n      country: UK"
+                want
+                "items[1]{id,customer{\"full name\",country}}:\n  1,Ada,UK"
+    --- FAIL: TestEncodeFixtures/objects-keyed.json (0.00s)
+        --- FAIL: TestEncodeFixtures/objects-keyed.json/collapses_uniform_nested_object_columns_inside_keyed_headers (0.00s)
+            fixtures_test.go:100: Marshal({
+                        "regions": {
+                          "eu": { "name": "Europe", "geo": { "lat": 50, "lon": 10 } },
+                          "us": { "name": "America", "geo": { "lat": 40, "lon": -100 } }
+                        }
+                      }) =
+                "regions:\n  eu:\n    name: Europe\n    geo:\n      lat: 50\n      lon: 10\n  us:\n    name: America\n    geo:\n      lat: 40\n      lon: -100"
+                want
+                "regions[2:]{name,geo{lat,lon}}:\n  eu: Europe,50,10\n  us: America,40,-100"
+--- FAIL: TestDecodeFixtures (0.04s)
+    --- FAIL: TestDecodeFixtures/arrays-tabular.json (0.00s)
+        --- FAIL: TestDecodeFixtures/arrays-tabular.json/parses_nested_field_groups_into_nested_objects (0.00s)
+            fixtures_test.go:150: Decode("orders[2]{id,customer{name,country},total}:\n  1,Ada,DK,99\n  2,Bob,UK,149") = {"orders":[{"country}":"DK","customer{name":"Ada","id":1,"total":99},{"country}":"UK","customer{name":"Bob","id":2,"total":149}]}, want {"orders":[{"customer":{"country":"DK","name":"Ada"},"id":1,"total":99},{"customer":{"country":"UK","name":"Bob"},"id":2,"total":149}]}
+        --- FAIL: TestDecodeFixtures/arrays-tabular.json/parses_sibling_nested_field_groups_by_depth-first_cell_assignment (0.00s)
+            fixtures_test.go:134: Decode error: toon: decode error at line 1: duplicate field name "city}" in field list
+        --- FAIL: TestDecodeFixtures/arrays-tabular.json/parses_nested_field_groups_recursively_without_a_depth_cap (0.00s)
+            fixtures_test.go:150: Decode("items[2]{id,geo{point{lat,lon}}}:\n  1,1.5,2.5\n  2,3,4") = {"items":[{"geo{point{lat":1.5,"id":1,"lon}}":2.5},{"geo{point{lat":3,"id":2,"lon}}":4}]}, want {"items":[{"geo":{"point":{"lat":1.5,"lon":2.5}},"id":1},{"geo":{"point":{"lat":3,"lon":4}},"id":2}]}
+        --- FAIL: TestDecodeFixtures/arrays-tabular.json/parses_nested_field_groups_with_the_pipe_delimiter (0.00s)
+            fixtures_test.go:150: Decode("orders[2|]{id|customer{name|country}|total}:\n  1|Ada|DK|99\n  2|Bob|UK|149") = {"orders":[{"country}":"DK","customer{name":"Ada","id":1,"total":99},{"country}":"UK","customer{name":"Bob","id":2,"total":149}]}, want {"orders":[{"customer":{"country":"DK","name":"Ada"},"id":1,"total":99},{"customer":{"country":"UK","name":"Bob"},"id":2,"total":149}]}
+        --- FAIL: TestDecodeFixtures/arrays-tabular.json/parses_quoted_subfield_names_inside_nested_field_groups (0.00s)
+            fixtures_test.go:150: Decode("items[1]{id,customer{\"full name\",country}}:\n  1,Ada,UK") = {"items":[{"country}":"UK","customer{\"full name\"":"Ada","id":1}]}, want {"items":[{"customer":{"country":"UK","full name":"Ada"},"id":1}]}
+        --- FAIL: TestDecodeFixtures/arrays-tabular.json/applies_LWW_when_a_bare_field_and_a_nested_group_share_a_name_in_non-strict_mode (0.00s)
+            fixtures_test.go:150: Decode("items[1]{a,a{x}}:\n  1,2") = {"items":[{"a":1,"a{x}":2}]}, want {"items":[{"a":{"x":2}}]}
+    --- FAIL: TestDecodeFixtures/blank-lines.json (0.00s)
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_inside_list_array (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{"a", "b", "c"}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_inside_tabular_array (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{map[string]interface {}{"id":"1"}, map[string]interface {}{"id":"2"}}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_between_keyed_entry_rows (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"m":map[string]interface {}{"a":map[string]interface {}{"v":"1"}, "b":map[string]interface {}{"v":"2"}}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_multiple_blank_lines_inside_array (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{"a", "b"}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_with_spaces_inside_array (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{"a", "b"}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_between_list_items_after_nested_tabular_rows (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"outer":[]interface {}{map[string]interface {}{"inner":[]interface {}{map[string]interface {}{"a":"1"}, map[string]interface {}{"a":"2"}}}, "x"}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_between_a_list_item's_fields (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{map[string]interface {}{"a":"1", "b":"2"}, "x"}}
+        --- FAIL: TestDecodeFixtures/blank-lines.json/throws_on_blank_line_inside_the_last_list_item's_fields (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{map[string]interface {}{"a":"1", "b":"2"}}}
+    --- FAIL: TestDecodeFixtures/objects-keyed.json (0.00s)
+        --- FAIL: TestDecodeFixtures/objects-keyed.json/parses_nested_field_groups_in_keyed_headers (0.00s)
+            fixtures_test.go:150: Decode("regions[2:]{name,geo{lat,lon}}:\n  eu: Europe,50,10\n  us: America,40,-100") = {"regions":{"eu":{"geo{lat":50,"lon}":10,"name":"Europe"},"us":{"geo{lat":40,"lon}":-100,"name":"America"}}}, want {"regions":{"eu":{"geo":{"lat":50,"lon":10},"name":"Europe"},"us":{"geo":{"lat":40,"lon":-100},"name":"America"}}}
+    --- FAIL: TestDecodeFixtures/validation-errors.json (0.00s)
+        --- FAIL: TestDecodeFixtures/validation-errors.json/throws_on_duplicate_field_names_at_the_same_field-list_level_in_strict_mode (0.00s)
+            fixtures_test.go:129: expected decode error, got map[string]interface {}{"items":[]interface {}{map[string]interface {}{"a":"1", "a{x}":"2"}}}
+FAIL
+FAIL	github.com/jedi-knights/go-toon/pkg/toon	0.380s
+FAIL

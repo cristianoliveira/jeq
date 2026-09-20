@@ -20,6 +20,8 @@ endpoint for development. Model evidence is data: examples validate it as a cata
 
 ## Recommended pipelines
 
+- [`smart-grep`](smart-grep/README.md): retrieve and group log excerpts locally,
+  inspect a bounded shortlist, then rank it in one explicit live request.
 - [`readable-workflows/support`](readable-workflows/support/README.md): one
   composed map followed by a confidence gate.
 - [`readable-workflows/release`](readable-workflows/release/README.md): one
