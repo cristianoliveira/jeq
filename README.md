@@ -34,6 +34,8 @@ guides:
 - [Getting started](docs/guides/getting-started.md)
 - [Composition](docs/guides/composition.md)
 - [CLI reference](docs/guides/cli-reference.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Examples](examples/README.md)
 
 ## Boundaries
 

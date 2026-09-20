@@ -1,31 +1,33 @@
 # Getting started
 
-Export the credential only in your current environment. Validate the request
-locally before paying for an evaluation:
-
-```sh
-export TYPESAFE_API_KEY='replace-me'
-jeq validate --request request.json
-```
-
-Ask one typed question about explicit state:
+Create a request without a credential, then validate it locally:
 
 ```sh
 cat > request.json <<'JSON'
 {"state":{"text":"The payment is overdue"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}
 JSON
+jeq validate --request request.json
+```
+
+Obtain a credential through your normal secret manager. Export it for this
+process without typing it into shell history, then evaluate:
+
+```sh
+read -r TYPESAFE_API_KEY < <(secret-tool lookup service typesafe account "$USER")
+export TYPESAFE_API_KEY
 jeq ask --request request.json
+unset TYPESAFE_API_KEY
+```
+
+A successful response contains the resolved `model`, named `answers`, and `usage`,
+for example:
+
+```json
+{"model":"jev-latest","answers":{"urgent":{"type":"noul","noul":0.9}},"usage":{"input_tokens":42,"output_tokens":8}}
 ```
 
 `ask`, `map`, `rate`, `reduce`, and `rank` evaluate through TypeSafe and need
-network access plus `TYPESAFE_API_KEY`. `validate` checks request shape locally.
-The result contains the model, named answers, usage, and command evidence. Each
-primitive request costs usage; batching changes request shape and cost, not the
-need to review state and prompts. Use `--verbose` to send a trace to stderr;
-stdout remains pipeline data. Never put credentials or private state in requests,
-logs, or shell history.
-
-Start with small, redacted state. Each request costs usage. Set explicit timeouts
-and retry limits for automation. Check the exit status: ordinary input and
-transport failures are non-zero, and policy `gate` reports pass, ambiguous, or
-reject separately.
+network access. Each primitive request costs usage. Review state and prompts,
+keep them small and redacted, and never put credentials in requests, logs, or
+shell history. Use `--verbose` for a trace on stderr; stdout remains pipeline
+data. Check exit status in automation.

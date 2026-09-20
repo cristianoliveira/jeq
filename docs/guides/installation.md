@@ -22,16 +22,16 @@ new release.
   [GitHub release](https://github.com/cristianoliveira/jeq/releases) and verify
   `checksums.txt` before extracting.
 
-Profile installs can be upgraded with `nix profile upgrade 'github:cristianoliveira/jeq/v0.1.0-rc.1'`
-or removed with `nix profile remove jeq`; reinstall the profile entry if your
-Nix version does not match the original flake reference. Verify a tagged Go
-install without changing your normal binary:
+Moving-main profile installs can be upgraded with `nix profile upgrade jeq`.
+A pinned release does not advance: review a new tag, remove the old profile
+entry with `nix profile remove jeq`, then install the new pinned reference.
+Verify a tagged Go install without changing your normal binary:
 
 ```sh
 tmp_gobin=$(mktemp -d)
 GOBIN="$tmp_gobin" go install github.com/cristianoliveira/jeq/cmd/jeq@v0.1.0-rc.1
 "$tmp_gobin/jeq" version
-rm -rf "$tmp_gobin"
+rm -rf "$tmp_gobin" # tagged Go installs use source defaults: dev/unknown metadata
 ```
 
 For a checkout development install, use `nix develop -c go install ./cmd/jeq`.
