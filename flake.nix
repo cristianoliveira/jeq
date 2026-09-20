@@ -87,6 +87,7 @@
               gnumake
               go
               golangci-lint
+              goreleaser
               gopls
               govulncheck
               jq

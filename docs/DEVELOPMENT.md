@@ -75,21 +75,25 @@ The current graph has pinned Cobra, pflag, mousetrap, go-md2man, blackfriday,
 YAML, and check modules. Their cached license files are MIT, BSD, or Apache
 compatible with this project; no TOON module is present.
 
-Build reproducible, CGO-free release candidates for every supported target:
+Verify a reproducible release candidate with GoReleaser. It owns the four
+CGO-free targets, archives, README inclusion, and checksum file:
 
 ```sh
-for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
-  GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 \
-    go build -trimpath \
-      -ldflags "-X github.com/cristianoliveira/jeq/internal/cli.Version=$VERSION \
-                -X github.com/cristianoliveira/jeq/internal/cli.Commit=$COMMIT" \
-      -o "dist/jeq-${target%/*}-${target#*/}" ./cmd/jeq
-done
+nix develop -c goreleaser check
+rm -rf dist
+goreleaser release --snapshot --clean
+find dist -maxdepth 1 -type f -print
+cat dist/checksums.txt
 ```
 
-Confirm every artifact is non-empty. Run the host-compatible artifact with
-`jeq version` and verify the injected version and commit. Keep artifacts outside
-the repository or remove them before committing.
+Inspect all four target archives and checksums. Extract the host-compatible
+archive and run `jeq version`; it must report the snapshot version and commit
+injected by GoReleaser. Snapshot builds never publish. To publish, commit and
+push an approved `v*` tag; the tag workflow runs the normal gate, then lets
+GoReleaser create one GitHub release. Tags such as `v0.1.0-rc.1` are published
+as prereleases. Keep `dist` outside the repository or remove it before
+committing.
+
 
 Run the final gate from the clean committed tree. Inspect tracked files and the
 history tip for credentials, raw live payloads, debug prints, stack traces, and
