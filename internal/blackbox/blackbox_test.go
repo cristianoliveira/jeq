@@ -61,7 +61,6 @@ func runBinary(t *testing.T, stdin string, env map[string]string, args ...string
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	args, env = migrateTestBaseURL(args, env)
 	cmd := exec.CommandContext(ctx, jeqBin, args...)
 	cmd.Dir = repoRoot
 	cmd.Env = mergedEnv(env)
@@ -74,22 +73,6 @@ func runBinary(t *testing.T, stdin string, env map[string]string, args ...string
 		t.Fatalf("%v timed out: stdout=%q stderr=%q", strings.Join(args, " "), stdout.String(), stderr.String())
 	}
 	return processResult{stdout: stdout.String(), stderr: stderr.String(), exit: exitCode(cmd, err), err: err}
-}
-
-func migrateTestBaseURL(args []string, env map[string]string) ([]string, map[string]string) {
-	out := make([]string, 0, len(args))
-	for i := 0; i < len(args); i++ {
-		if args[i] == "--base-url" && i+1 < len(args) {
-			if env == nil {
-				env = map[string]string{}
-			}
-			env["TYPESAFE_BASE_URL"] = args[i+1]
-			i++
-			continue
-		}
-		out = append(out, args[i])
-	}
-	return out, env
 }
 
 func mergedEnv(overrides map[string]string) []string {
@@ -300,15 +283,15 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 		args  func(string) []string
 		input string
 	}{
-		{name: "native file default", args: func(url string) []string { return []string{"ask", "--request", requestPath, "--base-url", url} }},
+		{name: "native file default", args: func(url string) []string { return []string{"ask", "--request", requestPath} }},
 		{name: "native stdin explicit json", args: func(url string) []string {
-			return []string{"ask", "--request", "-", "--base-url", url}
+			return []string{"ask", "--request", "-"}
 		}, input: string(fixture(t, "request_full.json"))},
 		{name: "composed file default", args: func(url string) []string {
-			return []string{"ask", "--questions", questionsPath, "--state", "a user needs help", "--base-url", url}
+			return []string{"ask", "--questions", questionsPath, "--state", "a user needs help"}
 		}},
 		{name: "composed stdin explicit json", args: func(url string) []string {
-			return []string{"ask", "--questions", "-", "--state", "a user needs help", "--base-url", url}
+			return []string{"ask", "--questions", "-", "--state", "a user needs help"}
 		}, input: `{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`},
 	}
 	for _, tc := range cases {
@@ -321,7 +304,7 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write(response)
 			})
-			result := runBinary(t, tc.input, map[string]string{"TYPESAFE_API_KEY": "blackbox-secret"}, tc.args(api.server.URL)...)
+			result := runBinary(t, tc.input, map[string]string{"TYPESAFE_API_KEY": "blackbox-secret", "TYPESAFE_BASE_URL": api.server.URL}, tc.args(api.server.URL)...)
 			assertCleanMachineOutput(t, result, 0, "blackbox-secret")
 			if api.count() != 1 {
 				t.Fatalf("request count=%d want=1", api.count())
@@ -331,6 +314,22 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 				t.Fatalf("server received invalid request %q: %v", api.body(), err)
 			}
 		})
+	}
+}
+
+func TestBlackBoxInfrastructureFlagsAreRemoved(t *testing.T) {
+	t.Parallel()
+	api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
+		http.Error(w, "must not call", http.StatusInternalServerError)
+	})
+	for _, flag := range []string{"--base-url", "--config"} {
+		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "must-not-read", "TYPESAFE_BASE_URL": api.server.URL}, "ask", flag, "value")
+		if result.exit != 2 || result.stdout != "" || !strings.Contains(result.stderr, "unknown flag") {
+			t.Fatalf("flag=%s result=%#v", flag, result)
+		}
+	}
+	if api.count() != 0 {
+		t.Fatalf("requests=%d", api.count())
 	}
 }
 
@@ -359,7 +358,7 @@ func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
 		_, _ = w.Write([]byte(`{"model":"jev-latest","answers":{"route":{"type":"choice","choice":"b","probabilities":{"a":0.2,"b":0.8},"confidence":0.8}},"usage":{"input_tokens":1,"output_tokens":1},"trace_id":"trace-1"}`))
 	})
 	input := "{\"name\":\"a\",\"description\":\"first\"}\n{\"name\":\"b\",\"description\":\"second\"}\n"
-	result := runBinary(t, input, map[string]string{"TYPESAFE_API_KEY": "rank-secret"}, "rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description", "--base-url", api.server.URL)
+	result := runBinary(t, input, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "rank-secret"}, "rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description")
 	if result.exit != 0 || result.stderr != "" || api.count() != 1 {
 		t.Fatalf("exit=%d stderr=%q requests=%d stdout=%q", result.exit, result.stderr, api.count(), result.stdout)
 	}
@@ -392,7 +391,7 @@ func TestBlackBoxRateUsesScoreAndComposesWithJQ(t *testing.T) {
 		_, _ = w.Write([]byte(`{"model":"m","answers":{"severity":{"type":"score","score":2,"legend":{"0":"low","1":"high"},"probabilities":{"0":0.1,"1":0.9},"confidence":0.9}},"usage":{"input_tokens":1,"output_tokens":1}}`))
 	})
 	input := "{\"description\":\"minor\"}\n{\"description\":\"outage\"}\n"
-	result := runBinary(t, input, map[string]string{"TYPESAFE_API_KEY": "rate-secret"}, "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High", "--base-url", api.server.URL)
+	result := runBinary(t, input, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "rate-secret"}, "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High")
 	if result.exit != 0 || result.stderr != "" || api.count() != 2 {
 		t.Fatalf("exit=%d stderr=%q requests=%d", result.exit, result.stderr, api.count())
 	}
@@ -431,7 +430,7 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 			}
 			_, _ = w.Write(fixture(t, "models.json"))
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "models-secret"}, "models", "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "models-secret"}, "models")
 		assertCleanMachineOutput(t, result, 0, "models-secret")
 		if api.count() != 1 {
 			t.Fatalf("request count=%d", api.count())
@@ -441,7 +440,7 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
 			http.Error(w, "must not call", http.StatusInternalServerError)
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": ""}, "models", "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": ""}, "models")
 		doc := assertCleanMachineOutput(t, result, 1, "")
 		if doc["error"] == "" || api.count() != 0 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
@@ -451,7 +450,7 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
 			http.Error(w, `{"message":"secret should not appear"}`, http.StatusUnauthorized)
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "auth-secret"}, "models", "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "auth-secret"}, "models")
 		doc := assertCleanMachineOutput(t, result, 1, "auth-secret")
 		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
@@ -476,7 +475,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 			}
 			_, _ = w.Write(response)
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "retry-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "retry-secret"}, "ask", "--request", requestPath)
 		assertCleanMachineOutput(t, result, 0, "retry-secret")
 		if api.count() != 2 || !strings.Contains(result.stderr, "retry 1/2") {
 			t.Fatalf("requests=%d stderr=%q", api.count(), result.stderr)
@@ -487,7 +486,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(`<html>dependency stack should stay contained</html>`))
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "status-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "status-secret"}, "ask", "--request", requestPath)
 		doc := assertCleanMachineOutput(t, result, 1, "status-secret")
 		if doc["error"] == "" || api.count() != 1 || strings.Contains(result.stdout, "dependency stack") {
 			t.Fatalf("doc=%v requests=%d stdout=%q", doc, api.count(), result.stdout)
@@ -495,7 +494,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 	})
 	t.Run("malformed response", func(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write([]byte("not-json")) })
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "malformed-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "malformed-secret"}, "ask", "--request", requestPath)
 		doc := assertCleanMachineOutput(t, result, 1, "malformed-secret")
 		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
@@ -503,7 +502,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 	})
 	t.Run("timeout", func(t *testing.T) {
 		api := newFakeAPI(t, func(_ http.ResponseWriter, r *http.Request, _ int) { <-r.Context().Done() })
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "timeout-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL, "--timeout", "50ms")
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "timeout-secret"}, "ask", "--request", requestPath, "--timeout", "50ms")
 		doc := assertCleanMachineOutput(t, result, 1, "timeout-secret")
 		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())
@@ -512,7 +511,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 	t.Run("low confidence is success", func(t *testing.T) {
 		low := bytes.Replace(response, []byte(`"confidence": 1.0`), []byte(`"confidence": 0.01`), 1)
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write(low) })
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "confidence-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "confidence-secret"}, "ask", "--request", requestPath)
 		assertCleanMachineOutput(t, result, 0, "confidence-secret")
 	})
 	t.Run("connection drop is never replayed", func(t *testing.T) {
@@ -527,7 +526,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 			}
 			_ = conn.Close()
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "drop-secret"}, "ask", "--request", requestPath, "--base-url", api.server.URL)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "drop-secret"}, "ask", "--request", requestPath)
 		doc := assertCleanMachineOutput(t, result, 1, "drop-secret")
 		if doc["error"] == "" || api.count() != 1 {
 			t.Fatalf("doc=%v requests=%d", doc, api.count())

@@ -55,7 +55,7 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 				baseURL = DefaultBaseURL
 			}
 			if parsed, parseErr := url.Parse(baseURL); parseErr != nil || parsed.Scheme == "" || parsed.Host == "" {
-				return jeq.NewError(jeq.CodeInputInvalid, "--base-url must be an absolute URL").WithRecovery("set --base-url to an https:// or http:// API root")
+				return jeq.NewError(jeq.CodeInputInvalid, "TYPESAFE_BASE_URL must be an absolute URL").WithRecovery("set TYPESAFE_BASE_URL to an https:// or http:// API root")
 			}
 			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 			modelsClient, ok := client.(interface {
