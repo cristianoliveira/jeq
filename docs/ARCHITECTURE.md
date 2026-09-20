@@ -81,6 +81,10 @@ composed request construction. Stable error codes live in
   bounded reads, documented retry statuses, timeout classification, and
   transport-error redaction.
 
+## Ephemeral execution tracing
+
+`--verbose` is a global long-only opt-in. It writes versioned `jeq.trace.v1` lifecycle metadata as single-line JSON to stderr; stdout remains the sole semantic evidence stream. `--trace-id` takes precedence over `JEQ_TRACE_ID` and accepts only bounded safe identifiers for caller-owned cross-process correlation. Events never persist, discover, or update files and never contain prompts, state, credentials, headers, URLs with user data, or provider bodies. The trace describes execution metadata, not model reasoning. Without an explicit trace ID, events remain process-local.
+
 ## Environment-only infrastructure resolution
 
 Infrastructure configuration is process-wide and comes from the environment; the affected commands do not expose infrastructure flags. `TYPESAFE_BASE_URL` selects the API root and must be an absolute `http` or `https` URL. It is validated before API-key lookup or HTTP-client construction. `TYPESAFE_API_KEY` supplies credentials. `JEQ_CONFIG`, when explicitly set and nonblank, is always read and strictly validated (including size, syntax, duplicate keys, and unsupported fields) before model selection. Without an explicit config path, optional discovery checks `XDG_CONFIG_HOME` and then `$HOME/.config/jeq/config.json`, but that optional file is not read when `--model` or `TYPESAFE_DEFAULT_MODEL` already supplies a higher-precedence model.
