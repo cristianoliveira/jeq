@@ -81,7 +81,8 @@ CGO-free targets, archives, README inclusion, and checksum file:
 ```sh
 nix develop -c goreleaser check
 rm -rf dist
-goreleaser release --snapshot --clean
+nix develop -c goreleaser release --snapshot --clean
+python3 scripts/verify_release_snapshot.py
 find dist -maxdepth 1 -type f -print
 cat dist/checksums.txt
 ```
