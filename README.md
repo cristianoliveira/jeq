@@ -20,7 +20,15 @@ printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
 
 ## Quick start
 
-Install from the pinned release candidate first:
+On macOS, install through the Homebrew tap:
+
+```sh
+brew tap cristianoliveira/tap
+brew install cristianoliveira/tap/jeq
+jeq version
+```
+
+Alternatively, install from the pinned release candidate with Nix:
 
 ```sh
 nix run github:cristianoliveira/jeq/v0.1.0-rc.1 -- version

@@ -1,5 +1,20 @@
 # Installation
 
+## Homebrew
+
+On macOS, install the release from the Homebrew tap:
+
+```sh
+brew tap cristianoliveira/tap
+brew install cristianoliveira/tap/jeq
+```
+
+Verify the installation:
+
+```sh
+jeq version
+```
+
 ## Pinned release candidate
 
 Use the verified remote flake first:
