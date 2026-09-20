@@ -1,7 +1,7 @@
 ---
 id: TASK-0040
 title: Add short and long version flags
-status: doing
+status: done
 depends_on: []
 priority: normal
 tags: [cli, discovery]
@@ -27,21 +27,21 @@ jeq -v
 
 ## Acceptance criteria
 
-- [ ] `jeq --version` exits 0 and writes the same plain-text bytes as
+- [x] `jeq --version` exits 0 and writes the same plain-text bytes as
       `jeq version` to stdout.
-- [ ] `jeq -v` is an exact alias of `jeq --version`.
-- [ ] Successful version probes write nothing to stderr and never require
+- [x] `jeq -v` is an exact alias of `jeq --version`.
+- [x] Successful version probes write nothing to stderr and never require
       credentials, configuration, stdin, or network access.
-- [ ] The root help lists `-v, --version` with a concise description.
-- [ ] The existing `jeq version` command remains supported without output or
+- [x] The root help lists `-v, --version` with a concise description.
+- [x] The existing `jeq version` command remains supported without output or
       exit-code changes.
-- [ ] The implementation reuses the existing build-information rendering path
+- [x] The implementation reuses the existing build-information rendering path
       rather than creating a second output format.
-- [ ] Unit and built-binary black-box tests cover all three equivalent forms,
+- [x] Unit and built-binary black-box tests cover all three equivalent forms,
       injected version/commit values, stdout, stderr, and exit status.
-- [ ] README discovery documentation shows the standard flag and retained
+- [x] README discovery documentation shows the standard flag and retained
       subcommand.
-- [ ] `nix develop -c make check` passes.
+- [x] `nix develop -c make check` passes.
 
 ## Constraints
 
