@@ -43,7 +43,6 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 }
 
 func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
-	_ = beginLifecycle(cmd)
 	sources := jeq.Sources{Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet, StateFile: f.stateFileSet, StateJSON: f.stateJSONSet}
 	if err := jeq.CheckSources(sources); err != nil {
 		return err

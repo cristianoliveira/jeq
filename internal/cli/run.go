@@ -44,7 +44,7 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 			if errors.As(err, &coded) {
 				code = string(coded.Code)
 			}
-			cfg.Emit(target.CommandPath(), "run.failed", target.Name(), "failed", code)
+			cfg.Emit(target.CommandPath(), "run.failed", failurePhase(code), "failed", code)
 		}
 		var policy *policyStatus
 		if errors.As(err, &policy) {
@@ -61,6 +61,21 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 
 // publicCLIError keeps wrapped implementation details internal while Cobra
 // owns the standard human-facing "Error:" rendering.
+func failurePhase(code string) string {
+	switch code {
+	case string(jeq.CodeInputInvalid):
+		return "input_validation"
+	case string(jeq.CodeAuthMissing), string(jeq.CodeAuthRejected):
+		return "transport"
+	case string(jeq.CodeNetworkError), string(jeq.CodeTimeout), string(jeq.CodeInterrupted):
+		return "transport"
+	case string(jeq.CodeResponseInvalid):
+		return "response_validation"
+	default:
+		return "request_creation"
+	}
+}
+
 func publicCLIError(err error) error {
 	var coded *jeq.Error
 	if errors.As(err, &coded) {

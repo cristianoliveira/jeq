@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"io"
 
 	"github.com/cristianoliveira/jeq/internal/trace"
@@ -16,28 +15,6 @@ import (
 type CodedError = jeq.Error
 
 type traceAttachable interface{ SetTraceObserver(trace.Observer) }
-
-func beginLifecycle(cmd *cobra.Command) func(error) {
-	cfg := trace.FromContext(cmd.Context())
-	if cfg != nil {
-		cfg.Emit(cmd.CommandPath(), "preflight.completed", "preflight", "success", "")
-	}
-	return func(err error) {
-		if cfg != nil {
-			if err != nil {
-				cfg.Emit(cmd.CommandPath(), "run.failed", "execution", "failed", func() string {
-					var coded *jeq.Error
-					if errors.As(err, &coded) {
-						return string(coded.Code)
-					}
-					return ""
-				}())
-			} else {
-				cfg.Emit(cmd.CommandPath(), "output.written", "output", "success", "")
-			}
-		}
-	}
-}
 
 func attachTrace(cmd *cobra.Command, client APIClient) {
 	if observer, ok := client.(traceAttachable); ok {

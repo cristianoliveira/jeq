@@ -55,7 +55,6 @@ type reduceFlags struct {
 }
 
 func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
-	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}

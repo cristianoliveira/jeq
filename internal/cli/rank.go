@@ -55,7 +55,6 @@ type rankFlags struct {
 }
 
 func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
-	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" || !f.instructionSet || strings.TrimSpace(f.instruction) == "" || !f.idPointerSet || !f.criteriaPointerSet {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as, --instruction, --id-pointer, and --criteria-pointer are required")
 	}

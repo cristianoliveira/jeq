@@ -44,7 +44,6 @@ type rateFlags struct {
 }
 
 func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
-	_ = beginLifecycle(cmd)
 	if !f.nameSet || strings.TrimSpace(f.name) == "" || !f.statePointerSet || !f.instructionSet || strings.TrimSpace(f.instruction) == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as, --state-pointer, and --instruction are required")
 	}

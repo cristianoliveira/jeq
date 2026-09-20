@@ -49,7 +49,6 @@ type policyStatus struct{ status int }
 func (e *policyStatus) Error() string { return fmt.Sprintf("gate policy status %d", e.status) }
 
 func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
-	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}
@@ -82,7 +81,7 @@ func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
 	if framingErr != nil {
 		return framingErr
 	}
-	counts := map[pipeline.GateDecision]bool{}
+	counts := map[pipeline.GateDecision]int{}
 	for _, record := range records {
 		output, decision, err := pipeline.Gate(record, f.name, f.pointer, pipeline.GatePolicy{PassMin: f.passMin, RejectMax: f.rejectMax})
 		if err != nil {
@@ -91,18 +90,18 @@ func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
 			}
 			return err
 		}
-		counts[decision] = true
+		counts[decision]++
 		if err := renderRaw(deps.Renderer, cmd.OutOrStdout(), output); err != nil {
 			return jeq.WrapError(jeq.CodeResponseInvalid, err, "writing gate output")
 		}
 	}
 	if tr := trace.FromContext(cmd.Context()); tr != nil {
-		tr.EmitSummary(cmd.CommandPath(), len(records), len(records), len(records), 0)
+		tr.EmitSummary(cmd.CommandPath(), len(records), counts[pipeline.DecisionPass], len(records), counts[pipeline.DecisionReject]+counts[pipeline.DecisionUncertain])
 	}
-	if counts[pipeline.DecisionReject] {
+	if counts[pipeline.DecisionReject] > 0 {
 		return &policyStatus{status: 10}
 	}
-	if counts[pipeline.DecisionUncertain] {
+	if counts[pipeline.DecisionUncertain] > 0 {
 		return &policyStatus{status: 11}
 	}
 	return nil

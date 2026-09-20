@@ -30,27 +30,37 @@ type Config struct {
 	sequence   uint64
 	detailed   uint64
 	suppressed bool
+	events     uint64
 }
 type event struct {
-	Schema         string `json:"schema"`
-	Sequence       uint64 `json:"sequence"`
-	TraceID        string `json:"trace_id,omitempty"`
-	EntryPoint     string `json:"entry_point"`
-	Command        string `json:"command"`
-	Event          string `json:"event"`
-	Phase          string `json:"phase,omitempty"`
-	Outcome        string `json:"outcome,omitempty"`
-	ErrorCode      string `json:"error_code,omitempty"`
-	OperationIndex int    `json:"operation_index,omitempty"`
-	Total          int    `json:"total,omitempty"`
-	Attempt        int    `json:"attempt,omitempty"`
-	AttemptBudget  int    `json:"attempt_budget,omitempty"`
-	HTTPStatus     int    `json:"http_status,omitempty"`
-	HTTPClass      int    `json:"http_status_class,omitempty"`
-	Seen           int    `json:"seen,omitempty"`
-	Succeeded      int    `json:"succeeded,omitempty"`
-	Emitted        int    `json:"emitted,omitempty"`
-	Failed         int    `json:"failed,omitempty"`
+	Schema         string   `json:"schema"`
+	Sequence       uint64   `json:"sequence"`
+	TraceID        string   `json:"trace_id,omitempty"`
+	EntryPoint     string   `json:"entry_point"`
+	Command        string   `json:"command"`
+	Event          string   `json:"event"`
+	Phase          string   `json:"phase,omitempty"`
+	Outcome        string   `json:"outcome,omitempty"`
+	ErrorCode      string   `json:"error_code,omitempty"`
+	OperationIndex int      `json:"operation_index,omitempty"`
+	Total          int      `json:"total,omitempty"`
+	Attempt        int      `json:"attempt,omitempty"`
+	AttemptBudget  int      `json:"attempt_budget,omitempty"`
+	HTTPStatus     int      `json:"http_status,omitempty"`
+	HTTPClass      int      `json:"http_status_class,omitempty"`
+	Seen           int      `json:"seen,omitempty"`
+	Succeeded      int      `json:"succeeded,omitempty"`
+	Emitted        int      `json:"emitted,omitempty"`
+	Failed         int      `json:"failed,omitempty"`
+	Model          string   `json:"model,omitempty"`
+	ModelSource    string   `json:"model_source,omitempty"`
+	Framing        string   `json:"framing,omitempty"`
+	Pointer        string   `json:"pointer,omitempty"`
+	QuestionNames  []string `json:"question_names,omitempty"`
+	QuestionTypes  []string `json:"question_types,omitempty"`
+	Pass           int      `json:"pass,omitempty"`
+	Ambiguous      int      `json:"ambiguous,omitempty"`
+	Reject         int      `json:"reject,omitempty"`
 }
 type contextKey struct{}
 
@@ -89,10 +99,32 @@ func (c *Config) Retrying(attempt, budget, status int) {
 }
 
 func (c *Config) emitHTTP(command, name string, attempt, budget, status int) {
-	if c == nil || !c.Enabled || c.Out == nil {
+	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
 		return
 	}
 	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: attempt, AttemptBudget: budget, HTTPStatus: status, HTTPClass: status / 100}
+	b, _ := json.Marshal(e)
+	_, _ = io.WriteString(c.Out, string(b)+"\n")
+}
+
+// EmitSummary records bounded aggregate counts.
+func (c *Config) reserve(name string) bool {
+	if name == "run.failed" || name == "run.completed" || name == "events.suppressed" {
+		return true
+	}
+	if c.events < 256 {
+		c.events++
+		return true
+	}
+	if !c.suppressed {
+		c.suppressed = true
+		c.emitUnbounded(c.Command, "events.suppressed", "trace", "bounded", "")
+	}
+	return false
+}
+
+func (c *Config) emitUnbounded(command, name, phase, outcome, code string) {
+	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code}
 	b, _ := json.Marshal(e)
 	_, _ = io.WriteString(c.Out, string(b)+"\n")
 }
@@ -123,7 +155,7 @@ func (c *Config) EmitOperation(command, name, phase, outcome, code string, index
 }
 
 func (c *Config) emit(command, name, phase, outcome, code string, index, total int) {
-	if c == nil || !c.Enabled || c.Out == nil {
+	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
 		return
 	}
 	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code, OperationIndex: index, Total: total}

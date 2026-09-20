@@ -70,7 +70,6 @@ type mapFlags struct {
 }
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
-	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}

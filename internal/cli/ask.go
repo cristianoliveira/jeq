@@ -98,7 +98,6 @@ type askFlags struct {
 }
 
 func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
-	_ = beginLifecycle(cmd)
 	sources := jeq.Sources{
 		Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet,
 		StateFile: f.stateFileSet, StateJSON: f.stateJSONSet,
