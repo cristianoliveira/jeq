@@ -31,8 +31,11 @@ Verify a tagged Go install without changing your normal binary:
 tmp_gobin=$(mktemp -d)
 GOBIN="$tmp_gobin" go install github.com/cristianoliveira/jeq/cmd/jeq@v0.1.0-rc.1
 "$tmp_gobin/jeq" version
-rm -rf "$tmp_gobin" # tagged Go installs use source defaults: dev/unknown metadata
+rm -rf "$tmp_gobin"
 ```
+
+Tagged `go install` builds use the source defaults (`dev` and `unknown`) for
+metadata. Use the Nix package or release archives when release metadata matters.
 
 For a checkout development install, use `nix develop -c go install ./cmd/jeq`.
 

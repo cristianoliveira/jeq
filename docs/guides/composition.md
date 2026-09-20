@@ -5,10 +5,16 @@ Use `set -o pipefail` so a failed producer or policy cannot be hidden by a later
 successful command. `jq` owns deterministic selection and reshaping; JEQ owns
 judgment and typed evidence; the shell owns sequencing and final actions.
 
-Native `ask` sends one complete request. Composed `map`, `rate`, `reduce`, and
-`rank` construct a request from flags and input records; each primitive has a
-clear request and usage cost. Make stdin explicit with `--input` and redirect
-or pipe deliberately. See the [worked examples](../../examples/README.md).
+Native `ask` sends one complete request. Composed commands construct requests
+from flags and input records. Request shape and cost are bounded as follows:
+
+- `map` and `rate`: one request per input record.
+- `rank` and `reduce`: one bounded request for the candidate/aggregate set.
+- `gate` and `validate`: offline; no TypeSafe request.
+
+Streaming commands consume stdin when their input source is selected. `ask`
+consumes stdin only when its selected request/state/questions file is `-`.
+Make sources explicit and see the [worked examples](../../examples/README.md).
 
 
 ```sh

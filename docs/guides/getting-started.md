@@ -12,8 +12,11 @@ jeq validate --request request.json
 Obtain a credential through your normal secret manager. Export it for this
 process without typing it into shell history, then evaluate:
 
-```sh
-read -r TYPESAFE_API_KEY < <(secret-tool lookup service typesafe account "$USER")
+In Bash, use a no-echo prompt (or your platform's secure secret manager):
+
+```bash
+read -rsp 'TypeSafe API key: ' TYPESAFE_API_KEY
+printf '\n'
 export TYPESAFE_API_KEY
 jeq ask --request request.json
 unset TYPESAFE_API_KEY

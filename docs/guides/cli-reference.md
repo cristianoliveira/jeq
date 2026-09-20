@@ -19,17 +19,18 @@ surface is intentionally small:
 JSON is the default document format. `map`, `rate`, `reduce`, `rank`, and `gate`
 support NDJSON where their input is a stream; `ask` and `validate` use JSON
 requests. `--verbose` writes structured trace events to stderr and never changes
-stdout. For composed commands, `--model` wins over `TYPESAFE_DEFAULT_MODEL`, then the
-validated model in `JEQ_CONFIG`, then the discovered config file
-(`$XDG_CONFIG_HOME` or `$HOME/.config/jeq/config.json`), then the built-in
-`jev-latest`. A native `ask` request's embedded model is authoritative. `--trace-id` overrides `JEQ_TRACE_ID`; traces are stateless and
+stdout. For composed commands, precedence is `--model`, then
+`TYPESAFE_DEFAULT_MODEL`, then the config file named by non-empty `JEQ_CONFIG`,
+then the default config path (`$XDG_CONFIG_HOME/jeq/config.json` or
+`$HOME/.config/jeq/config.json`), then `jev-latest`. A native `ask` request's
+embedded model is authoritative. `--trace-id` overrides `JEQ_TRACE_ID`; traces are stateless and
 process-local unless the caller correlates them. Check exit codes in scripts:
 
 | Code | Meaning |
 | ---: | --- |
 | 0 | Success |
-| 1 | Evaluation, input, transport, or output failure |
-| 2 | CLI usage error (including unknown command/flag) |
+| 1 | Authentication, API, network, timeout, or response failure |
+| 2 | Invalid usage or local input (including unknown command/flag) |
 | 10 | Gate reject |
 | 11 | Gate ambiguous |
 | 130 | Interrupted |
