@@ -1,7 +1,7 @@
 ---
 id: TASK-0043
 title: Package JEQ as an installable Nix flake output
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [nix, packaging, release]
