@@ -1,25 +1,103 @@
 # JEQ
 
-**Make AI judgment a safe, composable Unix primitive.**
+**Ask judgment questions from the shell. Keep the evidence as data.**
 
-JEQ lets agents and scripts ask probabilistic questions about structured data without integrating an SDK or writing application code. It sends explicit requests to [TypeSafe System One](https://typesafe.ai/), preserves the resulting evidence as JSON, and composes with ordinary Unix tools.
+Some questions are easy to express with deterministic code. Others are not: Is this change risky? Does this collection look coherent? Which issue should we look at first?
 
-JEQ produces evidence. It does not execute model output or hide policy decisions.
+The awkward part is that exploring one of these questions usually means writing an integration before we even know if the idea is useful.
 
-## Why JEQ?
+JEQ makes probabilistic judgment a Unix primitive. It lets you try an idea against real JSON, compose it with `jq` and the shell, and keep the resulting evidence separate from the decision you make with it.
 
-Software can parse facts with deterministic code. Some decisions still need judgment: Is this change risky? Does this collection look coherent? Which category best fits this message?
+Use JEQ when you want to:
 
-Calling a model directly for each case creates repeated integration work and unclear operational boundaries. JEQ provides one shell interface with:
+1. **Experiment quickly.** Ask a typed question without adding an SDK, service, or application code.
+2. **Compose freely.** Mix judgment with pipes, files, `jq`, shell conditions, and the tools you already have.
+3. **Automate without hiding the risky part.** Preserve probabilities as evidence, then keep thresholds, fallbacks, and side effects explicit.
 
-- explicit JSON input and lossless JSON output;
-- reusable judgment questions;
-- per-record `map` and collection-level `reduce`;
-- deterministic, offline policy enforcement with `gate`;
-- Choice-based candidate ranking with `rank`, and independent Score rubrics with `rate`, leaving pick-one, sorting, and policy to `jq`;
-- stable exit classes and bounded input, retry, and privacy behavior.
+JEQ sends requests to [TypeSafe System One](https://typesafe.ai/). It does not execute model output, invent policy, or turn a shell experiment into a hidden agent runtime.
 
-JEQ is designed for autonomous agents, shell scripts, and developers who need model evidence inside a visible pipeline.
+## A judgment layer for Unix
+
+A useful way to think about JEQ is `jq` for questions that need judgment. Not as a replacement for `jq`, because they do different jobs.
+
+- `jq` selects fields, reshapes records, joins data, sorts results, and applies exact rules.
+- `jeq` classifies, rates, ranks, or judges those records.
+- The shell decides how evidence moves between steps.
+- Your code still decides what happens next.
+
+For example, this pipeline selects issue data, rates every issue against the same urgency rubric, then uses `jq` to choose the five highest scores:
+
+```sh
+jq -c '.issues[] | {id, title, description}' issues.json |
+  jeq rate \
+    --as urgency \
+    --input ndjson \
+    --state-pointer /description \
+    --instruction 'How urgent is this issue?' \
+    --level Low \
+    --level Medium \
+    --level High |
+  jq -s 'sort_by(._jeq.urgency.answers.urgency.score) | reverse | .[:5]'
+```
+
+That division matters. `jq` handles the exact work. JEQ supplies judgment evidence. The final top-five rule belongs to the caller, where it stays visible and easy to change.
+
+## Start with an idea, not an integration
+
+Most AI experiments start too big. You create a client, decide where state lives, add retries, design an output type, and only then discover whether the question was useful.
+
+With JEQ, the first version can be one command. Feed it a fixture, inspect the JSON, change the question, and run it again. If the idea survives contact with real data, the same contract can move into a script, CI job, or agent workflow.
+
+This makes a few useful loops cheap:
+
+- sample a large input with `head` before spending requests on the whole set;
+- compare question or rubric changes against the same fixtures;
+- project sensitive or irrelevant fields away before sending state;
+- save evidence as ordinary JSON and inspect it with normal development tools;
+- switch the selected model without rewriting the pipeline;
+- validate a request locally before making a network call.
+
+JEQ stays stateless while you do this. Files, history, and replay belong to the caller, so an experiment does not quietly become another system to operate.
+
+## Composition is the workflow
+
+JEQ has a small set of verbs with different semantics and cost shapes:
+
+| Primitive | Use it when | Request shape |
+| --- | --- | --- |
+| `map` | Every record needs the same named judgment | One request per record |
+| `rate` | Every record needs an independent score against an ordered rubric | One request per record |
+| `rank` | Candidates need a relative comparison | One request for the bounded set |
+| `reduce` | A collection needs one aggregate judgment | One request for the bounded collection |
+| `gate` | Numeric evidence needs an explicit pass, uncertain, or reject policy | Offline |
+| `validate` | A request contract should be checked before any spend | Offline |
+
+Because evaluation results are JSON, these primitives can stay small. The shell already knows how to do the rest:
+
+- enrich records in stages with `map`;
+- join a classification with a local catalog using `jq`;
+- use `rate` and let `jq` filter, sort, or take the top results;
+- use `rank` when the question is relative rather than absolute;
+- summarize local findings with `reduce`;
+- branch the same input with `tee` to compare different questions;
+- finish with `gate` when a numeric policy must control the exit status;
+- keep failures visible with `set -o pipefail`;
+- correlate several JEQ processes with `--trace-id` when a pipeline needs debugging.
+
+The thing is, composition only works when commands do not take ownership away from each other. JEQ therefore keeps result data on stdout, diagnostics on stderr, and policy in explicit commands. It does not sort a rating, pick a ranked candidate, or treat low confidence as a hidden failure.
+
+## Useful boundaries
+
+JEQ deliberately does less than an agent framework:
+
+- it produces typed evidence, not actions;
+- it does not evaluate output as shell code, paths, or commands;
+- it does not keep memory, sessions, or run history;
+- it does not persist traces unless the caller redirects them;
+- it does not hide network use behind an offline command;
+- it does not decide that the highest score is automatically good enough.
+
+Those constraints are part of the product. They make it possible to start with an experiment and understand what will still be true when it becomes automation.
 
 ## Install from this checkout
 
