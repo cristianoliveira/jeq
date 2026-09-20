@@ -1,6 +1,8 @@
 # JEQ
 
-**Ask judgment questions from the shell. Keep the evidence as data.**
+**Intelligence you can pipe**
+
+*Judgment as a Unix primitive for scripts, agents, and systems.*
 
 Some questions are easy to express with deterministic code. Others are not: Is this change risky? Does this collection look coherent? Which issue should we look at first?
 
