@@ -12,6 +12,7 @@ import (
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/domain/pipeline"
+	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
 )
 
@@ -199,7 +200,11 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 	if framingErr != nil {
 		return framingErr
 	}
-	for _, record := range records {
+	tr := trace.FromContext(ctx)
+	for index, record := range records {
+		if tr != nil {
+			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1, len(records))
+		}
 		var output []byte
 		var err *jeq.Error
 		if f.requestPointerSet {
@@ -228,10 +233,19 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 			}
 		}
 		if err != nil {
+			if tr != nil {
+				tr.EmitOperation(cmd.CommandPath(), "run.failed", "evaluation", "failed", string(err.Code), index+1, len(records))
+			}
 			return renderStreamError(renderer, cmd.OutOrStdout(), err, f.input == "ndjson")
 		}
 		if writeErr := renderRaw(renderer, cmd.OutOrStdout(), output); writeErr != nil {
+			if tr != nil {
+				tr.EmitOperation(cmd.CommandPath(), "run.failed", "output", "failed", string(jeq.CodeResponseInvalid), index+1, len(records))
+			}
 			return jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing map output")
+		}
+		if tr != nil {
+			tr.EmitOperation(cmd.CommandPath(), "operation.completed", "evaluation", "success", "", index+1, len(records))
 		}
 	}
 	return nil

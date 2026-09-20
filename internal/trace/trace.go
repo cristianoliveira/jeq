@@ -23,15 +23,17 @@ type Config struct {
 	sequence uint64
 }
 type event struct {
-	Schema     string `json:"schema"`
-	Sequence   uint64 `json:"sequence"`
-	TraceID    string `json:"trace_id,omitempty"`
-	EntryPoint string `json:"entry_point"`
-	Command    string `json:"command"`
-	Event      string `json:"event"`
-	Phase      string `json:"phase,omitempty"`
-	Outcome    string `json:"outcome,omitempty"`
-	ErrorCode  string `json:"error_code,omitempty"`
+	Schema         string `json:"schema"`
+	Sequence       uint64 `json:"sequence"`
+	TraceID        string `json:"trace_id,omitempty"`
+	EntryPoint     string `json:"entry_point"`
+	Command        string `json:"command"`
+	Event          string `json:"event"`
+	Phase          string `json:"phase,omitempty"`
+	Outcome        string `json:"outcome,omitempty"`
+	ErrorCode      string `json:"error_code,omitempty"`
+	OperationIndex int    `json:"operation_index,omitempty"`
+	Total          int    `json:"total,omitempty"`
 }
 type contextKey struct{}
 
@@ -56,10 +58,19 @@ func FromContext(ctx context.Context) *Config {
 
 // Emit writes one allowlisted event.
 func (c *Config) Emit(command, name, phase, outcome, code string) {
+	c.emit(command, name, phase, outcome, code, 0, 0)
+}
+
+// EmitOperation writes one bounded record lifecycle event.
+func (c *Config) EmitOperation(command, name, phase, outcome, code string, index, total int) {
+	c.emit(command, name, phase, outcome, code, index, total)
+}
+
+func (c *Config) emit(command, name, phase, outcome, code string, index, total int) {
 	if c == nil || !c.Enabled || c.Out == nil {
 		return
 	}
-	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code}
+	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code, OperationIndex: index, Total: total}
 	b, _ := json.Marshal(e)
 	_, _ = io.WriteString(c.Out, string(b)+"\n")
 }
