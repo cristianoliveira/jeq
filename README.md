@@ -1,11 +1,13 @@
+
+# JEQ
+
+
+**Intelligence you can pipe**
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jeq-logo.svg">
   <img src="docs/assets/jeq-logo-mono.svg" alt="JEQ logo" width="160" height="160">
 </picture>
-
-# JEQ
-
-**Intelligence you can pipe**
 
 *Judgment as a Unix primitive for scripts, agents, and systems.*
 
