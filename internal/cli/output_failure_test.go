@@ -37,6 +37,26 @@ func TestRankOutputFailureHasTypedVerbosePhase(t *testing.T) {
 	}
 }
 
+func TestReduceOutputFailureHasTypedVerbosePhase(t *testing.T) {
+	noul := 0.8
+	client := &fakeClient{resp: contract.Response{Model: "m", Answers: map[string]contract.Answer{"aggregate": {Type: contract.TypeNoul, Noul: &noul}}}}
+	var out, errOut bytes.Buffer
+	deps, _, _ := testDeps(t, client, func(k string) string {
+		if k == "TYPESAFE_API_KEY" {
+			return "secret"
+		}
+		return ""
+	})
+	deps.Stdin = strings.NewReader(`[{"private-state":"private-candidate"}]`)
+	deps.ReadStdin = func(_ io.Reader, _ int64, _ bool) ([]byte, *jeq.Error) {
+		return []byte(`[{"private-state":"private-candidate"}]`), nil
+	}
+	code := cli.RunWithDeps([]string{"--verbose", "reduce", "--as", "aggregate", "--input", "json", "--questions-json", `{"questions":{"aggregate":{"type":"noul","instructions":"private-prompt"}}}`}, &out, &errOut, failingOutputRenderer{}, deps)
+	if code == 0 || out.Len() != 0 || !strings.Contains(errOut.String(), `"phase":"output_write"`) || strings.Contains(errOut.String(), "private-candidate") || strings.Contains(errOut.String(), "private-prompt") {
+		t.Fatalf("code=%d stderr=%q", code, errOut.String())
+	}
+}
+
 func TestAskOutputFailureHasTypedVerbosePhase(t *testing.T) {
 	client := &fakeClient{resp: contract.Response{Model: "m", Answers: map[string]contract.Answer{}}}
 	deps, _, _ := testDeps(t, client, func(k string) string {
