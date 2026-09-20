@@ -322,10 +322,11 @@ func TestBlackBoxInfrastructureFlagsAreRemoved(t *testing.T) {
 	api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
 		http.Error(w, "must not call", http.StatusInternalServerError)
 	})
-	for _, flag := range []string{"--base-url", "--config"} {
-		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "must-not-read", "TYPESAFE_BASE_URL": api.server.URL}, "ask", flag, "value")
+	cases := [][]string{{"ask", "--base-url"}, {"map", "--base-url"}, {"reduce", "--base-url"}, {"rank", "--base-url"}, {"rate", "--base-url"}, {"models", "--base-url"}, {"map", "--config"}, {"reduce", "--config"}, {"rank", "--config"}, {"rate", "--config"}}
+	for _, args := range cases {
+		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "must-not-read", "TYPESAFE_BASE_URL": api.server.URL}, append(args, "value")...)
 		if result.exit != 2 || result.stdout != "" || !strings.Contains(result.stderr, "unknown flag") {
-			t.Fatalf("flag=%s result=%#v", flag, result)
+			t.Fatalf("args=%v result=%#v", args, result)
 		}
 	}
 	if api.count() != 0 {

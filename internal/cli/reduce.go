@@ -97,13 +97,14 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 		return jeq.NewError(jeq.CodeInputInvalid, "model is required")
 	}
 
-	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
-	if apiKey == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
-	}
 	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
 	if rootErr != nil {
 		return rootErr
+	}
+
+	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
+	if apiKey == "" {
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	request := contract.Request{Model: resolvedModel, State: items, Questions: questions, Extra: extra}

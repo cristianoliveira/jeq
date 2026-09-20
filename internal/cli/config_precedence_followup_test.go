@@ -26,13 +26,36 @@ func TestConfiguredModelShortCircuitsLowerSources(t *testing.T) {
 	}
 }
 
-func TestExplicitConfigRejectsMalformedWrongTypeEmptyDuplicateAndOversize(t *testing.T) {
+func TestOptionalConfigIsSkippedWhenHigherModelSourceWins(t *testing.T) {
+	readOptional := func(string, int64) ([]byte, *jeq.Error, bool) {
+		t.Fatal("optional config must not be read")
+		return nil, nil, false
+	}
+	if model, _, err := ResolveConfiguredModelWithSource("flag-model", "", func(string) string { return "" }, nil, readOptional); err != nil || model != "flag-model" {
+		t.Fatalf("model=%q err=%v", model, err)
+	}
+	if model, _, err := ResolveConfiguredModelWithSource("", "", func(key string) string {
+		if key == DefaultModelEnv {
+			return "env-model"
+		}
+		return ""
+	}, nil, readOptional); err != nil || model != "env-model" {
+		t.Fatalf("model=%q err=%v", model, err)
+	}
+}
+
+func TestExplicitConfigRejectsMissingUnreadableMalformedWrongTypeEmptyDuplicateAndOversize(t *testing.T) {
 	cases := []string{
 		`{"default_model":`,
 		`{"default_model":1}`,
 		`{}`,
 		`{"default_model":"a","default_model":"b"}`,
 		`{"default_model":"` + strings.Repeat("x", configMaxBytes) + `"}`,
+	}
+	if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, func(string, int64) ([]byte, *jeq.Error) {
+		return nil, jeq.NewError(jeq.CodeInputInvalid, "permission denied")
+	}); err == nil {
+		t.Fatal("unreadable config accepted")
 	}
 	for i, document := range cases {
 		t.Run(fmt.Sprintf("case-%d", i), func(t *testing.T) {

@@ -137,13 +137,14 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 		return err
 	}
 
-	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
-	if apiKey == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
-	}
 	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
 	if rootErr != nil {
 		return rootErr
+	}
+
+	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
+	if apiKey == "" {
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {

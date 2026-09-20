@@ -153,13 +153,14 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if violations := contract.ValidateRequest(request); len(violations) > 0 {
 		return violations[0].Error
 	}
-	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
-	if apiKey == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
-	}
 	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
 	if rootErr != nil {
 		return rootErr
+	}
+
+	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
+	if apiKey == "" {
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	response, callErr := client.Evaluate(cmd.Context(), request)

@@ -45,13 +45,14 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if parseErr != nil || timeout <= 0 {
 				return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", timeoutText)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
 			}
-			apiKey := deps.Getenv("TYPESAFE_API_KEY")
-			if strings.TrimSpace(apiKey) == "" {
-				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
-			}
 			baseURL, baseErr := ResolveBaseURL(deps.Getenv)
 			if baseErr != nil {
 				return baseErr
+			}
+
+			apiKey := deps.Getenv("TYPESAFE_API_KEY")
+			if strings.TrimSpace(apiKey) == "" {
+				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 			}
 			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 			modelsClient, ok := client.(interface {

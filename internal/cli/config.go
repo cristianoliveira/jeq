@@ -29,15 +29,28 @@ func ResolveConfiguredModel(flagModel, explicitPath string, getenv func(string) 
 
 // ResolveConfiguredModelWithSource also reports which precedence layer won.
 func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (string, string, *jeq.Error) {
-	configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
-	if err != nil {
-		return "", "", err
+	if explicitPath = strings.TrimSpace(explicitPath); explicitPath != "" {
+		configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
+		if err != nil {
+			return "", "", err
+		}
+		if flagModel != "" {
+			return flagModel, "flag", nil
+		}
+		if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
+			return envModel, "environment", nil
+		}
+		return configModel, "config", nil
 	}
 	if flagModel != "" {
 		return flagModel, "flag", nil
 	}
 	if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
 		return envModel, "environment", nil
+	}
+	configModel, err := readUserConfig("", getenv, readFile, readOptional)
+	if err != nil {
+		return "", "", err
 	}
 	if configModel != "" {
 		return configModel, "config", nil

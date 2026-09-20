@@ -92,13 +92,14 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 	if err := validateMapRecord(records[0], mf, map[string]contract.Question{f.name: question}, nil, resolvedModel); err != nil {
 		return err
 	}
-	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
-	if apiKey == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
-	}
 	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
 	if rootErr != nil {
 		return rootErr
+	}
+
+	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
+	if apiKey == "" {
+		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	return processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, mf, map[string]contract.Question{f.name: question}, nil, resolvedModel, client)
