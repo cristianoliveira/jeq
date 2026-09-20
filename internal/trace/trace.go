@@ -55,9 +55,9 @@ type event struct {
 	Pointer        string   `json:"pointer,omitempty"`
 	QuestionNames  []string `json:"question_names,omitempty"`
 	QuestionTypes  []string `json:"question_types,omitempty"`
-	Pass           int      `json:"pass,omitempty"`
-	Ambiguous      int      `json:"ambiguous,omitempty"`
-	Reject         int      `json:"reject,omitempty"`
+	Pass           int      `json:"pass"`
+	Ambiguous      int      `json:"ambiguous"`
+	Reject         int      `json:"reject"`
 }
 type contextKey struct{}
 

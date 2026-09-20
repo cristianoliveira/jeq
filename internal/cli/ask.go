@@ -198,7 +198,7 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	}
 	if deps.Renderer != nil {
 		if err := deps.Renderer.RenderSuccess(cmd.OutOrStdout(), resp); err != nil {
-			return askError(jeq.WrapError(jeq.CodeResponseInvalid, err, "rendering success document").WithRecovery("retry the request; if it persists, report the renderer failure"))
+			return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, err, "rendering success document").WithRecovery("retry the request; if it persists, report the renderer failure"), "output_write")
 		}
 		return nil
 	}

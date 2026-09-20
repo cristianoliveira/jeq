@@ -97,6 +97,7 @@ func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
 	}
 	if tr := trace.FromContext(cmd.Context()); tr != nil {
 		tr.EmitSummary(cmd.CommandPath(), len(records), counts[pipeline.DecisionPass], len(records), counts[pipeline.DecisionReject]+counts[pipeline.DecisionUncertain])
+		tr.EmitPolicy(cmd.CommandPath(), counts[pipeline.DecisionPass], counts[pipeline.DecisionUncertain], counts[pipeline.DecisionReject])
 	}
 	if counts[pipeline.DecisionReject] > 0 {
 		return &policyStatus{status: 10}

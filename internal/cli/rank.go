@@ -193,7 +193,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if tr := trace.FromContext(cmd.Context()); tr != nil {
 		tr.EmitSummary(cmd.CommandPath(), len(records), 1, 1, 0)
 	}
-	return renderRaw(deps.Renderer, cmd.OutOrStdout(), output)
+	return withTracePhase(renderRaw(deps.Renderer, cmd.OutOrStdout(), output), "output_write")
 }
 
 func rankRecords(input []byte, framing string) ([][]byte, *jeq.Error) {

@@ -118,7 +118,7 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if tr := trace.FromContext(cmd.Context()); tr != nil {
 		tr.EmitSummary(cmd.CommandPath(), len(items), 1, 1, 0)
 	}
-	return renderRaw(deps.Renderer, cmd.OutOrStdout(), output)
+	return withTracePhase(renderRaw(deps.Renderer, cmd.OutOrStdout(), output), "output_write")
 }
 
 func reduceItems(input []byte, framing string) ([]byte, *jeq.Error) {

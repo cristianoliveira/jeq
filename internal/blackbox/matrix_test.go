@@ -36,14 +36,14 @@ func TestBlackBoxVerboseFailureMatrix(t *testing.T) {
 	}{{"retry-exhaustion", func(w http.ResponseWriter, _ *http.Request, _ int) {
 		w.Header().Set("Retry-After", "0")
 		w.WriteHeader(429)
-	}, []string{"--max-retries", "0"}}, {"malformed", func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write([]byte("not-json")) }, nil}, {"timeout", func(_ http.ResponseWriter, r *http.Request, _ int) { <-r.Context().Done() }, []string{"--timeout", "10ms"}}}
+	}, []string{"--max-retries", "0"}}, {"malformed", func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write([]byte("provider-private-body")) }, nil}, {"timeout", func(_ http.ResponseWriter, r *http.Request, _ int) { <-r.Context().Done() }, []string{"--timeout", "10ms"}}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			api := newFakeAPI(t, tc.handler)
 			args := []string{"--verbose", "ask", "--request", path}
 			args = append(args, tc.args...)
 			result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "matrix-secret", "JEQ_TRACE_ID": "failure-matrix"}, args...)
-			if result.exit == 0 || !strings.Contains(result.stderr, `"event":"run.failed"`) || strings.Contains(result.stderr, "matrix-secret") {
+			if result.exit == 0 || !strings.Contains(result.stderr, `"event":"run.failed"`) || strings.Contains(result.stderr, "matrix-secret") || strings.Contains(result.stderr, "provider-private-body") {
 				t.Fatalf("result=%#v", result)
 			}
 		})
