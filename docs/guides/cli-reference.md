@@ -11,7 +11,7 @@ surface is intentionally small:
 | `rate` | Add a score judgment | Yes |
 | `reduce` | Evaluate one aggregate judgment | Yes |
 | `rank` | Order candidates by a choice judgment | Yes |
-| `gate` | Apply pass/ambiguous/reject thresholds | No |
+| `gate` | Apply pass/uncertain/reject thresholds | No |
 | `models` | List available models | Yes |
 | `examples` | Show workflow examples | No |
 | `version` | Print build metadata | No |
@@ -19,10 +19,10 @@ surface is intentionally small:
 JSON is the default document format. `map`, `rate`, `reduce`, `rank`, and `gate`
 support NDJSON where their input is a stream; `ask` and `validate` use JSON
 requests. `--verbose` writes structured trace events to stderr and never changes
-stdout. For composed commands, precedence is `--model`, then
-`TYPESAFE_DEFAULT_MODEL`, then the config file named by non-empty `JEQ_CONFIG`,
-then the default config path (`$XDG_CONFIG_HOME/jeq/config.json` or
-`$HOME/.config/jeq/config.json`), then `jev-latest`. A native `ask` request's
+stdout. For composed commands, precedence is `--model`, then `TYPESAFE_DEFAULT_MODEL`, then one config source: the file
+named by non-empty `JEQ_CONFIG`, otherwise the default path
+(`$XDG_CONFIG_HOME/jeq/config.json` or `$HOME/.config/jeq/config.json`). If
+that optional default config is absent, use `jev-latest`. A native `ask` request's
 embedded model is authoritative. `--trace-id` overrides `JEQ_TRACE_ID`; traces are stateless and
 process-local unless the caller correlates them. Check exit codes in scripts:
 
@@ -32,7 +32,7 @@ process-local unless the caller correlates them. Check exit codes in scripts:
 | 1 | Authentication, API, network, timeout, or response failure |
 | 2 | Invalid usage or local input (including unknown command/flag) |
 | 10 | Gate reject |
-| 11 | Gate ambiguous |
+| 11 | Gate uncertain decision |
 | 130 | Interrupted |
 
 Credentials and private state must remain outside logs and arguments. The caller

@@ -45,7 +45,7 @@ guides:
   private data unintentionally.
 - API usage costs money. Retries, batch size, and model choice affect cost.
 - Output and exit codes are designed for pipelines; policy `reject` and
-  `ambiguous` are non-zero. Verbose traces go to stderr.
+  `uncertain` are non-zero. Verbose traces go to stderr.
 - JEQ does not own actions, memory, sessions, or release tags. The caller owns
   state, credentials, retries, and automation policy.
 
