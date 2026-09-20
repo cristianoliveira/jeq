@@ -42,6 +42,10 @@ def tool_text(message):
     return "\n".join(part.get("text", "") for part in content if isinstance(part, dict) and isinstance(part.get("text"), str)).lower()
 
 def classify(tool, text):
+    if tool.startswith("watcher_"):
+        tool = "watcher"
+    if tool not in {"edit", "read", "bash", "watcher", "provider"}:
+        return "tool.other", "Tool call failed for another reason."
     for category, (owner, pattern, description) in TAXONOMY.items():
         if owner == tool and re.search(pattern, text):
             return category, description
@@ -60,6 +64,10 @@ def main(argv=None):
     parser.add_argument("--max-candidates", type=int, default=29)
     parser.add_argument("--max-payload-bytes", type=int, default=12 * 1024)
     args = parser.parse_args(argv)
+    if args.days <= 0 or args.max_files <= 0 or args.max_bytes <= 0 or args.max_candidates <= 0 or args.max_payload_bytes <= 0:
+        raise ValueError("days and caps must be positive")
+    if args.since is not None and args.until is not None and args.since > args.until:
+        raise ValueError("since must not be later than until")
     now = time.time()
     since = args.since if args.since is not None else now - args.days * 86400
     until = args.until if args.until is not None else now

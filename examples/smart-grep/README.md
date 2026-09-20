@@ -11,7 +11,7 @@ local log → explicit regex + short context → exact deduplication
 
 ## Pi-session common errors (offline first)
 
-This first-class variant uses only a fixed taxonomy (`assistant_error`, `tool_failure`) and emits counts, affected session-file counts, and repeat-event counts—never raw prompts, tool output, source, paths, IDs, URLs, credentials, provider bodies, or arbitrary error text. File mtime selects the default last 7 days; override `--root`, `--days`, `--since`, and `--until`. Counts describe events/files, not wasted turns. Classification is intentionally fixed and incomplete; expected test/provider failures are not Pi defects.
+This first-class variant uses a fixed allowlist of safe categories such as `edit.stale`, `read.missing`, `bash.timeout`, `watcher.stale`, and `provider.quota`. It emits counts, affected session-file counts, and repeat-event counts—never raw prompts, tool output, source, paths, IDs, URLs, credentials, provider bodies, or arbitrary error text. File mtime selects the default last 7 days; override `--root`, `--days`, `--since`, and `--until` with Unix timestamps. Counts describe events/files, not wasted turns. Classification is intentionally fixed and incomplete; expected test/provider failures are not Pi defects.
 
 ```sh
 python3 examples/smart-grep/prepare_pi_sessions.py --root ~/.pi/agent/sessions --days 7 > .tmp/pi-session-errors.json
