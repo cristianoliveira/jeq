@@ -1,7 +1,7 @@
 ---
 id: TASK-0044
 title: Publish tagged JEQ releases with GoReleaser
-status: doing
+status: done
 depends_on: [TASK-0043]
 priority: high
 tags: [release, goreleaser, github-actions]
