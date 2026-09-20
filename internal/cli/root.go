@@ -2,7 +2,12 @@
 // It depends on domain ports only; infra is injected by main.
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+
+	"github.com/cristianoliveira/jeq/internal/trace"
+	"github.com/spf13/cobra"
+)
 
 // withBareHelp wraps an action so a bare invocation opens native Cobra help.
 func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
@@ -16,10 +21,12 @@ func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command,
 
 // NewRootCmd builds a fresh jeq command tree.
 func NewRootCmd(deps ...AskDeps) *cobra.Command {
-	var showVersion bool
+	var showVersion, verbose bool
+	var traceID string
 	root := &cobra.Command{
 		Use:           "jeq",
 		Short:         "Agent-first CLI for TypeSafe System One",
+		Long:          "Execution traces from --verbose are safe lifecycle metadata on stderr, not model reasoning or raw payloads. Use --trace-id or JEQ_TRACE_ID to correlate caller-owned pipelines.",
 		Example:       "  jeq examples\n  jeq examples map-reduce-gate",
 		SilenceUsage:  true,
 		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping
@@ -30,7 +37,31 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	root.PersistentFlags().BoolVar(&verbose, "verbose", false, "Emit safe execution metadata to stderr (not model reasoning)")
+	root.PersistentFlags().StringVar(&traceID, "trace-id", "", "Correlate safe execution traces (also JEQ_TRACE_ID)")
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print build information")
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if !verbose && traceID == "" {
+			return nil
+		}
+		getenv := depsForRoot(deps...).Getenv
+		if getenv == nil {
+			getenv = func(string) string { return "" }
+		}
+		id, ok := trace.ResolveID(traceID, getenv("JEQ_TRACE_ID"))
+		if !ok {
+			return NewUsageError(fmt.Errorf("invalid --trace-id"))
+		}
+		cfg := trace.New(verbose, id, cmd.ErrOrStderr())
+		cfg.Emit(cmd.CommandPath(), "run.started", "preflight", "started", "")
+		cmd.SetContext(trace.WithContext(cmd.Context(), cfg))
+		return nil
+	}
+	root.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
+		if cfg := trace.FromContext(cmd.Context()); cfg != nil {
+			cfg.Emit(cmd.CommandPath(), "run.completed", "output", "success", "")
+		}
+	}
 	// Flag parse failures are usage failures (exit 2), not generic errors.
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return NewUsageError(err)

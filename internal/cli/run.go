@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/trace"
 )
 
 // Run is the dependency-free command entry point used by offline commands.
@@ -36,6 +37,14 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 		return 2
 	}
 	if err := root.Execute(); err != nil {
+		if cfg := trace.FromContext(root.Context()); cfg != nil {
+			code := ""
+			var coded *jeq.Error
+			if errors.As(err, &coded) {
+				code = string(coded.Code)
+			}
+			cfg.Emit(root.CommandPath(), "run.failed", "execution", "failed", code)
+		}
 		var policy *policyStatus
 		if errors.As(err, &policy) {
 			return policy.status
