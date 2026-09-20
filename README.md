@@ -1,6 +1,18 @@
 
 # JEQ
 
+## Install with Nix
+
+From a checkout:
+
+```sh
+nix build .#jeq
+nix run . -- version
+nix profile install .#jeq
+```
+
+The source-build path remains available through the development shell (`nix develop`).
+
 
 **Intelligence you can pipe**
 
