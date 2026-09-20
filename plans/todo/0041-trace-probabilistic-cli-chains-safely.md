@@ -79,7 +79,10 @@ Every emitted field must answer one of these questions.
       with current behavior.
 - [ ] With `--verbose`, result data remains exclusively on stdout and is
       byte-identical to the same successful invocation without verbosity.
-- [ ] Trace events are single-line JSON objects on stderr using the versioned
+- [ ] JEQ remains stateless: it never creates, discovers, reads, or updates a
+      memory, history, trace, session, or run-state file. A later invocation
+      sees prior evidence only when the caller explicitly supplies it as input.
+- [ ] Trace events are ephemeral single-line JSON objects on stderr using the versioned
       schema identifier `jeq.trace.v1`; existing final `Error: ...` rendering
       remains on stderr and keeps its current exit mapping.
 - [ ] Root and command help explain that verbose traces contain execution
@@ -207,8 +210,9 @@ not complete until every command and privacy gate passes independent QA.
 
 - Observability must not alter business decisions, probabilities, output order,
   request shape, request count, retries, or policy exits.
-- Keep telemetry local to stderr; do not add a daemon, remote collector,
-  metrics backend, OpenTelemetry dependency, or automatic upload in this task.
+- Keep telemetry ephemeral on stderr; do not add local persistence, a state
+  directory, daemon, remote collector, metrics backend, OpenTelemetry
+  dependency, or automatic upload. Shell redirection is solely caller-owned.
 - Keep existing lossless response envelopes as the single semantic evidence
   channel.
 - Keep tests offline, deterministic, and independent of paid TypeSafe calls.
@@ -219,8 +223,8 @@ not complete until every command and privacy gate passes independent QA.
 - Logging raw payloads under a more alarming flag.
 - Automatically deciding that a low-confidence judgment is wrong.
 - Changing prompts, criteria, thresholds, ranking, or retry policy.
-- Persistent telemetry storage, dashboards, alerts, aggregate fleet metrics, or
-  distributed tracing export.
+- Persistent memory, run history, telemetry storage, automatic trace discovery,
+  dashboards, alerts, aggregate fleet metrics, or distributed tracing export.
 - A second human output format for evaluation results.
 
 ## Follow-up boundary
