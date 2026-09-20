@@ -9,6 +9,7 @@ import (
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/domain/pipeline"
+	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
 )
 
@@ -54,8 +55,7 @@ type rankFlags struct {
 }
 
 func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
-	finishTrace := beginLifecycle(cmd)
-	defer func() { finishTrace(nil) }()
+	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" || !f.instructionSet || strings.TrimSpace(f.instruction) == "" || !f.idPointerSet || !f.criteriaPointerSet {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as, --instruction, --id-pointer, and --criteria-pointer are required")
 	}
@@ -189,6 +189,9 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	output, attachErr := pipeline.AttachResponse(envelope, f.name, response)
 	if attachErr != nil {
 		return attachErr
+	}
+	if tr := trace.FromContext(cmd.Context()); tr != nil {
+		tr.EmitSummary(cmd.CommandPath(), len(records), 1, 1, 0)
 	}
 	return renderRaw(deps.Renderer, cmd.OutOrStdout(), output)
 }

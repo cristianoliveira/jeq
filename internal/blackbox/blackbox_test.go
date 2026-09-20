@@ -476,8 +476,11 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 			}
 			_, _ = w.Write(response)
 		})
-		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "retry-secret"}, "ask", "--request", requestPath)
+		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "retry-secret", "JEQ_TRACE_ID": "retry-test"}, "--verbose", "ask", "--request", requestPath)
 		assertCleanMachineOutput(t, result, 0, "retry-secret")
+		if !strings.Contains(result.stderr, `"event":"request.attempted"`) || !strings.Contains(result.stderr, `"http_status":429`) || !strings.Contains(result.stderr, `"event":"request.retrying"`) || strings.Contains(result.stderr, "retry-secret") {
+			t.Fatalf("unsafe/incomplete trace: %s", result.stderr)
+		}
 		if api.count() != 2 || !strings.Contains(result.stderr, "retry 1/2") {
 			t.Fatalf("requests=%d stderr=%q", api.count(), result.stderr)
 		}

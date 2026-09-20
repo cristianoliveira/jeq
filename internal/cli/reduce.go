@@ -10,6 +10,7 @@ import (
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/domain/pipeline"
+	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
 )
 
@@ -54,8 +55,7 @@ type reduceFlags struct {
 }
 
 func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
-	finishTrace := beginLifecycle(cmd)
-	defer func() { finishTrace(nil) }()
+	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}
@@ -114,6 +114,9 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	output, evalErr := pipeline.Reduce(cmd.Context(), items, f.name, request, client)
 	if evalErr != nil {
 		return evalErr
+	}
+	if tr := trace.FromContext(cmd.Context()); tr != nil {
+		tr.EmitSummary(cmd.CommandPath(), len(items), 1, 1, 0)
 	}
 	return renderRaw(deps.Renderer, cmd.OutOrStdout(), output)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/domain/pipeline"
+	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
 )
 
@@ -48,8 +49,7 @@ type policyStatus struct{ status int }
 func (e *policyStatus) Error() string { return fmt.Sprintf("gate policy status %d", e.status) }
 
 func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
-	finishTrace := beginLifecycle(cmd)
-	defer func() { finishTrace(nil) }()
+	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}
@@ -95,6 +95,9 @@ func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
 		if err := renderRaw(deps.Renderer, cmd.OutOrStdout(), output); err != nil {
 			return jeq.WrapError(jeq.CodeResponseInvalid, err, "writing gate output")
 		}
+	}
+	if tr := trace.FromContext(cmd.Context()); tr != nil {
+		tr.EmitSummary(cmd.CommandPath(), len(records), len(records), len(records), 0)
 	}
 	if counts[pipeline.DecisionReject] {
 		return &policyStatus{status: 10}

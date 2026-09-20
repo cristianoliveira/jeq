@@ -47,6 +47,10 @@ type event struct {
 	AttemptBudget  int    `json:"attempt_budget,omitempty"`
 	HTTPStatus     int    `json:"http_status,omitempty"`
 	HTTPClass      int    `json:"http_status_class,omitempty"`
+	Seen           int    `json:"seen,omitempty"`
+	Succeeded      int    `json:"succeeded,omitempty"`
+	Emitted        int    `json:"emitted,omitempty"`
+	Failed         int    `json:"failed,omitempty"`
 }
 type contextKey struct{}
 
@@ -89,6 +93,16 @@ func (c *Config) emitHTTP(command, name string, attempt, budget, status int) {
 		return
 	}
 	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: attempt, AttemptBudget: budget, HTTPStatus: status, HTTPClass: status / 100}
+	b, _ := json.Marshal(e)
+	_, _ = io.WriteString(c.Out, string(b)+"\n")
+}
+
+// EmitSummary records bounded aggregate counts.
+func (c *Config) EmitSummary(command string, seen, succeeded, emitted, failed int) {
+	if c == nil || !c.Enabled || c.Out == nil {
+		return
+	}
+	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "summary", Outcome: "success", Seen: seen, Succeeded: succeeded, Emitted: emitted, Failed: failed}
 	b, _ := json.Marshal(e)
 	_, _ = io.WriteString(c.Out, string(b)+"\n")
 }

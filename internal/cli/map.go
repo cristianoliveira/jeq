@@ -70,8 +70,7 @@ type mapFlags struct {
 }
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
-	finishTrace := beginLifecycle(cmd)
-	defer func() { finishTrace(nil) }()
+	_ = beginLifecycle(cmd)
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}
@@ -249,7 +248,11 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		}
 		if tr != nil {
 			tr.EmitOperation(cmd.CommandPath(), "operation.completed", "evaluation", "success", "", index+1, len(records))
+			tr.EmitOperation(cmd.CommandPath(), "output.written", "output", "success", "", index+1, len(records))
 		}
+	}
+	if tr != nil {
+		tr.EmitSummary(cmd.CommandPath(), len(records), len(records), len(records), 0)
 	}
 	return nil
 }
