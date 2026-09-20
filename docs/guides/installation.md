@@ -1,5 +1,23 @@
 # Installation
 
+## Linux installer
+
+The installer supports Linux amd64 and arm64. It verifies the release archive
+against the published checksums before installing to `~/.local/bin`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/cristianoliveira/jeq/main/scripts/install-jeq-linux.sh \
+  -o /tmp/install-jeq-linux.sh
+less /tmp/install-jeq-linux.sh
+bash /tmp/install-jeq-linux.sh
+```
+
+Pass a release and destination directory when needed:
+
+```sh
+bash /tmp/install-jeq-linux.sh v0.1.0-rc.1 /usr/local/bin
+```
+
 ## Homebrew
 
 On macOS, install the release from the Homebrew tap:

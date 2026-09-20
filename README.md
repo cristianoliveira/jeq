@@ -20,6 +20,14 @@ printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
 
 ## Quick start
 
+On Linux, install the verified release archive with the installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/cristianoliveira/jeq/main/scripts/install-jeq-linux.sh \
+  -o /tmp/install-jeq-linux.sh
+bash /tmp/install-jeq-linux.sh
+```
+
 On macOS, install through the Homebrew tap:
 
 ```sh
