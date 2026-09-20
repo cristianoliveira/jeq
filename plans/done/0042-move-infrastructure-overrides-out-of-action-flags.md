@@ -1,7 +1,7 @@
 ---
 id: TASK-0042
 title: Move infrastructure overrides out of action flags
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [cli, configuration, composability]
@@ -77,66 +77,66 @@ the same composed-request config resolution used by `map`, `reduce`, `rank`, and
 
 ### Public CLI surface
 
-- [ ] Remove `--base-url` from `ask`, `map`, `reduce`, `rank`, `rate`, and
+- [x] Remove `--base-url` from `ask`, `map`, `reduce`, `rank`, `rate`, and
       `models`; passing it produces the normal unknown-flag usage failure.
-- [ ] Remove `--config` from `map`, `reduce`, `rank`, and `rate`; passing it
+- [x] Remove `--config` from `map`, `reduce`, `rank`, and `rate`; passing it
       produces the normal unknown-flag usage failure.
-- [ ] Root and command help no longer advertise either flag.
-- [ ] Keep `--model`, `--timeout`, and `--max-retries` unchanged; their product
+- [x] Root and command help no longer advertise either flag.
+- [x] Keep `--model`, `--timeout`, and `--max-retries` unchanged; their product
       design is outside this task.
 
 ### Environment resolution
 
-- [ ] Add `JEQ_CONFIG` as the only explicit config-path override.
-- [ ] A non-empty `JEQ_CONFIG` takes precedence over XDG/HOME discovery for all
+- [x] Add `JEQ_CONFIG` as the only explicit config-path override.
+- [x] A non-empty `JEQ_CONFIG` takes precedence over XDG/HOME discovery for all
       composed network commands, including `ask`.
-- [ ] An explicit missing, unreadable, oversized, malformed, duplicate-key, or
+- [x] An explicit missing, unreadable, oversized, malformed, duplicate-key, or
       unsupported-field config fails before credential lookup, client creation,
       or network access.
-- [ ] When `JEQ_CONFIG` is absent or blank, optional XDG/HOME discovery retains
+- [x] When `JEQ_CONFIG` is absent or blank, optional XDG/HOME discovery retains
       current behavior; a missing default config is not an error.
-- [ ] `TYPESAFE_BASE_URL` remains the only API-root override for `ask`, `map`,
+- [x] `TYPESAFE_BASE_URL` remains the only API-root override for `ask`, `map`,
       `reduce`, `rank`, `rate`, and `models`.
-- [ ] A blank or absent `TYPESAFE_BASE_URL` uses the built-in root.
-- [ ] API-root validation and errors are consistent across every network
+- [x] A blank or absent `TYPESAFE_BASE_URL` uses the built-in root.
+- [x] API-root validation and errors are consistent across every network
       command and occur before credential lookup or client creation where
       current source-order guarantees require it.
 
 ### Pipeline behavior
 
-- [ ] One exported `JEQ_CONFIG` and `TYPESAFE_BASE_URL` apply to every JEQ
+- [x] One exported `JEQ_CONFIG` and `TYPESAFE_BASE_URL` apply to every JEQ
       process in a shell pipeline without repeated arguments.
-- [ ] Native `ask --request` and native `map --request-pointer` continue using
+- [x] Native `ask --request` and native `map --request-pointer` continue using
       the request model and do not fail merely because a default-model config is
       selected.
-- [ ] Removing the flags does not change request shape, evaluation result,
+- [x] Removing the flags does not change request shape, evaluation result,
       retry behavior, stdout/stderr separation, exit codes, or partial-output
       semantics.
 
 ### Architecture
 
-- [ ] Centralize config-path and API-root resolution rather than copying
+- [x] Centralize config-path and API-root resolution rather than copying
       environment lookup across commands.
-- [ ] Keep environment access behind existing injected dependencies so tests do
+- [x] Keep environment access behind existing injected dependencies so tests do
       not mutate the real process environment.
-- [ ] Fake-endpoint tests use `TYPESAFE_BASE_URL` or dependency injection, not a
+- [x] Fake-endpoint tests use `TYPESAFE_BASE_URL` or dependency injection, not a
       public production flag.
-- [ ] The config remains free of credentials; `TYPESAFE_API_KEY` stays an
+- [x] The config remains free of credentials; `TYPESAFE_API_KEY` stays an
       environment-only secret.
 
 ### Verification and documentation
 
-- [ ] Unit tests cover precedence, blank values, explicit-path failures,
+- [x] Unit tests cover precedence, blank values, explicit-path failures,
       optional default absence, and composed/native distinctions.
-- [ ] Built-binary fake-endpoint tests cover every network command through
+- [x] Built-binary fake-endpoint tests cover every network command through
       `TYPESAFE_BASE_URL`, prove removed flags fail before any request, and prove
       a multi-process chain inherits both environment settings.
-- [ ] Help-surface tests assert the flags are absent from every affected command.
-- [ ] README and architecture documentation describe the environment-only
+- [x] Help-surface tests assert the flags are absent from every affected command.
+- [x] README and architecture documentation describe the environment-only
       infrastructure contract and updated model precedence.
-- [ ] Existing examples stop passing `--base-url`; offline fake-endpoint tests
+- [x] Existing examples stop passing `--base-url`; offline fake-endpoint tests
       remain deterministic and make no live or paid calls.
-- [ ] `nix develop -c make check` passes.
+- [x] `nix develop -c make check` passes.
 
 ## Constraints
 
