@@ -28,6 +28,8 @@ JEQ currently builds from source. It requires Go 1.26, or the pinned Nix develop
 ```sh
 nix develop -c go install ./cmd/jeq
 jeq version
+jeq --version  # standard probe; identical to jeq version
+jeq -v         # short alias
 ```
 
 Without Nix:

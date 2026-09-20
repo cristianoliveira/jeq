@@ -16,6 +16,7 @@ func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command,
 
 // NewRootCmd builds a fresh jeq command tree.
 func NewRootCmd(deps ...AskDeps) *cobra.Command {
+	var showVersion bool
 	root := &cobra.Command{
 		Use:           "jeq",
 		Short:         "Agent-first CLI for TypeSafe System One",
@@ -23,9 +24,13 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if showVersion {
+				return writeVersion(cmd.OutOrStdout(), versionDocument{Name: "jeq", Version: Version, Commit: Commit})
+			}
 			return cmd.Help()
 		},
 	}
+	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print build information")
 	// Flag parse failures are usage failures (exit 2), not generic errors.
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return NewUsageError(err)

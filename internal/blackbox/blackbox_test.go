@@ -317,6 +317,21 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 	}
 }
 
+func TestBlackBoxVersionAliases(t *testing.T) {
+	t.Parallel()
+	var outputs []string
+	for _, args := range [][]string{{"version"}, {"--version"}, {"-v"}} {
+		result := runBinary(t, "stdin must not be read", map[string]string{"TYPESAFE_API_KEY": ""}, args...)
+		if result.exit != 0 || result.stderr != "" {
+			t.Fatalf("args=%v exit=%d stderr=%q", args, result.exit, result.stderr)
+		}
+		outputs = append(outputs, result.stdout)
+	}
+	if outputs[0] != outputs[1] || outputs[0] != outputs[2] || outputs[0] == "" {
+		t.Fatalf("outputs=%q", outputs)
+	}
+}
+
 func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
 	t.Parallel()
 	api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request, _ int) {
