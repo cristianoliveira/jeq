@@ -63,6 +63,12 @@ composed request construction. Stable error codes live in
   bounded reads, documented retry statuses, timeout classification, and
   transport-error redaction.
 
+## Environment-only infrastructure resolution
+
+Infrastructure configuration is process-wide and comes from the environment; the affected commands do not expose infrastructure flags. `TYPESAFE_BASE_URL` selects the API root and must be an absolute `http` or `https` URL. It is validated before API-key lookup or HTTP-client construction. `TYPESAFE_API_KEY` supplies credentials. `JEQ_CONFIG`, when explicitly set and nonblank, is always read and strictly validated (including size, syntax, duplicate keys, and unsupported fields) before model selection. Without an explicit config path, optional discovery checks `XDG_CONFIG_HOME` and then `$HOME/.config/jeq/config.json`, but that optional file is not read when `--model` or `TYPESAFE_DEFAULT_MODEL` already supplies a higher-precedence model.
+
+Model precedence is `--model`, then `TYPESAFE_DEFAULT_MODEL`, then the validated config model, then the built-in default. Native `ask` requests keep their embedded request model; composed `ask`, `map`, `reduce`, `rank`, and `rate` resolve the model through this precedence chain. Thus native request data is authoritative, while composed commands use CLI/environment/config model selection.
+
 ## Command shape
 
 | Command | Network | Output |
