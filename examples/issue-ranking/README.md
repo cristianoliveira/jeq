@@ -22,7 +22,7 @@ JEQ_BIN=jeq JEQ_MODEL=jev-latest \
   ./rank.sh < fixtures/issues.ndjson
 ```
 
-Set `JEQ_BASE_URL` for a local fake server or an explicitly approved live
+Set `TYPESAFE_BASE_URL` for a local fake server or an explicitly approved live
 endpoint. Each line is a separate paid evaluation when pointed at production;
 use small synthetic fixtures and a pinned model. The script never evaluates or
 executes any model-produced value.

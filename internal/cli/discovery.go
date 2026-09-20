@@ -38,7 +38,7 @@ func NewVersionCmdWithDeps(_ AskDeps) *cobra.Command {
 
 // NewModelsCmd creates the authenticated models discovery command.
 func NewModelsCmd(deps AskDeps) *cobra.Command {
-	var baseURL, timeoutText string
+	var timeoutText string
 	cmd := &cobra.Command{
 		Use: "models", Short: "List models available to the account", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -50,9 +50,7 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if strings.TrimSpace(apiKey) == "" {
 				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 			}
-			if baseURL == "" {
-				baseURL = deps.Getenv("TYPESAFE_BASE_URL")
-			}
+			baseURL := deps.Getenv("TYPESAFE_BASE_URL")
 			if baseURL == "" {
 				baseURL = DefaultBaseURL
 			}
@@ -73,7 +71,6 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			return writeModels(cmd.OutOrStdout(), models)
 		},
 	}
-	cmd.Flags().StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	cmd.Flags().StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	return cmd
 }

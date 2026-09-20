@@ -26,7 +26,7 @@ const (
 
 // NewMapCmd creates the sequential, one-request-per-record map primitive.
 func NewMapCmd(deps AskDeps) *cobra.Command {
-	var name, input, statePointer, requestPointer, model, config, baseURL, timeoutText string
+	var name, input, statePointer, requestPointer, model, timeoutText string
 	var source questionSourceFlags
 	var maxRetries int
 	cmd := &cobra.Command{
@@ -37,12 +37,12 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
   jeq examples map-gate`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
-				name: name, input: input, source: source, config: config, statePointer: statePointer,
-				requestPointer: requestPointer, model: model, baseURL: baseURL,
+				name: name, input: input, source: source, statePointer: statePointer,
+				requestPointer: requestPointer, model: model,
 				timeout: timeoutText, maxRetries: maxRetries,
 				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"),
 				requestPointerSet: cmd.Flags().Changed("request-pointer"),
-				modelSet:          cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
+				modelSet:          cmd.Flags().Changed("model"),
 			}); err != nil {
 				return err
 			}
@@ -56,18 +56,16 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&statePointer, "state-pointer", "", "RFC 6901 pointer to state")
 	flags.StringVar(&requestPointer, "request-pointer", "", "RFC 6901 pointer to a native request")
 	flags.StringVar(&model, "model", "", "composed-mode model")
-	flags.StringVar(&config, "config", "", "user config JSON path")
-	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
 	return cmd
 }
 
 type mapFlags struct {
-	name, input, statePointer, requestPointer, model, config, baseURL, timeout string
-	source                                                                     questionSourceFlags
-	maxRetries                                                                 int
-	nameSet, inputSet, requestPointerSet, modelSet, configSet, baseURLSet      bool
+	name, input, statePointer, requestPointer, model, timeout string
+	source                                                    questionSourceFlags
+	maxRetries                                                int
+	nameSet, inputSet, requestPointerSet, modelSet            bool
 }
 
 func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
@@ -90,12 +88,6 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	f.source.inlineSet = cmd.Flags().Changed("questions-json")
 	if f.requestPointerSet == (f.source.fileSet || f.source.inlineSet) {
 		return jeq.NewError(jeq.CodeInputInvalid, "choose exactly one of --questions/--questions-json or --request-pointer")
-	}
-	if f.configSet && strings.TrimSpace(f.config) == "" {
-		return jeq.NewError(jeq.CodeInputInvalid, "--config cannot be empty")
-	}
-	if f.requestPointerSet && f.configSet {
-		return jeq.NewError(jeq.CodeInputInvalid, "--config cannot be combined with --request-pointer")
 	}
 	if err := checkQuestionSource(f.source); err != nil && !f.requestPointerSet {
 		return err
@@ -136,7 +128,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	resolvedModel := "native"
 	if f.source.fileSet || f.source.inlineSet {
 		var modelErr *jeq.Error
-		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, f.config, deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 		if modelErr != nil {
 			return modelErr
 		}
@@ -149,12 +141,9 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	rootURL := f.baseURL
-	if !f.baseURLSet {
-		rootURL = deps.Getenv("TYPESAFE_BASE_URL")
-		if rootURL == "" {
-			rootURL = DefaultBaseURL
-		}
+	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
+	if rootURL == "" {
+		rootURL = DefaultBaseURL
 	}
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {

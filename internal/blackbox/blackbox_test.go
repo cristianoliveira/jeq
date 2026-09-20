@@ -61,6 +61,7 @@ func runBinary(t *testing.T, stdin string, env map[string]string, args ...string
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
+	args, env = migrateTestBaseURL(args, env)
 	cmd := exec.CommandContext(ctx, jeqBin, args...)
 	cmd.Dir = repoRoot
 	cmd.Env = mergedEnv(env)
@@ -73,6 +74,22 @@ func runBinary(t *testing.T, stdin string, env map[string]string, args ...string
 		t.Fatalf("%v timed out: stdout=%q stderr=%q", strings.Join(args, " "), stdout.String(), stderr.String())
 	}
 	return processResult{stdout: stdout.String(), stderr: stderr.String(), exit: exitCode(cmd, err), err: err}
+}
+
+func migrateTestBaseURL(args []string, env map[string]string) ([]string, map[string]string) {
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--base-url" && i+1 < len(args) {
+			if env == nil {
+				env = map[string]string{}
+			}
+			env["TYPESAFE_BASE_URL"] = args[i+1]
+			i++
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out, env
 }
 
 func mergedEnv(overrides map[string]string) []string {
@@ -550,9 +567,9 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(jeqBin, "ask", "--request", requestPath, "--base-url", api.server.URL, "--timeout", "10s")
+	cmd := exec.Command(jeqBin, "ask", "--request", requestPath, "--timeout", "10s")
 	cmd.Dir = repoRoot
-	cmd.Env = mergedEnv(map[string]string{"TYPESAFE_API_KEY": "interrupt-secret"})
+	cmd.Env = mergedEnv(map[string]string{"TYPESAFE_API_KEY": "interrupt-secret", "TYPESAFE_BASE_URL": api.server.URL})
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

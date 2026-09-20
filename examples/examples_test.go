@@ -66,7 +66,7 @@ func runScript(t *testing.T, script, input, endpoint string, extra map[string]st
 	cmd.Dir = repoRoot
 	cmd.Env = envWith(map[string]string{
 		"JEQ_BIN":          jeqBin,
-		"JEQ_BASE_URL":     endpoint,
+		"TYPESAFE_BASE_URL":     endpoint,
 		"JEQ_MODEL":        "jev-latest",
 		"TYPESAFE_API_KEY": "examples-test-key",
 		"NO_COLOR":         "1",

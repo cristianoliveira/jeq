@@ -186,8 +186,8 @@ func TestAskPassesBaseURLTimeoutAndRetryConfiguration(t *testing.T) {
 		gotURL, gotTimeout, gotRetries = baseURL, timeout, retries
 		return client
 	}
-	code, _, _, _ := runAsk(t, []string{"ask", "--questions", "q", "--state", "s", "--base-url", "flag-url", "--timeout", "3s", "--max-retries", "5"}, deps)
-	if code != 0 || gotURL != "flag-url" || gotTimeout != 3*time.Second || gotRetries != 5 {
+	code, _, _, _ := runAsk(t, []string{"ask", "--questions", "q", "--state", "s", "--timeout", "3s", "--max-retries", "5"}, deps)
+	if code != 0 || gotURL != "env-url" || gotTimeout != 3*time.Second || gotRetries != 5 {
 		t.Fatalf("code=%d url=%q timeout=%s retries=%d", code, gotURL, gotTimeout, gotRetries)
 	}
 }

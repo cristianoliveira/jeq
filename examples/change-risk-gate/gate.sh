@@ -5,16 +5,12 @@ set -euo pipefail
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 JEQ_BIN=${JEQ_BIN:-jeq}
 JEQ_MODEL=${JEQ_MODEL:-jev-latest}
-JEQ_BASE_URL=${JEQ_BASE_URL:-}
 PASS_MIN=0.80
 REVIEW_MAX=0.30
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/jeq-gate.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$JEQ_MODEL")
-if [[ -n "$JEQ_BASE_URL" ]]; then
-  JEQ_ARGS+=(--base-url "$JEQ_BASE_URL")
-fi
 
 run_jeq() {
   local state_json=$1

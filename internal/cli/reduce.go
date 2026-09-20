@@ -18,7 +18,7 @@ const ReduceMaxItems = MapMaxRecords
 
 // NewReduceCmd creates the one-call bounded aggregate primitive.
 func NewReduceCmd(deps AskDeps) *cobra.Command {
-	var name, input, model, config, baseURL, timeoutText string
+	var name, input, model, timeoutText string
 	var source questionSourceFlags
 	var maxRetries int
 	cmd := &cobra.Command{
@@ -31,8 +31,8 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 			source.fileSet = cmd.Flags().Changed("questions")
 			source.inlineSet = cmd.Flags().Changed("questions-json")
 			return runReduce(cmd, deps, reduceFlags{
-				name: name, input: input, source: source, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
-				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
+				name: name, input: input, source: source, model: model, timeout: timeoutText, maxRetries: maxRetries,
+				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), modelSet: cmd.Flags().Changed("model"),
 			})
 		}),
 	}
@@ -41,18 +41,16 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&input, "input", "json", "input framing: json or ndjson")
 	addQuestionSourceFlags(flags, &source)
 	flags.StringVar(&model, "model", "", "model override")
-	flags.StringVar(&config, "config", "", "user config JSON path")
-	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
 	return cmd
 }
 
 type reduceFlags struct {
-	name, input, model, config, baseURL, timeout       string
-	source                                             questionSourceFlags
-	maxRetries                                         int
-	nameSet, inputSet, modelSet, configSet, baseURLSet bool
+	name, input, model, timeout string
+	source                      questionSourceFlags
+	maxRetries                  int
+	nameSet, inputSet, modelSet bool
 }
 
 func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
@@ -67,9 +65,6 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	}
 	if err := checkQuestionSource(f.source); err != nil {
 		return err
-	}
-	if f.configSet && strings.TrimSpace(f.config) == "" {
-		return jeq.NewError(jeq.CodeInputInvalid, "--config cannot be empty")
 	}
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
 		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("--max-retries must be between 0 and %d", MaxRetriesLimit))
@@ -94,7 +89,7 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if sourceErr != nil {
 		return sourceErr
 	}
-	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, f.config, deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 	if modelErr != nil {
 		return modelErr
 	}
@@ -106,12 +101,9 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	rootURL := f.baseURL
-	if !f.baseURLSet {
-		rootURL = deps.Getenv("TYPESAFE_BASE_URL")
-		if rootURL == "" {
-			rootURL = DefaultBaseURL
-		}
+	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
+	if rootURL == "" {
+		rootURL = DefaultBaseURL
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	request := contract.Request{Model: resolvedModel, State: items, Questions: questions, Extra: extra}

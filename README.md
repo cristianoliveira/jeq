@@ -135,13 +135,13 @@ Authentication is read only from:
 TYPESAFE_API_KEY
 ```
 
-The API root can be set with `--base-url` or `TYPESAFE_BASE_URL`. The default request timeout is 10 seconds.
+The API root is set process-wide with `TYPESAFE_BASE_URL`; blank or absent uses the built-in TypeSafe root. The default request timeout is 10 seconds.
 
-For `map` and `reduce`, model precedence is:
+For composed `ask`, `map`, `reduce`, `rank`, and `rate`, model precedence is:
 
 1. `--model`
 2. `TYPESAFE_DEFAULT_MODEL`
-3. `${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`
+3. `JEQ_CONFIG` when non-empty; otherwise `${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`
 4. `jev-latest`
 
 The optional config contains only:

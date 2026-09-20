@@ -20,15 +20,15 @@ const RankProbabilityTolerance = 1e-6
 
 // NewRankCmd creates the one-request candidate ranking primitive.
 func NewRankCmd(deps AskDeps) *cobra.Command {
-	var name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, config, baseURL, timeoutText string
+	var name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, timeoutText string
 	var maxRetries int
 	cmd := &cobra.Command{
 		Use: "rank", Short: "Rank candidates with a TypeSafe Choice", Long: "Ranks every original candidate and attaches complete Choice evidence under _jeq.<as>. Choice probabilities are relative: include an explicit fallback candidate when nothing may fit. Pick or threshold explicitly with jq or another JEQ stage.", Args: cobra.NoArgs,
 		Example: `  cat handlers.ndjson | jeq rank --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runRank(cmd, deps, rankFlags{
-				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
-				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url"),
+				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, timeout: timeoutText, maxRetries: maxRetries,
+				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"),
 			})
 		}),
 	}
@@ -42,17 +42,15 @@ func NewRankCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&idPointer, "id-pointer", "", "pointer to each candidate's unique string id")
 	flags.StringVar(&criteriaPointer, "criteria-pointer", "", "pointer to each candidate's Choice criteria")
 	flags.StringVar(&model, "model", "", "model override")
-	flags.StringVar(&config, "config", "", "user config JSON path")
-	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
 	return cmd
 }
 
 type rankFlags struct {
-	name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, config, baseURL, timeout                         string
-	maxRetries                                                                                                                                 int
-	nameSet, inputSet, stateSet, stateFileSet, stateJSONSet, instructionSet, idPointerSet, criteriaPointerSet, modelSet, configSet, baseURLSet bool
+	name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, timeout                   string
+	maxRetries                                                                                                          int
+	nameSet, inputSet, stateSet, stateFileSet, stateJSONSet, instructionSet, idPointerSet, criteriaPointerSet, modelSet bool
 }
 
 func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
@@ -147,7 +145,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if err := contract.CheckStateValue(stateValue); err != nil {
 		return err
 	}
-	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, f.config, deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 	if modelErr != nil {
 		return modelErr
 	}
@@ -159,12 +157,9 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	rootURL := f.baseURL
-	if !f.baseURLSet {
-		rootURL = deps.Getenv("TYPESAFE_BASE_URL")
-		if rootURL == "" {
-			rootURL = DefaultBaseURL
-		}
+	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
+	if rootURL == "" {
+		rootURL = DefaultBaseURL
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	response, callErr := client.Evaluate(cmd.Context(), request)

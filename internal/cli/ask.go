@@ -59,7 +59,7 @@ func (d AskDeps) valid() bool {
 func NewAskCmd(deps AskDeps) *cobra.Command {
 	var (
 		request, questions, state, stateFile, stateJSON string
-		model, baseURL, timeoutText                     string
+		model, timeoutText                              string
 		maxRetries                                      int
 	)
 
@@ -72,10 +72,9 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,
-				model: model, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries,
+				model: model, timeout: timeoutText, maxRetries: maxRetries,
 				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"),
-				baseURLSet: cmd.Flags().Changed("base-url"),
 			})
 		}),
 	}
@@ -86,17 +85,16 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&stateFile, "state-file", "", "state text file or -")
 	flags.StringVar(&stateJSON, "state-json", "", "state JSON file or -")
 	flags.StringVar(&model, "model", "", "composed-mode model")
-	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
 	return cmd
 }
 
 type askFlags struct {
-	request, questions, state, stateFile, stateJSON                            string
-	model, baseURL, timeout                                                    string
-	maxRetries                                                                 int
-	requestSet, questionsSet, stateSet, stateFileSet, stateJSONSet, baseURLSet bool
+	request, questions, state, stateFile, stateJSON                string
+	model, timeout                                                 string
+	maxRetries                                                     int
+	requestSet, questionsSet, stateSet, stateFileSet, stateJSONSet bool
 }
 
 func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
@@ -152,7 +150,11 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 
 	resolvedModel := ""
 	if !f.requestSet {
-		resolvedModel = ResolveModel(f.model, deps.Getenv)
+		var modelErr *jeq.Error
+		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+		if modelErr != nil {
+			return askError(modelErr)
+		}
 	}
 	req, composeErr := jeq.Compose(jeq.ComposeInput{
 		RequestDoc: requestDoc, QuestionsDoc: questionsDoc, State: stateInput, Model: resolvedModel,
@@ -171,20 +173,14 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if parseErr != nil || timeout <= 0 {
 		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", f.timeout)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
 	}
-	if f.baseURLSet && strings.TrimSpace(f.baseURL) == "" {
-		return jeq.NewError(jeq.CodeInputInvalid, "--base-url cannot be empty").WithRecovery("set --base-url to an API root URL")
-	}
 
 	apiKey := deps.Getenv("TYPESAFE_API_KEY")
 	if strings.TrimSpace(apiKey) == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 	}
-	rootURL := f.baseURL
-	if !f.baseURLSet {
-		rootURL = deps.Getenv("TYPESAFE_BASE_URL")
-		if rootURL == "" {
-			rootURL = DefaultBaseURL
-		}
+	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
+	if rootURL == "" {
+		rootURL = DefaultBaseURL
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)

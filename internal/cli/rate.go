@@ -14,14 +14,14 @@ import (
 
 // NewRateCmd creates the ergonomic Score adapter over the map pipeline.
 func NewRateCmd(deps AskDeps) *cobra.Command {
-	var name, input, statePointer, instruction, model, config, baseURL, timeoutText string
+	var name, input, statePointer, instruction, model, timeoutText string
 	var levels []string
 	var maxRetries int
 	cmd := &cobra.Command{
 		Use: "rate", Short: "Rate each JSON record with a TypeSafe Score rubric", Long: "Sends one Score question per record through the same map pipeline. Score is an independent semantic rating against the ordered levels; it is not an exact measurement.", Args: cobra.NoArgs,
 		Example: `  cat issues.ndjson | jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' --level 'Cosmetic: no impact' --level 'Critical: service at risk'`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
-			return runRate(cmd, deps, rateFlags{name: name, input: input, statePointer: statePointer, instruction: instruction, levels: levels, model: model, config: config, baseURL: baseURL, timeout: timeoutText, maxRetries: maxRetries, nameSet: cmd.Flags().Changed("as"), instructionSet: cmd.Flags().Changed("instruction"), statePointerSet: cmd.Flags().Changed("state-pointer"), modelSet: cmd.Flags().Changed("model"), configSet: cmd.Flags().Changed("config"), baseURLSet: cmd.Flags().Changed("base-url")})
+			return runRate(cmd, deps, rateFlags{name: name, input: input, statePointer: statePointer, instruction: instruction, levels: levels, model: model, timeout: timeoutText, maxRetries: maxRetries, nameSet: cmd.Flags().Changed("as"), instructionSet: cmd.Flags().Changed("instruction"), statePointerSet: cmd.Flags().Changed("state-pointer"), modelSet: cmd.Flags().Changed("model")})
 		}),
 	}
 	flags := cmd.Flags()
@@ -31,18 +31,16 @@ func NewRateCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&instruction, "instruction", "", "Score instruction (required)")
 	flags.StringArrayVar(&levels, "level", nil, "ordered Score level description (repeat at least twice)")
 	flags.StringVar(&model, "model", "", "composed-mode model")
-	flags.StringVar(&config, "config", "", "user config JSON path")
-	flags.StringVar(&baseURL, "base-url", "", "TypeSafe API root")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
 	return cmd
 }
 
 type rateFlags struct {
-	name, input, statePointer, instruction, model, config, baseURL, timeout   string
-	levels                                                                    []string
-	maxRetries                                                                int
-	nameSet, instructionSet, statePointerSet, modelSet, configSet, baseURLSet bool
+	name, input, statePointer, instruction, model, timeout string
+	levels                                                 []string
+	maxRetries                                             int
+	nameSet, instructionSet, statePointerSet, modelSet     bool
 }
 
 func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
@@ -84,7 +82,7 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 	if framingErr != nil {
 		return framingErr
 	}
-	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, f.config, deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 	if modelErr != nil {
 		return modelErr
 	}
@@ -98,12 +96,9 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	rootURL := f.baseURL
-	if !f.baseURLSet {
-		rootURL = deps.Getenv("TYPESAFE_BASE_URL")
-		if rootURL == "" {
-			rootURL = DefaultBaseURL
-		}
+	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
+	if rootURL == "" {
+		rootURL = DefaultBaseURL
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	return processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, mf, map[string]contract.Question{f.name: question}, nil, resolvedModel, client)

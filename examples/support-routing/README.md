@@ -10,7 +10,7 @@ JEQ_BIN=jeq JEQ_MODEL=jev-latest \
   ./route.sh < fixtures/ticket.txt
 ```
 
-Set `JEQ_BASE_URL` to point at a local fake server or an explicitly approved
+Set `TYPESAFE_BASE_URL` to point at a local fake server or an explicitly approved
 TypeSafe endpoint. The API key remains in the environment and is never read by
 this script. A successful call emits one JSON receipt. A jeq exit `1`, `2`, or
 `130` is forwarded with jeq's structured output unchanged.
