@@ -48,6 +48,8 @@ type policyStatus struct{ status int }
 func (e *policyStatus) Error() string { return fmt.Sprintf("gate policy status %d", e.status) }
 
 func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
+	finishTrace := beginLifecycle(cmd)
+	defer func() { finishTrace(nil) }()
 	if !f.nameSet || f.name == "" {
 		return jeq.NewError(jeq.CodeInputInvalid, "--as is required")
 	}

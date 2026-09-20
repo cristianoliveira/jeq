@@ -43,6 +43,10 @@ type event struct {
 	ErrorCode      string `json:"error_code,omitempty"`
 	OperationIndex int    `json:"operation_index,omitempty"`
 	Total          int    `json:"total,omitempty"`
+	Attempt        int    `json:"attempt,omitempty"`
+	AttemptBudget  int    `json:"attempt_budget,omitempty"`
+	HTTPStatus     int    `json:"http_status,omitempty"`
+	HTTPClass      int    `json:"http_status_class,omitempty"`
 }
 type contextKey struct{}
 
@@ -71,13 +75,22 @@ func (c *Config) Emit(command, name, phase, outcome, code string) {
 }
 
 // Attempt records one HTTP attempt.
-func (c *Config) Attempt(_ int, _ int) {
-	c.Emit(c.Command, "request.attempted", "transport", "started", "")
+func (c *Config) Attempt(attempt, status int) {
+	c.emitHTTP(c.Command, "request.attempted", attempt, 0, status)
 }
 
 // Retrying records one retry decision.
-func (c *Config) Retrying(_ int, _ int, _ int) {
-	c.Emit(c.Command, "request.retrying", "transport", "retrying", "")
+func (c *Config) Retrying(attempt, budget, status int) {
+	c.emitHTTP(c.Command, "request.retrying", attempt, budget, status)
+}
+
+func (c *Config) emitHTTP(command, name string, attempt, budget, status int) {
+	if c == nil || !c.Enabled || c.Out == nil {
+		return
+	}
+	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: attempt, AttemptBudget: budget, HTTPStatus: status, HTTPClass: status / 100}
+	b, _ := json.Marshal(e)
+	_, _ = io.WriteString(c.Out, string(b)+"\n")
 }
 
 // EmitOperation records one bounded operation event.
