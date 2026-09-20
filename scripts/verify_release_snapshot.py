@@ -18,7 +18,7 @@ def main(directory="dist"):
     for archive in archives:
         with tarfile.open(archive) as bundle:
             names = bundle.getnames()
-            if "README.md" not in names or "jeq" not in names:
+            if "README.md" not in names or "LICENSE" not in names or "jeq" not in names:
                 raise ValueError(f"{archive.name} lacks jeq or README.md")
         targets.add("_".join(archive.name[:-7].split("_")[-2:]))
     if targets != {"linux_amd64", "linux_arm64", "darwin_amd64", "darwin_arm64"}:

@@ -38,6 +38,10 @@
             vendorHash = "sha256-7K17JaXFsjf163g5PXCb5ng2gYdotnZ2IDKk8KFjNj0=";
             subPackages = [ "cmd/jeq" ];
             env.CGO_ENABLED = "0";
+            meta = {
+              description = "Agent-first TypeSafe judgment CLI";
+              license = pkgs.lib.licenses.mit;
+            };
             ldflags = [
               "-s"
               "-w"
