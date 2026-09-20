@@ -1,7 +1,7 @@
 ---
 id: TASK-0042
 title: Move infrastructure overrides out of action flags
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [cli, configuration, composability]
