@@ -16,14 +16,16 @@ The flake provides only a development shell, so Nix users cannot build, run, or 
 A Nix user can build, run, or install JEQ directly from the repository flake. The packaged binary reports meaningful, reproducible build metadata.
 
 ## Context
-The current flake already declares `aarch64-darwin`, `aarch64-linux`, `x86_64-darwin`, and `x86_64-linux`, but exposes only `devShells`. PXP's `buildGoModule` package and app outputs are a useful local reference. Keep JEQ's existing system matrix and version variables rather than copying PXP's hard-coded version.
+The current flake declares `aarch64-darwin`, `aarch64-linux`, `x86_64-darwin`, and `x86_64-linux`, but exposes only `devShells`. PXP's `buildGoModule` package and app outputs are a useful local reference. Do not copy PXP's hard-coded version.
+
+Pinned nixpkgs 26.11 explicitly dropped `x86_64-darwin`; `nix flake check --all-systems` cannot evaluate that output. JEQ's Nix system list must therefore match current nixpkgs support. GoReleaser may still cross-build a Darwin amd64 archive because that uses the Go toolchain rather than nixpkgs packages.
 
 ## Acceptance criteria
-- [ ] `packages.<system>.jeq` and `packages.<system>.default` build `cmd/jeq` with `buildGoModule` on all four declared systems.
-- [ ] `apps.<system>.jeq` and `apps.<system>.default` run the packaged `jeq` binary.
+- [ ] `packages.<system>.jeq` and `packages.<system>.default` build `cmd/jeq` with `buildGoModule` on the three systems supported by pinned nixpkgs: `aarch64-darwin`, `aarch64-linux`, and `x86_64-linux`.
+- [ ] `apps.<system>.jeq` and `apps.<system>.default` run the packaged `jeq` binary on the same supported systems.
 - [ ] Go dependencies use a real pinned `vendorHash`; packaging does not fetch unpinned dependencies or use a fake hash.
 - [ ] The package is CGO-free and injects deterministic values into `internal/cli.Version` and `internal/cli.Commit`; the packaged `jeq version` does not report `dev` or `unknown`.
-- [ ] `nix build`, `nix run . -- version`, and `nix flake check` pass from a clean checkout on the host system.
+- [ ] `nix build`, `nix run . -- version`, `nix flake check`, and evaluation with `nix flake check --all-systems --no-build` pass from a clean checkout.
 - [ ] A focused check proves the packaged binary, not a PATH binary, reports the injected version and commit.
 - [ ] README installation instructions include direct flake build, run, and profile-install examples without removing the source-build path.
 - [ ] Existing development-shell behavior and normal verification gate remain unchanged.
