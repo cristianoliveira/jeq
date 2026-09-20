@@ -1,0 +1,5 @@
+diff --git a/auth.go b/auth.go
++func Validate(token Token) error {
++    if token.ExpiresAt.Before(time.Now()) { return ErrExpired }
++    return nil
++}

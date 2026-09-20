@@ -1,0 +1,2 @@
+diff --git a/auth.go b/auth.go
++if token.ExpiresAt.Before(time.Now()) { return ErrExpired }

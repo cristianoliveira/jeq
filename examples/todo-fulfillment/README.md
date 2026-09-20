@@ -53,3 +53,17 @@ Record false positives, false negatives, and uncertain cases. Those labels are
 needed before treating probabilities as confidence.
 
 Do not include secrets or unapproved private source in the diff.
+
+## Establishing accuracy
+
+The labeled benchmark separates the mechanism from the claim that the model is
+reliable:
+
+```sh
+./examples/todo-fulfillment/benchmark.sh
+```
+
+Each case contains `todos.json`, `change.patch`, and an `expected` label. Add
+real, human-reviewed cases before interpreting `accuracy`, false positives,
+false negatives, or abstentions. Include fulfilled, rejected, and partial cases.
+Run the benchmark repeatedly because model judgments can vary.
