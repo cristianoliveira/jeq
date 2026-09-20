@@ -9,6 +9,18 @@ local log → explicit regex + short context → exact deduplication
           → review bounded JSON → one jeq rank request → evidence + line references
 ```
 
+## Pi-session common errors (offline first)
+
+This first-class variant uses only a fixed taxonomy (`assistant_error`, `tool_failure`) and emits counts, affected session-file counts, and repeat-event counts—never raw prompts, tool output, source, paths, IDs, URLs, credentials, provider bodies, or arbitrary error text. File mtime selects the default last 7 days; override `--root`, `--days`, `--since`, and `--until`. Counts describe events/files, not wasted turns. Classification is intentionally fixed and incomplete; expected test/provider failures are not Pi defects.
+
+```sh
+python3 examples/smart-grep/prepare_pi_sessions.py --root ~/.pi/agent/sessions --days 7 > .tmp/pi-session-errors.json
+jq . .tmp/pi-session-errors.json
+bash examples/smart-grep/rank.sh 'Which recurring Pi-session error is preventable friction worth fixing first?' < .tmp/pi-session-errors.json
+```
+
+The preparer fails before stdout on malformed JSONL or any file/byte/candidate/payload cap; it does not silently sample. It emits at most 29 synthetic candidates plus `none`. Choice probabilities are relative, not independent scores.
+
 ## Run the example
 
 Requires Python 3, Bash, `jeq`, and `jq`. Run from the repository root. The first
