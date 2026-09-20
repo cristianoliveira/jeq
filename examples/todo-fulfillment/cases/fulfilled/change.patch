@@ -3,3 +3,7 @@ diff --git a/auth.go b/auth.go
 +    if token.ExpiresAt.Before(time.Now()) { return ErrExpired }
 +    return nil
 +}
++diff --git a/auth_test.go b/auth_test.go
++func TestValidateRejectsExpiredToken(t *testing.T) {
++    if err := Validate(Token{ExpiresAt: time.Now().Add(-time.Hour)}); err != ErrExpired { t.Fatal(err) }
++}
