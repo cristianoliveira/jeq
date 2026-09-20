@@ -16,7 +16,8 @@ This first-class variant uses only a fixed taxonomy (`assistant_error`, `tool_fa
 ```sh
 python3 examples/smart-grep/prepare_pi_sessions.py --root ~/.pi/agent/sessions --days 7 > .tmp/pi-session-errors.json
 jq . .tmp/pi-session-errors.json
-bash examples/smart-grep/rank.sh 'Which recurring Pi-session error is preventable friction worth fixing first?' < .tmp/pi-session-errors.json
+bash examples/smart-grep/rank.sh 'Which recurring agent-tool interaction failure is the most preventable friction worth prioritizing, rather than an expected test failure or provider failure?' < .tmp/pi-session-errors.json > .tmp/pi-session-errors/ranked.json
+jq '.items[:5] | map({id, probability, candidate: .candidate.description})' .tmp/pi-session-errors/ranked.json
 ```
 
 The preparer fails before stdout on malformed JSONL or any file/byte/candidate/payload cap; it does not silently sample. It emits at most 29 synthetic candidates plus `none`. Choice probabilities are relative, not independent scores.
