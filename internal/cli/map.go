@@ -245,7 +245,7 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 			if tr != nil {
 				tr.EmitOperation(cmd.CommandPath(), "run.failed", "output", "failed", string(jeq.CodeResponseInvalid), index+1, len(records))
 			}
-			return jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing map output")
+			return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing map output"), "output_write")
 		}
 		if tr != nil {
 			tr.EmitOperation(cmd.CommandPath(), "operation.completed", "evaluation", "success", "", index+1, len(records))

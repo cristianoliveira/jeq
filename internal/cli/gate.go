@@ -92,7 +92,7 @@ func runGate(cmd *cobra.Command, deps AskDeps, f gateFlags) error {
 		}
 		counts[decision]++
 		if err := renderRaw(deps.Renderer, cmd.OutOrStdout(), output); err != nil {
-			return jeq.WrapError(jeq.CodeResponseInvalid, err, "writing gate output")
+			return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, err, "writing gate output"), "output_write")
 		}
 	}
 	if tr := trace.FromContext(cmd.Context()); tr != nil {

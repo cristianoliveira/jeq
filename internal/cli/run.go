@@ -44,7 +44,7 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 			if errors.As(err, &coded) {
 				code = string(coded.Code)
 			}
-			phase := failurePhase(code, err.Error())
+			phase := failurePhase(code, err)
 			if target.Name() == "gate" {
 				phase = "offline_policy"
 			}
@@ -63,9 +63,29 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 	return 0
 }
 
+type (
+	tracePhasedError interface{ TracePhase() string }
+	phasedError      struct {
+		error
+		phase string
+	}
+)
+
+func (e phasedError) TracePhase() string { return e.phase }
+func withTracePhase(err error, phase string) error {
+	if err == nil {
+		return nil
+	}
+	return phasedError{error: err, phase: phase}
+}
+
 // publicCLIError keeps wrapped implementation details internal while Cobra
 // owns the standard human-facing "Error:" rendering.
-func failurePhase(code, message string) string {
+func failurePhase(code string, err error) string {
+	var phased tracePhasedError
+	if errors.As(err, &phased) {
+		return phased.TracePhase()
+	}
 	switch code {
 	case string(jeq.CodeInputInvalid):
 		return "input_validation"
@@ -74,9 +94,7 @@ func failurePhase(code, message string) string {
 	case string(jeq.CodeNetworkError), string(jeq.CodeTimeout), string(jeq.CodeInterrupted):
 		return "transport"
 	case string(jeq.CodeResponseInvalid):
-		if strings.Contains(message, "writing") || strings.Contains(message, "render") {
-			return "output_write"
-		}
+
 		return "response_validation"
 	default:
 		return "request_creation"

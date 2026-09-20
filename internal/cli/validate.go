@@ -100,7 +100,7 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)}
 	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.QuestionCount)
 	if writeErr != nil {
-		return jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing validation output")
+		return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing validation output"), "output_write")
 	}
 	return nil
 }
