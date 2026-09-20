@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">JEQ logo</title>
+  <g fill="none" stroke="#182127" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 87h102M43 87v81"/>
+    <path d="M92 65q9-21 35-21h50q37 0 37 37v66q0 37-37 37h-48q-37 0-37-37V87"/>
+    <path d="M123 137v-23m29 23V86m29 51v-34" stroke-width="11"/>
+    <path d="M183 159l43 43"/>
+  </g>
+</svg>
