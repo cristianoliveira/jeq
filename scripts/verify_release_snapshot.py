@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify the bounded, local GoReleaser snapshot contract."""
 import hashlib
+import json
 import platform
 import subprocess
 import sys
@@ -11,7 +12,6 @@ from pathlib import Path
 def main(directory="dist"):
     root = Path(directory)
     archives = sorted(root.glob("jeq_*.tar.gz"))
-    expected = {"jeq_0.0.1-SNAPSHOT-"}  # prefix keeps the check independent of commit
     if len(archives) != 4:
         raise ValueError(f"expected four target archives, found {len(archives)}")
     targets = set()
@@ -25,21 +25,28 @@ def main(directory="dist"):
         raise ValueError(f"unexpected targets: {sorted(targets)}")
     checksums = root / "checksums.txt"
     lines = checksums.read_text().splitlines()
-    if len(lines) != 4:
-        raise ValueError("checksums.txt must contain exactly four archives")
+    checksum_names = {line.split(maxsplit=1)[1] for line in lines}
+    archive_names = {archive.name for archive in archives}
+    if checksum_names != archive_names:
+        raise ValueError("checksums.txt names must exactly match the four archives")
     for line in lines:
         digest, name = line.split(maxsplit=1)
-        if digest != hashlib.sha256((root / name).read_bytes()).hexdigest():
+        if Path(name).name != name or digest != hashlib.sha256((root / name).read_bytes()).hexdigest():
             raise ValueError(f"checksum mismatch: {name}")
-    host = {"Darwin": "darwin", "Linux": "linux"}.get(platform.system())
-    arch = {"x86_64": "amd64", "aarch64": "arm64"}.get(platform.machine())
-    if host and arch:
-        archive = next(a for a in archives if f"_{host}_{arch}.tar.gz" in a.name)
-        with tarfile.open(archive) as bundle:
-            bundle.extract("jeq", root / ".verify")
-        output = subprocess.check_output([str(root / ".verify" / "jeq"), "version"], text=True)
-        if "SNAPSHOT" not in output or "Commit: " not in output:
-            raise ValueError("host binary lacks snapshot metadata")
+    host = {"darwin": "darwin", "linux": "linux"}.get(platform.system().lower())
+    arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower())
+    if not host or not arch:
+        raise ValueError(f"unsupported host: {platform.system()}/{platform.machine()}")
+    metadata = json.loads((root / "metadata.json").read_text())
+    version = metadata["version"]
+    commit = metadata["commit"]
+    archive = next(a for a in archives if f"_{host}_{arch}.tar.gz" in a.name)
+    with tarfile.open(archive) as bundle:
+        bundle.extract("jeq", root / ".verify")
+    output = subprocess.check_output([str(root / ".verify" / "jeq"), "version"], text=True)
+    expected = f"jeq {version}\nCommit: {commit}\n"
+    if output != expected:
+        raise ValueError(f"host binary metadata mismatch: {output!r}")
 
 
 if __name__ == "__main__":
