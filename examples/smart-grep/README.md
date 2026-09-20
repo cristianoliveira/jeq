@@ -14,13 +14,24 @@ local log → explicit regex + short context → exact deduplication
 This first-class variant uses a fixed allowlist of safe categories such as `edit.stale`, `read.missing`, `bash.timeout`, `watcher.stale`, and `provider.quota`. It emits counts, affected session-file counts, and repeat-event counts—never raw prompts, tool output, source, paths, IDs, URLs, credentials, provider bodies, or arbitrary error text. File mtime selects the default last 7 days; override `--root`, `--days`, `--since`, and `--until` with Unix timestamps. Counts describe events/files, not wasted turns. Classification is intentionally fixed and incomplete; expected test/provider failures are not Pi defects.
 
 ```sh
-python3 examples/smart-grep/prepare_pi_sessions.py --root ~/.pi/agent/sessions --days 7 > .tmp/pi-session-errors.json
-jq . .tmp/pi-session-errors.json
-bash examples/smart-grep/rank.sh 'Which recurring agent-tool interaction failure is the most preventable friction worth prioritizing, rather than an expected test failure or provider failure?' < .tmp/pi-session-errors.json > .tmp/pi-session-errors/ranked.json
-jq '.items[:5] | map({id, probability, candidate: .candidate.description})' .tmp/pi-session-errors/ranked.json
+mkdir -p .tmp/pi-session-errors
+python3 examples/smart-grep/prepare_pi_sessions.py \
+  --root ~/.pi/agent/sessions \
+  --days 7 \
+  > .tmp/pi-session-errors/candidates.json
+
+jq . .tmp/pi-session-errors/candidates.json
+
+bash examples/smart-grep/rank.sh \
+  'Which recurring agent-tool interaction failure is the most preventable friction worth prioritizing, rather than an expected test failure or provider failure?' \
+  < .tmp/pi-session-errors/candidates.json \
+  > .tmp/pi-session-errors/ranked.json
+
+jq '.items[:5] | map({id, probability, candidate: .candidate.description})' \
+  .tmp/pi-session-errors/ranked.json
 ```
 
-The preparer fails before stdout on malformed JSONL or any file/byte/candidate/payload cap; it does not silently sample. It emits at most 29 synthetic candidates plus `none`. Choice probabilities are relative, not independent scores.
+The preparer fails before stdout on malformed JSONL or any file, byte, or payload cap. It does not silently sample files or bytes. It sorts categories by affected session files and repeat events, then emits the first 29 synthetic candidates plus `none`. Choice probabilities are relative, not independent scores.
 
 ## Run the example
 
