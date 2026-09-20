@@ -283,14 +283,14 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 		args  func(string) []string
 		input string
 	}{
-		{name: "native file default", args: func(url string) []string { return []string{"ask", "--request", requestPath} }},
-		{name: "native stdin explicit json", args: func(url string) []string {
+		{name: "native file default", args: func(_ string) []string { return []string{"ask", "--request", requestPath} }},
+		{name: "native stdin explicit json", args: func(_ string) []string {
 			return []string{"ask", "--request", "-"}
 		}, input: string(fixture(t, "request_full.json"))},
-		{name: "composed file default", args: func(url string) []string {
+		{name: "composed file default", args: func(_ string) []string {
 			return []string{"ask", "--questions", questionsPath, "--state", "a user needs help"}
 		}},
-		{name: "composed stdin explicit json", args: func(url string) []string {
+		{name: "composed stdin explicit json", args: func(_ string) []string {
 			return []string{"ask", "--questions", "-", "--state", "a user needs help"}
 		}, input: `{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`},
 	}
