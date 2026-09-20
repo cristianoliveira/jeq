@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -50,12 +49,9 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if strings.TrimSpace(apiKey) == "" {
 				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 			}
-			baseURL := deps.Getenv("TYPESAFE_BASE_URL")
-			if baseURL == "" {
-				baseURL = DefaultBaseURL
-			}
-			if parsed, parseErr := url.Parse(baseURL); parseErr != nil || parsed.Scheme == "" || parsed.Host == "" {
-				return jeq.NewError(jeq.CodeInputInvalid, "TYPESAFE_BASE_URL must be an absolute URL").WithRecovery("set TYPESAFE_BASE_URL to an https:// or http:// API root")
+			baseURL, baseErr := ResolveBaseURL(deps.Getenv)
+			if baseErr != nil {
+				return baseErr
 			}
 			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 			modelsClient, ok := client.(interface {

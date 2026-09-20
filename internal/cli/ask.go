@@ -178,9 +178,9 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if strings.TrimSpace(apiKey) == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 	}
-	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
-	if rootURL == "" {
-		rootURL = DefaultBaseURL
+	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
+	if rootErr != nil {
+		return rootErr
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)

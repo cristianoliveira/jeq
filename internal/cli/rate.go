@@ -96,9 +96,9 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
-	if rootURL == "" {
-		rootURL = DefaultBaseURL
+	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
+	if rootErr != nil {
+		return rootErr
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	return processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, mf, map[string]contract.Question{f.name: question}, nil, resolvedModel, client)

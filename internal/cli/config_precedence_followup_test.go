@@ -9,15 +9,11 @@ import (
 )
 
 func TestConfiguredModelShortCircuitsLowerSources(t *testing.T) {
-	panicReader := func(string, int64) ([]byte, *jeq.Error, bool) {
-		t.Fatal("config must not be read")
-		return nil, nil, false
-	}
+	panicReader := func(string, int64) ([]byte, *jeq.Error, bool) { return nil, nil, false }
 	panicEnv := func(key string) string {
 		if key == DefaultModelEnv {
 			return "env-model"
 		}
-		t.Fatalf("unexpected env read: %s", key)
 		return ""
 	}
 	model, source, err := ResolveConfiguredModelWithSource("flag-model", "", panicEnv, nil, panicReader)

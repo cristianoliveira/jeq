@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -28,15 +29,15 @@ func ResolveConfiguredModel(flagModel, explicitPath string, getenv func(string) 
 
 // ResolveConfiguredModelWithSource also reports which precedence layer won.
 func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (string, string, *jeq.Error) {
+	configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
+	if err != nil {
+		return "", "", err
+	}
 	if flagModel != "" {
 		return flagModel, "flag", nil
 	}
 	if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
 		return envModel, "environment", nil
-	}
-	configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
-	if err != nil {
-		return "", "", err
 	}
 	if configModel != "" {
 		return configModel, "config", nil
@@ -86,6 +87,19 @@ func readUserConfig(explicitPath string, getenv func(string) string, readFile fu
 		return "", err
 	}
 	return decodeUserConfig(path, data)
+}
+
+// ResolveBaseURL applies the process-wide API root override and validates it before auth/client creation.
+func ResolveBaseURL(getenv func(string) string) (string, *jeq.Error) {
+	base := strings.TrimSpace(getenv("TYPESAFE_BASE_URL"))
+	if base == "" {
+		return DefaultBaseURL, nil
+	}
+	parsed, err := url.Parse(base)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", jeq.NewError(jeq.CodeInputInvalid, "TYPESAFE_BASE_URL must be an absolute http(s) URL")
+	}
+	return strings.TrimSuffix(base, "/"), nil
 }
 
 func decodeUserConfig(path string, data []byte) (string, *jeq.Error) {

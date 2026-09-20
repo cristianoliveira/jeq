@@ -141,9 +141,9 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	rootURL := deps.Getenv("TYPESAFE_BASE_URL")
-	if rootURL == "" {
-		rootURL = DefaultBaseURL
+	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
+	if rootErr != nil {
+		return rootErr
 	}
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {
