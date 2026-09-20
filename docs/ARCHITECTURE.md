@@ -46,6 +46,24 @@ The CLI receives these dependencies through narrow ports. Unit tests can inject
 bounded readers, fake clients, and renderers without touching the network or
 filesystem.
 
+### Statelessness invariant
+
+JEQ is stateless between invocations. It does not create, discover, read, or
+update memory, session, history, run-state, or trace files. A later invocation
+can observe earlier evidence only when the caller explicitly supplies that
+evidence through stdin or a selected input file. User configuration is
+read-only configuration, not operational memory.
+
+Evaluation evidence belongs on stdout. Diagnostics and opt-in debugging logs
+belong on stderr. JEQ may emit logs for the lifetime of the current process, but
+it never persists them itself. A caller may deliberately redirect stderr to a
+file; ownership, retention, and reuse of that file remain outside JEQ.
+
+New features must not add implicit local persistence or automatic discovery of
+previous runs. Any proposal to persist state requires a new explicit product
+decision and architecture review; it must not enter as an implementation detail
+of observability, retries, composition, or convenience.
+
 ### Domain
 
 `internal/domain/contract` owns strict, lossless JSON decoding and deterministic

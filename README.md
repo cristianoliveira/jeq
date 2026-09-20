@@ -163,7 +163,9 @@ Human navigation, validation receipts, model lists, diagnostics, and errors are 
 | `11` | No reject, but at least one gate record was uncertain |
 | `130` | Interrupted |
 
-Errors go to stderr. Result data goes to stdout. Gate status is preserved through shell pipelines when `set -o pipefail` is enabled.
+Errors and debugging logs go to stderr. Result data goes to stdout. Gate status is preserved through shell pipelines when `set -o pipefail` is enabled.
+
+JEQ is stateless between invocations. It does not create or discover persistent memory, sessions, run history, or trace files. Configuration is read-only, and previous evidence is reused only when the caller explicitly supplies it as input. Callers may redirect stderr to retain debugging logs, but JEQ never persists or reloads those logs itself.
 
 ## Safety boundaries
 
