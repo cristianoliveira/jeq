@@ -90,7 +90,7 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if sourceErr != nil {
 		return sourceErr
 	}
-	resolvedModel, _, modelErr := ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	resolvedModel, modelSource, modelErr := ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 	if modelErr != nil {
 		return modelErr
 	}
@@ -107,7 +107,7 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if apiKey == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
-	traceMetadata(cmd, resolvedModel, "", f.input, "", questions)
+	traceMetadata(cmd, resolvedModel, modelSource, f.input, "", questions)
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
 	request := contract.Request{Model: resolvedModel, State: items, Questions: questions, Extra: extra}

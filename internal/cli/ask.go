@@ -149,9 +149,10 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	}
 
 	resolvedModel := ""
+	modelSource := ""
 	if !f.requestSet {
 		var modelErr *jeq.Error
-		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+		resolvedModel, modelSource, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 		if modelErr != nil {
 			return askError(modelErr)
 		}
@@ -183,7 +184,7 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if strings.TrimSpace(apiKey) == "" {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 	}
-	traceMetadata(cmd, req.Model, "", "json", "", req.Questions)
+	traceMetadata(cmd, req.Model, modelSource, "json", "", req.Questions)
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)
 	})

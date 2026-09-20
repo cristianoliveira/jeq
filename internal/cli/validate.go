@@ -96,6 +96,7 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if f.requestSet {
 		mode = "native"
 	}
+	traceMetadata(cmd, req.Model, mode, "json", "", req.Questions)
 	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)}
 	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.QuestionCount)
 	if writeErr != nil {

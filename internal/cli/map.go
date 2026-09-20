@@ -127,6 +127,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 		return framingErr
 	}
 	resolvedModel := "native"
+	modelSource := "native"
 	if f.source.fileSet || f.source.inlineSet {
 		var modelErr *jeq.Error
 		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
@@ -152,7 +153,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 			return jeq.NewError(jeq.CodeInputInvalid, "model is required in composed mode")
 		}
 	}
-	traceMetadata(cmd, resolvedModel, "", f.input, f.statePointer, questions)
+	traceMetadata(cmd, resolvedModel, modelSource, f.input, f.statePointer, questions)
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
 	evaluator := client

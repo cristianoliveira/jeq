@@ -2,6 +2,7 @@ package cli
 
 import (
 	"io"
+	"sort"
 
 	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
@@ -19,10 +20,13 @@ type traceAttachable interface{ SetTraceObserver(trace.Observer) }
 func traceMetadata(cmd *cobra.Command, model, source, framing, pointer string, questions map[string]contract.Question) {
 	if cfg := trace.FromContext(cmd.Context()); cfg != nil {
 		names := make([]string, 0, len(questions))
-		types := make([]string, 0, len(questions))
-		for name, q := range questions {
+		for name := range questions {
 			names = append(names, name)
-			types = append(types, string(q.Type))
+		}
+		sort.Strings(names)
+		types := make([]string, 0, len(names))
+		for _, name := range names {
+			types = append(types, string(questions[name].Type))
 		}
 		cfg.EmitMetadata(cmd.CommandPath(), model, source, framing, pointer, names, types)
 	}
