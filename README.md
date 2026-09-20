@@ -13,8 +13,8 @@ and JSON state into evidence that can move through a Unix pipeline.
 ```sh
 printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
   | jeq map --as urgency --input ndjson --questions-json \
-    '{"questions":{"urgency":{"type":"score","instructions":"How urgent is this?"}}}' \
-  | jeq gate --as policy --input ndjson --value-pointer /urgency/score \
+    '{"questions":{"urgency":{"type":"noul","instructions":"Is this urgent?"}}}' \
+  | jeq gate --as policy --input ndjson --value-pointer /_jeq/urgency/answers/urgency/noul \
     --pass-min 0.8 --reject-max 0.2
 ```
 

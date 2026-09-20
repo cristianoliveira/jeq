@@ -1,6 +1,15 @@
 # Composition
 
-JEQ commands compose through JSON or NDJSON. Keep one record per line for streams:
+JEQ commands compose through JSON or NDJSON. Keep one record per line for streams.
+Use `set -o pipefail` so a failed producer or policy cannot be hidden by a later
+successful command. `jq` owns deterministic selection and reshaping; JEQ owns
+judgment and typed evidence; the shell owns sequencing and final actions.
+
+Native `ask` sends one complete request. Composed `map`, `rate`, `reduce`, and
+`rank` construct a request from flags and input records; each primitive has a
+clear request and usage cost. Make stdin explicit with `--input` and redirect
+or pipe deliberately. See the [worked examples](../../examples/README.md).
+
 
 ```sh
 cat records.ndjson \
