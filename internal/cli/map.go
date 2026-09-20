@@ -130,7 +130,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	modelSource := "native"
 	if f.source.fileSet || f.source.inlineSet {
 		var modelErr *jeq.Error
-		resolvedModel, _, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+		resolvedModel, modelSource, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
 		if modelErr != nil {
 			return modelErr
 		}

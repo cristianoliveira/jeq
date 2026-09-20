@@ -11,9 +11,10 @@ import (
 )
 
 type successCase struct {
-	name, input string
-	args        []string
-	network     bool
+	name, input                    string
+	args                           []string
+	network                        bool
+	expectedExit, expectedRequests int
 }
 
 func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) {
@@ -22,13 +23,13 @@ func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) 
 		t.Fatal(err)
 	}
 	cases := []successCase{
-		{"ask", "", []string{"ask", "--request", requestPath}, true},
-		{"validate", `{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`, []string{"validate", "--request", "-"}, false},
-		{"map", `{"description":"a"}\n{"description":"b"}\n`, []string{"map", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`}, true},
-		{"rate", `{"description":"a"}\n{"description":"b"}\n`, []string{"rate", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "safe", "--level", "Low", "--level", "High"}, true},
-		{"reduce", `{"description":"a"}\n{"description":"b"}\n`, []string{"reduce", "--as", "q", "--input", "ndjson", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`}, true},
-		{"rank", `[{"id":"a","criteria":"A"},{"id":"b","criteria":"B"}]`, []string{"rank", "--as", "q", "--input", "json", "--state", "safe", "--instruction", "safe", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, true},
-		{"gate", `{"score":0.9}\n{"score":0.1}\n`, []string{"gate", "--as", "policy", "--input", "ndjson", "--value-pointer", "/score", "--pass-min", "0.8", "--reject-max", "0.2"}, false},
+		{"ask", "", []string{"ask", "--request", requestPath}, true, 0, 1},
+		{"validate", `{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`, []string{"validate", "--request", "-"}, false, 0, 0},
+		{"map", `{"description":"a"}\n{"description":"b"}\n`, []string{"map", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`}, true, 0, 2},
+		{"rate", `{"description":"a"}\n{"description":"b"}\n`, []string{"rate", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "safe", "--level", "Low", "--level", "High"}, true, 0, 2},
+		{"reduce", `{"description":"a"}\n{"description":"b"}\n`, []string{"reduce", "--as", "q", "--input", "ndjson", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`}, true, 0, 1},
+		{"rank", `[{"id":"a","criteria":"A"},{"id":"b","criteria":"B"}]`, []string{"rank", "--as", "q", "--input", "json", "--state", "safe", "--instruction", "safe", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, true, 0, 1},
+		{"gate", `{"score":0.9}\n{"score":0.1}\n`, []string{"gate", "--as", "policy", "--input", "ndjson", "--value-pointer", "/score", "--pass-min", "0.8", "--reject-max", "0.2"}, false, 10, 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -47,14 +48,16 @@ func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) 
 						for k, q := range req.Questions {
 							switch q.Type {
 							case "choice":
-								answers[k] = map[string]any{"type": "choice", "choice": "a"}
+								answers[k] = map[string]any{"type": "choice", "choice": "a", "probabilities": map[string]float64{"a": 0.8, "b": 0.2}, "confidence": 0.8}
 							case "score":
-								answers[k] = map[string]any{"type": "score", "score": 1, "probabilities": map[string]float64{"0": 0.1, "1": 0.9}}
+								answers[k] = map[string]any{"type": "score", "score": 1, "probabilities": map[string]float64{"0": 0.1, "1": 0.9}, "legend": map[string]string{"0": "Low", "1": "High"}, "confidence": 0.9}
 							default:
 								answers[k] = map[string]any{"type": "noul", "noul": 0.9}
 							}
 						}
-						_ = json.NewEncoder(w).Encode(map[string]any{"model": "matrix", "answers": answers})
+						answers["q"] = map[string]any{"type": "choice", "choice": "a", "probabilities": map[string]float64{"a": 0.8, "b": 0.2}, "confidence": 0.8}
+						answers["department"] = answers["q"]
+						_ = json.NewEncoder(w).Encode(map[string]any{"model": "matrix", "answers": answers, "usage": map[string]int{"input_tokens": 1, "output_tokens": 1}})
 					})
 					env = map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "matrix-secret"}
 				}
@@ -72,7 +75,7 @@ func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) 
 			}
 			plain, pcount := run(false)
 			verbose, vcount := run(true)
-			if plain.exit != verbose.exit || plain.stdout != verbose.stdout || pcount != vcount {
+			if plain.exit != tc.expectedExit || verbose.exit != tc.expectedExit || pcount != tc.expectedRequests || vcount != tc.expectedRequests || plain.stdout != verbose.stdout {
 				t.Fatalf("default contract changed: plain=%#v verbose=%#v counts=%d/%d", plain, verbose, pcount, vcount)
 			}
 			if strings.Contains(verbose.stderr, "matrix-secret") || strings.Contains(verbose.stderr, "safe") {

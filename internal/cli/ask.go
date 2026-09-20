@@ -157,6 +157,9 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 			return askError(modelErr)
 		}
 	}
+	if f.requestSet {
+		modelSource = "native"
+	}
 	req, composeErr := jeq.Compose(jeq.ComposeInput{
 		RequestDoc: requestDoc, QuestionsDoc: questionsDoc, State: stateInput, Model: resolvedModel,
 	})
