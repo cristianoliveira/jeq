@@ -1,7 +1,7 @@
 ---
 id: TASK-0045
 title: Prepare the first JEQ release candidate
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [release, qa, documentation, security]
