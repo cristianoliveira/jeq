@@ -16,6 +16,18 @@ type CodedError = jeq.Error
 
 type traceAttachable interface{ SetTraceObserver(trace.Observer) }
 
+func traceMetadata(cmd *cobra.Command, model, source, framing, pointer string, questions map[string]contract.Question) {
+	if cfg := trace.FromContext(cmd.Context()); cfg != nil {
+		names := make([]string, 0, len(questions))
+		types := make([]string, 0, len(questions))
+		for name, q := range questions {
+			names = append(names, name)
+			types = append(types, string(q.Type))
+		}
+		cfg.EmitMetadata(cmd.CommandPath(), model, source, framing, pointer, names, types)
+	}
+}
+
 func attachTrace(cmd *cobra.Command, client APIClient) {
 	if observer, ok := client.(traceAttachable); ok {
 		if cfg := trace.FromContext(cmd.Context()); cfg != nil {

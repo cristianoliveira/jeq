@@ -10,27 +10,24 @@ import (
 	"sync/atomic"
 )
 
-// Schema identifies the trace wire format.
+//nolint:revive
 const Schema = "jeq.trace.v1"
 
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,128}$`)
 
-// Observer receives typed transport lifecycle metadata.
+//nolint:revive
 type Observer interface {
 	Attempt(attempt, status int)
-	Retrying(attempt, maxRetries, status int)
+	Retrying(attempt, budget, status int)
 }
 
-// Config struct controls one ephemeral trace sink.
+//nolint:revive
 type Config struct {
-	Enabled    bool
-	Command    string
-	ID         string
-	Out        io.Writer
-	sequence   uint64
-	detailed   uint64
-	suppressed bool
-	events     uint64
+	Enabled          bool
+	Command, ID      string
+	Out              io.Writer
+	sequence, events uint64
+	suppressed       bool
 }
 type event struct {
 	Schema         string   `json:"schema"`
@@ -64,50 +61,89 @@ type event struct {
 }
 type contextKey struct{}
 
-// ValidateID checks the documented correlation identifier grammar.
+//nolint:revive
 func ValidateID(id string) bool { return id == "" || idPattern.MatchString(id) }
 
-// New builds an ephemeral trace configuration.
+//nolint:revive
 func New(enabled bool, id string, out io.Writer) *Config {
 	return &Config{Enabled: enabled, ID: id, Out: out}
 }
 
-// WithContext attaches tracing to a command context.
+//nolint:revive
 func WithContext(ctx context.Context, cfg *Config) context.Context {
 	return context.WithValue(ctx, contextKey{}, cfg)
 }
 
-// FromContext retrieves tracing from a command context.
+//nolint:revive
 func FromContext(ctx context.Context) *Config {
 	cfg, _ := ctx.Value(contextKey{}).(*Config)
 	return cfg
 }
 
-// Emit writes one allowlisted event.
+//nolint:revive
 func (c *Config) Emit(command, name, phase, outcome, code string) {
 	c.emit(command, name, phase, outcome, code, 0, 0)
 }
 
-// Attempt records one HTTP attempt.
-func (c *Config) Attempt(attempt, status int) {
-	c.emitHTTP(c.Command, "request.attempted", attempt, 0, status)
-}
+//nolint:revive
+func (c *Config) Attempt(a, s int) { c.emitHTTP(c.Command, "request.attempted", a, 0, s) }
 
-// Retrying records one retry decision.
-func (c *Config) Retrying(attempt, budget, status int) {
-	c.emitHTTP(c.Command, "request.retrying", attempt, budget, status)
-}
+//nolint:revive
+func (c *Config) Retrying(a, b, s int) { c.emitHTTP(c.Command, "request.retrying", a, b, s) }
 
-func (c *Config) emitHTTP(command, name string, attempt, budget, status int) {
+func (c *Config) emitHTTP(command, name string, a, b, s int) {
 	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
 		return
 	}
-	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: attempt, AttemptBudget: budget, HTTPStatus: status, HTTPClass: status / 100}
-	b, _ := json.Marshal(e)
-	_, _ = io.WriteString(c.Out, string(b)+"\n")
+	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: a, AttemptBudget: b, HTTPStatus: s, HTTPClass: s / 100})
 }
 
-// EmitSummary records bounded aggregate counts.
+//nolint:revive
+func (c *Config) EmitMetadata(command, model, source, framing, pointer string, names, types []string) {
+	if c == nil || !c.Enabled || c.Out == nil || !c.reserve("preflight.completed") {
+		return
+	}
+	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "preflight.completed", Phase: "preflight", Outcome: "success", Model: model, ModelSource: source, Framing: framing, Pointer: pointer, QuestionNames: names, QuestionTypes: types})
+}
+
+//nolint:revive
+func (c *Config) EmitPolicy(command string, pass, ambiguous, reject int) {
+	if c == nil || !c.Enabled || c.Out == nil || !c.reserve("run.completed") {
+		return
+	}
+	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "offline_policy", Outcome: "success", Pass: pass, Ambiguous: ambiguous, Reject: reject})
+}
+
+//nolint:revive
+func (c *Config) EmitSummary(command string, seen, succeeded, emitted, failed int) {
+	if c == nil || !c.Enabled || c.Out == nil {
+		return
+	}
+	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "summary", Outcome: "success", Seen: seen, Succeeded: succeeded, Emitted: emitted, Failed: failed})
+}
+
+//nolint:revive
+func (c *Config) EmitOperation(command, name, phase, outcome, code string, index, total int) {
+	if name == "operation.started" {
+		if c.events >= 64 {
+			if !c.suppressed {
+				c.suppressed = true
+				c.emitUnbounded(c.Command, "events.suppressed", "trace", "bounded", "")
+			}
+			return
+		}
+		c.events++
+	}
+	c.emit(command, name, phase, outcome, code, index, total)
+}
+
+func (c *Config) emit(command, name, phase, outcome, code string, index, total int) {
+	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
+		return
+	}
+	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code, OperationIndex: index, Total: total})
+}
+
 func (c *Config) reserve(name string) bool {
 	if name == "run.failed" || name == "run.completed" || name == "events.suppressed" {
 		return true
@@ -124,46 +160,15 @@ func (c *Config) reserve(name string) bool {
 }
 
 func (c *Config) emitUnbounded(command, name, phase, outcome, code string) {
-	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code}
+	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code})
+}
+
+func (c *Config) write(e event) {
 	b, _ := json.Marshal(e)
 	_, _ = io.WriteString(c.Out, string(b)+"\n")
 }
 
-// EmitSummary records bounded aggregate counts.
-func (c *Config) EmitSummary(command string, seen, succeeded, emitted, failed int) {
-	if c == nil || !c.Enabled || c.Out == nil {
-		return
-	}
-	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "summary", Outcome: "success", Seen: seen, Succeeded: succeeded, Emitted: emitted, Failed: failed}
-	b, _ := json.Marshal(e)
-	_, _ = io.WriteString(c.Out, string(b)+"\n")
-}
-
-// EmitOperation records one bounded operation event.
-func (c *Config) EmitOperation(command, name, phase, outcome, code string, index, total int) {
-	if name == "operation.started" {
-		if c.detailed >= 64 {
-			if !c.suppressed {
-				c.suppressed = true
-				c.Emit(command, "events.suppressed", "trace", "bounded", "")
-			}
-			return
-		}
-		c.detailed++
-	}
-	c.emit(command, name, phase, outcome, code, index, total)
-}
-
-func (c *Config) emit(command, name, phase, outcome, code string, index, total int) {
-	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
-		return
-	}
-	e := event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code, OperationIndex: index, Total: total}
-	b, _ := json.Marshal(e)
-	_, _ = io.WriteString(c.Out, string(b)+"\n")
-}
-
-// ResolveID applies flag-over-environment precedence.
+//nolint:revive
 func ResolveID(flag, env string) (string, bool) {
 	id := strings.TrimSpace(flag)
 	if id == "" {
