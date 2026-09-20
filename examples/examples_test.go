@@ -65,12 +65,12 @@ func runScript(t *testing.T, script, input, endpoint string, extra map[string]st
 	cmd := exec.CommandContext(ctx, "bash", commandArgs...)
 	cmd.Dir = repoRoot
 	cmd.Env = envWith(map[string]string{
-		"JEQ_BIN":          jeqBin,
-		"TYPESAFE_BASE_URL":     endpoint,
-		"JEQ_MODEL":        "jev-latest",
-		"TYPESAFE_API_KEY": "examples-test-key",
-		"NO_COLOR":         "1",
-		"TERM":             "dumb",
+		"JEQ_BIN":           jeqBin,
+		"TYPESAFE_BASE_URL": endpoint,
+		"JEQ_MODEL":         "jev-latest",
+		"TYPESAFE_API_KEY":  "examples-test-key",
+		"NO_COLOR":          "1",
+		"TERM":              "dumb",
 	}, extra)
 	cmd.Stdin = strings.NewReader(input)
 	var stdout, stderr bytes.Buffer
