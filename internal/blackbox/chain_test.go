@@ -40,8 +40,8 @@ func TestBlackBoxEnvironmentChainMapRateReduce(t *testing.T) {
 	if err := os.WriteFile(config, []byte(`{"default_model":"chain-model"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	env := mergedEnv(map[string]string{"TYPESAFE_API_KEY": "chain-key", "TYPESAFE_BASE_URL": api.server.URL, "JEQ_CONFIG": config})
-	run := func(input string, args ...string) string {
+	env := mergedEnv(map[string]string{"TYPESAFE_API_KEY": "chain-key", "TYPESAFE_BASE_URL": api.server.URL, "JEQ_CONFIG": config, "JEQ_TRACE_ID": "chain-42"})
+	run := func(input string, args ...string) (string, string) {
 		cmd := exec.Command(jeqBin, args...)
 		cmd.Dir = repoRoot
 		cmd.Env = env
@@ -52,15 +52,15 @@ func TestBlackBoxEnvironmentChainMapRateReduce(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("args=%v err=%v stdout=%q stderr=%q", args, err, stdout.String(), stderr.String())
 		}
-		if stderr.Len() != 0 {
-			t.Fatalf("args=%v stderr=%q", args, stderr.String())
-		}
-		return stdout.String()
+		return stdout.String(), stderr.String()
 	}
-	mapped := run(`{"description":"incident"}
-`, "map", "--as", "triage", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}`)
-	rated := run(mapped, "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High")
-	reduced := run(rated, "reduce", "--as", "aggregate", "--input", "ndjson", "--questions-json", `{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}`)
+	mapped, mapTrace := run(`{"description":"incident"}
+`, "--verbose", "map", "--as", "triage", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}`)
+	rated, rateTrace := run(mapped, "--verbose", "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High")
+	reduced, reduceTrace := run(rated, "--verbose", "reduce", "--as", "aggregate", "--input", "ndjson", "--questions-json", `{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}`)
+	if !strings.Contains(mapTrace, `"trace_id":"chain-42"`) || !strings.Contains(rateTrace, `"trace_id":"chain-42"`) || !strings.Contains(reduceTrace, `"trace_id":"chain-42"`) {
+		t.Fatalf("trace correlation missing")
+	}
 	if !strings.Contains(mapped, `"triage"`) || !strings.Contains(rated, `"severity"`) || !strings.Contains(reduced, `"aggregate"`) {
 		t.Fatalf("chain outputs missing evidence: mapped=%q rated=%q reduced=%q", mapped, rated, reduced)
 	}

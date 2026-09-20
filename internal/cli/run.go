@@ -32,7 +32,8 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 	root.SetContext(ctx)
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
-	if _, _, err := root.Find(args); err != nil {
+	target, _, err := root.Find(args)
+	if err != nil {
 		root.PrintErrln("Error:", publicCLIError(err))
 		return 2
 	}
@@ -43,7 +44,7 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 			if errors.As(err, &coded) {
 				code = string(coded.Code)
 			}
-			cfg.Emit(root.CommandPath(), "run.failed", "execution", "failed", code)
+			cfg.Emit(target.CommandPath(), "run.failed", target.Name(), "failed", code)
 		}
 		var policy *policyStatus
 		if errors.As(err, &policy) {

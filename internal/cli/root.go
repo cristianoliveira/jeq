@@ -55,7 +55,9 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		cfg := trace.New(verbose, id, cmd.ErrOrStderr())
 		cfg.Command = cmd.CommandPath()
 		cfg.Emit(cmd.CommandPath(), "run.started", "preflight", "started", "")
-		cmd.SetContext(trace.WithContext(cmd.Context(), cfg))
+		ctx := trace.WithContext(cmd.Context(), cfg)
+		cmd.SetContext(ctx)
+		root.SetContext(ctx)
 		return nil
 	}
 	root.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
