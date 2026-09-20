@@ -1,7 +1,7 @@
 ---
 id: TASK-0046
 title: Declutter README into focused JEQ guides
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [documentation, nix, onboarding]
