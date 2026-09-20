@@ -29,6 +29,9 @@ endpoint for development. Model evidence is data: examples validate it as a cata
   then gate.
 - [`code-smell-review`](code-smell-review/README.md): explicit bounded source
   files, one aggregate judgment, and an optional offline cohesion gate.
+- [`todo-fulfillment`](todo-fulfillment/README.md): compare every prioritized
+  todo item with the same complete code diff and preserve an explicit
+  fulfilled/not-fulfilled/uncertain decision.
 - [`unix-review-pipeline`](unix-review-pipeline/README.md): visible emitter,
   rank, map, jq, reduce, gate, and safe final projection pipeline.
 
