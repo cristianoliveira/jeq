@@ -15,12 +15,16 @@ import (
 )
 
 type askRenderer struct {
-	response bool
-	err      *jeq.Error
+	response   bool
+	err        *jeq.Error
+	failWriter bool
 }
 
 func (r *askRenderer) RenderSuccess(w io.Writer, resp contract.Response) error {
 	r.response = true
+	if r.failWriter {
+		return errors.New("injected writer failure")
+	}
 	b, _ := resp.Encode()
 	_, err := w.Write(append(b, '\n'))
 	return err

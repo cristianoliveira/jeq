@@ -570,7 +570,7 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(jeqBin, "ask", "--request", requestPath, "--timeout", "10s")
+	cmd := exec.Command(jeqBin, "--verbose", "ask", "--request", requestPath, "--timeout", "10s")
 	cmd.Dir = repoRoot
 	cmd.Env = mergedEnv(map[string]string{"TYPESAFE_API_KEY": "interrupt-secret", "TYPESAFE_BASE_URL": api.server.URL})
 	var stdout, stderr bytes.Buffer
@@ -581,7 +581,7 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 	}
 	select {
 	case <-api.firstReq:
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		_ = cmd.Process.Kill()
 		t.Fatal("blocked ask did not reach fake server")
 	}
@@ -595,10 +595,10 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 		if code := exitCode(cmd, err); code != 130 {
 			t.Fatalf("interrupt exit=%d want=130 stdout=%q stderr=%q err=%v", code, stdout.String(), stderr.String(), err)
 		}
-		if stdout.Len() != 0 || !strings.Contains(stderr.String(), "JEQ_INTERRUPTED") || strings.Contains(stderr.String(), "interrupt-secret") {
+		if stdout.Len() != 0 || !strings.Contains(stderr.String(), "JEQ_INTERRUPTED") || strings.Contains(stderr.String(), "interrupt-secret") || !strings.Contains(stderr.String(), `"phase":"transport"`) || !strings.Contains(stderr.String(), `"event":"run.failed"`) {
 			t.Fatalf("interrupt output stdout=%q stderr=%q", stdout.String(), stderr.String())
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		_ = cmd.Process.Kill()
 		t.Fatal("interrupted ask did not exit by deadline")
 	}
