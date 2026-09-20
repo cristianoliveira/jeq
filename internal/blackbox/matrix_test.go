@@ -51,8 +51,10 @@ func TestBlackBoxVerboseFailureMatrix(t *testing.T) {
 }
 
 func TestBlackBoxVerbosePrivacyAdversarialInputs(t *testing.T) {
-	result := runBinary(t, "", map[string]string{"JEQ_TRACE_ID": "safe-chain", "TYPESAFE_API_KEY": "credential-secret", "TYPESAFE_BASE_URL": "https://user:pass@example.test/path?token=secret#fragment"}, "--verbose", "validate", "--request", "-")
-	for _, secret := range []string{"credential-secret", "user:pass", "token=secret", "fragment", "private-state", "private-instruction", "candidate-id", "provider-body"} {
+	api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write([]byte("provider-private-body")) })
+	request := `{"state":"private-state","questions":{"q":{"type":"noul","instructions":"private-instruction"}},"extra":"candidate-id"}`
+	result := runBinary(t, request, map[string]string{"JEQ_TRACE_ID": "safe-chain", "TYPESAFE_API_KEY": "credential-secret", "TYPESAFE_BASE_URL": api.server.URL + "/?token=secret#fragment"}, "--verbose", "ask", "--request", "-")
+	for _, secret := range []string{"credential-secret", "user:pass", "token=secret", "fragment", "private-state", "private-instruction", "candidate-id", "provider-private-body"} {
 		if strings.Contains(result.stderr, secret) {
 			t.Fatalf("trace leaked %q: %s", secret, result.stderr)
 		}
