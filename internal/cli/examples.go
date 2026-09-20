@@ -68,6 +68,19 @@ printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"u
 		Privacy: "stdin state is sent to TypeSafe; project response fields before logs.",
 	},
 	{
+		ID: "debug-chain", Purpose: "Capture safe lifecycle traces for a caller-owned map/rate/reduce chain.", Covers: []string{"verbose", "trace-id", "map", "rate", "reduce"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY"}, Cost: "one request per map/rate record plus one reduce request",
+		Shell: `JEQ_BIN=${JEQ_BIN:-jeq}
+set -euo pipefail
+export JEQ_TRACE_ID=${JEQ_TRACE_ID:-debug-chain}
+printf '%s\n' '{"description":"incident"}' |
+  "$JEQ_BIN" --verbose map --as triage --input ndjson --state-pointer /description --questions-json '{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}' 2>map.trace.ndjson |
+  "$JEQ_BIN" --verbose rate --as severity --input ndjson --state-pointer /description --instruction 'How severe?' --level Low --level High 2>rate.trace.ndjson |
+  "$JEQ_BIN" --verbose reduce --as aggregate --input ndjson --questions-json '{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}' 2>reduce.trace.ndjson
+# Trace files are caller-owned; JEQ never creates or reloads them.
+`,
+		InputShape: "NDJSON records", OutputShape: "JSON/NDJSON evidence on stdout; trace events on stderr", Privacy: "traces contain metadata only, never payloads or credentials.", Exits: "all stages must succeed; inspect trace files for lifecycle failures.",
+	},
+	{
 		ID: "map-gate", Purpose: "Judge each record and apply an offline threshold.", Covers: []string{"map", "gate"},
 		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N API requests for N records; jq and gate are offline",
 		Shell: `JEQ_BIN=${JEQ_BIN:-jeq}
