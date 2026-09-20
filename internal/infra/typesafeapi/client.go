@@ -19,6 +19,7 @@ import (
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
+	"github.com/cristianoliveira/jeq/internal/trace"
 )
 
 // Body bounds: normal replies may be large; error details are read only up
@@ -55,7 +56,11 @@ type Client struct {
 	Sleep      func(time.Duration)
 	Now        func() time.Time
 	Diagnostic func(line string)
+	Observer   trace.Observer
 }
+
+// SetTraceObserver connects the optional ephemeral transport observer.
+func (c *Client) SetTraceObserver(observer trace.Observer) { c.Observer = observer }
 
 // New builds a client with the documented defaults applied.
 func New(baseURL string, httpc *http.Client, apiKey string) *Client {
@@ -123,6 +128,9 @@ func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]
 
 	for attempt := 0; ; attempt++ {
 		status, header, raw, cerr := c.attemptOnce(ctx, method, path, body)
+		if c.Observer != nil {
+			c.Observer.Attempt(attempt+1, status)
+		}
 		if cerr != nil {
 			return nil, cerr
 		}
@@ -134,6 +142,9 @@ func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]
 		// same stable classification with its recovery instruction.
 		if (status == http.StatusTooManyRequests || status == 529) && attempt < retries {
 			wait, source := c.retryWait(header.Get("Retry-After"), attempt)
+			if c.Observer != nil {
+				c.Observer.Retrying(attempt+1, retries, status)
+			}
 			c.noteRetry(attempt, retries, wait, status, source)
 			sleep := c.Sleep
 			if sleep != nil {

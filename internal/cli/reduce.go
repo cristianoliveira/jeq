@@ -107,6 +107,7 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	attachTrace(cmd, client)
 	request := contract.Request{Model: resolvedModel, State: items, Questions: questions, Extra: extra}
 	output, evalErr := pipeline.Reduce(cmd.Context(), items, f.name, request, client)
 	if evalErr != nil {

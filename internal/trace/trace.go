@@ -15,12 +15,21 @@ const Schema = "jeq.trace.v1"
 
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,128}$`)
 
-// Config controls one ephemeral trace sink.
+// Observer receives typed transport lifecycle metadata.
+type Observer interface {
+	Attempt(attempt, status int)
+	Retrying(attempt, maxRetries, status int)
+}
+
+// Config struct controls one ephemeral trace sink.
 type Config struct {
-	Enabled  bool
-	ID       string
-	Out      io.Writer
-	sequence uint64
+	Enabled    bool
+	Command    string
+	ID         string
+	Out        io.Writer
+	sequence   uint64
+	detailed   uint64
+	suppressed bool
 }
 type event struct {
 	Schema         string `json:"schema"`
@@ -61,8 +70,28 @@ func (c *Config) Emit(command, name, phase, outcome, code string) {
 	c.emit(command, name, phase, outcome, code, 0, 0)
 }
 
-// EmitOperation writes one bounded record lifecycle event.
+// Attempt records one HTTP attempt.
+func (c *Config) Attempt(_ int, _ int) {
+	c.Emit(c.Command, "request.attempted", "transport", "started", "")
+}
+
+// Retrying records one retry decision.
+func (c *Config) Retrying(_ int, _ int, _ int) {
+	c.Emit(c.Command, "request.retrying", "transport", "retrying", "")
+}
+
+// EmitOperation records one bounded operation event.
 func (c *Config) EmitOperation(command, name, phase, outcome, code string, index, total int) {
+	if name == "operation.started" {
+		if c.detailed >= 64 {
+			if !c.suppressed {
+				c.suppressed = true
+				c.Emit(command, "events.suppressed", "trace", "bounded", "")
+			}
+			return
+		}
+		c.detailed++
+	}
 	c.emit(command, name, phase, outcome, code, index, total)
 }
 

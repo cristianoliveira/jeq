@@ -153,6 +153,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 		}
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	attachTrace(cmd, client)
 	evaluator := client
 	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator); processErr != nil {
 		return processErr

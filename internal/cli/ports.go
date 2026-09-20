@@ -3,6 +3,9 @@ package cli
 import (
 	"io"
 
+	"github.com/cristianoliveira/jeq/internal/trace"
+	"github.com/spf13/cobra"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
@@ -10,6 +13,16 @@ import (
 // CodedError is the shell-facing alias for stable domain failures. It keeps
 // the composition root from importing the domain package directly.
 type CodedError = jeq.Error
+
+type traceAttachable interface{ SetTraceObserver(trace.Observer) }
+
+func attachTrace(cmd *cobra.Command, client APIClient) {
+	if observer, ok := client.(traceAttachable); ok {
+		if cfg := trace.FromContext(cmd.Context()); cfg != nil {
+			observer.SetTraceObserver(cfg)
+		}
+	}
+}
 
 // Renderer emits successful machine result documents. Human output and errors
 // stay at the Cobra boundary; infra/render satisfies this result-only port.

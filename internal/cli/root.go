@@ -53,6 +53,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 			return NewUsageError(fmt.Errorf("invalid --trace-id"))
 		}
 		cfg := trace.New(verbose, id, cmd.ErrOrStderr())
+		cfg.Command = cmd.CommandPath()
 		cfg.Emit(cmd.CommandPath(), "run.started", "preflight", "started", "")
 		cmd.SetContext(trace.WithContext(cmd.Context(), cfg))
 		return nil

@@ -102,5 +102,6 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	attachTrace(cmd, client)
 	return processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, mf, map[string]contract.Question{f.name: question}, nil, resolvedModel, client)
 }

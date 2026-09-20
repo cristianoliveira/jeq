@@ -55,6 +55,7 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
 			}
 			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+			attachTrace(cmd, client)
 			modelsClient, ok := client.(interface {
 				Models(context.Context) (contract.Models, *jeq.Error)
 			})

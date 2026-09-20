@@ -186,6 +186,7 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)
 	})
+	attachTrace(cmd, client)
 	resp, evalErr := client.Evaluate(cmd.Context(), req)
 	if evalErr != nil {
 		return askError(evalErr)

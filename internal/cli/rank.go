@@ -163,6 +163,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
 	}
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	attachTrace(cmd, client)
 	response, callErr := client.Evaluate(cmd.Context(), request)
 	if callErr != nil {
 		return callErr
