@@ -72,6 +72,7 @@ type (
 )
 
 func (e phasedError) TracePhase() string { return e.phase }
+func (e phasedError) Unwrap() error      { return e.error }
 func withTracePhase(err error, phase string) error {
 	if err == nil {
 		return nil

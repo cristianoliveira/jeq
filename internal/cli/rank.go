@@ -122,7 +122,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 		}
 		id, criteriaValue, err := rankCandidate(record, f.idPointer, f.criteriaPointer)
 		if err != nil {
-			return err
+			return withTracePhase(err, "state_selection")
 		}
 		if _, exists := knownIDs[id]; exists {
 			return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("duplicate candidate id %q", id))
@@ -178,7 +178,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	for i, record := range records {
 		id, _, err := rankCandidate(record, f.idPointer, f.criteriaPointer)
 		if err != nil {
-			return err
+			return withTracePhase(err, "state_selection")
 		}
 		ids[i] = id
 	}

@@ -136,7 +136,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 		}
 	}
 	if err := validateMapRecord(records[0], f, questions, extra, resolvedModel); err != nil {
-		return err
+		return withTracePhase(err, "state_selection")
 	}
 
 	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
@@ -213,6 +213,9 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		if f.requestPointerSet {
 			raw, selectErr := pipeline.Select(record, f.requestPointer)
 			if selectErr != nil {
+				if tr != nil {
+					tr.EmitOperation(cmd.CommandPath(), "run.failed", "state_selection", "failed", string(jeq.CodeInputInvalid), index+1, len(records))
+				}
 				err = jeq.NewError(jeq.CodeInputInvalid, selectErr.Error())
 			} else {
 				req, decodeErr := contract.DecodeRequest(raw)
@@ -227,6 +230,9 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		} else {
 			state, selectErr := pipeline.Select(record, f.statePointer)
 			if selectErr != nil {
+				if tr != nil {
+					tr.EmitOperation(cmd.CommandPath(), "run.failed", "state_selection", "failed", string(jeq.CodeInputInvalid), index+1, len(records))
+				}
 				err = jeq.NewError(jeq.CodeInputInvalid, selectErr.Error())
 			} else if stateErr := contract.CheckStateValue(state); stateErr != nil {
 				err = stateErr
