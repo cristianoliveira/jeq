@@ -1,7 +1,7 @@
 ---
 id: TASK-0041
 title: Trace probabilistic CLI chains safely
-status: todo
+status: doing
 depends_on: [TASK-0042]
 priority: high
 tags: [cli, observability, privacy, composability]
