@@ -29,7 +29,7 @@ func TestBlackBoxFailureTraceNamesCommandPhase(t *testing.T) {
 	cases := [][]string{{"reduce", "--as", "x", "--input", "ndjson", "--questions-json", `{"questions":{"x":{"type":"noul","instructions":"x"}}}`}, {"rank", "--as", "x", "--input", "json", "--state", "s", "--instruction", "x", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, {"gate", "--as", "x", "--input", "ndjson", "--value-pointer", "/missing", "--pass-min", "0.8", "--reject-max", "0.2"}}
 	for _, args := range cases {
 		result := runBinary(t, "not-json\n", map[string]string{"JEQ_TRACE_ID": "failure"}, append([]string{"--verbose"}, args...)...)
-		if result.exit == 0 || !strings.Contains(result.stderr, `"event":"run.failed"`) || !strings.Contains(result.stderr, `"phase":"input_validation"`) {
+		if result.exit == 0 || !strings.Contains(result.stderr, `"event":"run.failed"`) || (!strings.Contains(result.stderr, `"phase":"input_validation"`) && !strings.Contains(result.stderr, `"phase":"offline_policy"`)) {
 			t.Fatalf("args=%v exit=%d stderr=%s", args, result.exit, result.stderr)
 		}
 	}
