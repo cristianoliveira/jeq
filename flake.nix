@@ -2,7 +2,7 @@
   description = "Agent-first TypeSafe CLI development environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     funzzy = {
       url = "github:cristianoliveira/funzzy/788703efa18ce96f2f9174a9f5c8b43986dfe7a5";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -20,12 +20,11 @@
       systems = [
         "aarch64-darwin"
         "aarch64-linux"
-        "x86_64-darwin"
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      version = "0.0.0-${builtins.substring 0 12 (builtins.hashFile "sha256" ./go.mod)}";
-      commit = if self ? rev then self.rev else "dirty";
+      version = "0-unstable-${builtins.substring 0 8 self.lastModifiedDate}";
+      commit = if self ? shortRev then self.shortRev else "dirty";
     in
     let
       packageSet = forAllSystems (
@@ -64,7 +63,9 @@
       });
       checkSet = forAllSystems (system: {
         packaged-version = nixpkgs.legacyPackages.${system}.runCommand "jeq-packaged-version" { } ''
-          ${packageSet.${system}.jeq}/bin/jeq version | grep -F "Commit: ${commit}"
+          output=$(${packageSet.${system}.jeq}/bin/jeq version)
+          grep -F "jeq v${version}" <<<"$output"
+          grep -F "Commit: ${commit}" <<<"$output"
           touch $out
         '';
       });

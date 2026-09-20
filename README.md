@@ -1,17 +1,5 @@
 # JEQ
 
-## Install with Nix
-
-From a checkout:
-
-```sh
-nix build .#jeq
-nix run . -- version
-nix profile install .#jeq
-```
-
-The source-build path remains available through the development shell (`nix develop`).
-
 
 **Intelligence you can pipe**
 
@@ -121,7 +109,15 @@ Those constraints are part of the product. They make it possible to start with a
 
 ## Install from this checkout
 
-JEQ currently builds from source. It requires Go 1.26, or the pinned Nix development shell.
+JEQ can be built from source with Go 1.26, or packaged directly with the pinned Nix development shell.
+
+```sh
+nix build .#jeq
+nix run . -- version
+nix profile install .#jeq
+```
+
+For source installation:
 
 ```sh
 nix develop -c go install ./cmd/jeq
