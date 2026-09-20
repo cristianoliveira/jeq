@@ -9,7 +9,7 @@ import (
 )
 
 func TestExamplesUseNativeCobraHelp(t *testing.T) {
-	ids := []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate"}
+	ids := []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
 	var parent, parentHelp, stderr bytes.Buffer
 	if code := cli.RunWithDeps([]string{"examples"}, &parent, &stderr, nil, cli.AskDeps{}); code != 0 {
 		t.Fatalf("parent code=%d stderr=%q", code, stderr.String())
@@ -32,6 +32,9 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 			}
 		}
 		if !strings.Contains(out.String(), "JEQ_BIN=${JEQ_BIN:-jeq}") || strings.Contains(out.String(), "Next:") {
+			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
+		}
+		if id == "debug-chain" && !strings.Contains(out.String(), "reduce --as aggregate --input ndjson") {
 			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
 		}
 	}
