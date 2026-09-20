@@ -1,7 +1,7 @@
 ---
 id: TASK-0040
 title: Add short and long version flags
-status: todo
+status: doing
 depends_on: []
 priority: normal
 tags: [cli, discovery]
