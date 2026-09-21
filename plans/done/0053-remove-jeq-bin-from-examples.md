@@ -1,7 +1,7 @@
 ---
 id: TASK-0053
 title: Remove JEQ_BIN from examples
-status: doing
+status: done
 depends_on: []
 priority: normal
 tags: [cli, examples, documentation, usability, testing]
