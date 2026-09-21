@@ -1,7 +1,7 @@
 ---
 id: TASK-0054
 title: Stream NDJSON map input
-status: todo
+status: done
 depends_on: []
 priority: high
 tags: [cli, map, streaming, scalability, determinism]
