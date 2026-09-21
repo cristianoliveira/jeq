@@ -1,7 +1,7 @@
 ---
 id: TASK-0057
 title: Add a local map concurrency stress example
-status: doing
+status: done
 depends_on: [TASK-0056]
 priority: high
 tags: [examples, map, concurrency, stress, observability]
