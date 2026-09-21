@@ -41,7 +41,9 @@ func main() {
 				break
 			}
 		}
-		once.Do(func() { close(gate) })
+		if current >= 2 {
+			once.Do(func() { close(gate) })
+		}
 		<-gate
 		active.Add(-1)
 		w.Header().Set("Content-Type", "application/json")
