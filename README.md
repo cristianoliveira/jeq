@@ -6,15 +6,13 @@
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jeq-logo.svg">
   <img src="docs/assets/jeq-logo-mono.svg" alt="jeq logo" width="160" height="160">
   
-<strong>Jev judgments you can pipe, compose, and gate.</strong>
+<strong>Intelligence you can pipe and compose.</strong>
 </picture>
 
 </div>
 
 
-jeq lets scripts and agents ask Jev typed questions and keep the answers as JSON
-data. The result stays JSON, so you can pipe it into the next command instead of
-parsing prose.
+`jeq` lets scripts and agents ask Jev typed questions within the terminal, no boilerplate.
 
 ```sh
 printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
