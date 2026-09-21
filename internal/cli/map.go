@@ -178,7 +178,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if f.input == "ndjson" {
 		return processMapStream(cmd.Context(), cmd, deps.Renderer, stream, firstRecord, f, questions, extra, resolvedModel, evaluator)
 	}
-	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator); processErr != nil {
+	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator, 0); processErr != nil {
 		return processErr
 	}
 	return nil
@@ -219,7 +219,7 @@ func validateMapRecord(record []byte, f mapFlags, questions map[string]contract.
 	return nil
 }
 
-func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer, input []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator) error {
+func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer, input []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator, offset int) error {
 	records, framingErr := mapRecords(input, f.input)
 	if framingErr != nil {
 		return framingErr
@@ -227,7 +227,7 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 	tr := trace.FromContext(ctx)
 	for index, record := range records {
 		if tr != nil {
-			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1, len(records))
+			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1+offset, len(records)+offset)
 		}
 		var output []byte
 		var err *jeq.Error
@@ -235,7 +235,7 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 			raw, selectErr := pipeline.Select(record, f.requestPointer)
 			if selectErr != nil {
 				if tr != nil {
-					tr.EmitOperation(cmd.CommandPath(), "run.failed", "state_selection", "failed", string(jeq.CodeInputInvalid), index+1, len(records))
+					tr.EmitOperation(cmd.CommandPath(), "run.failed", "state_selection", "failed", string(jeq.CodeInputInvalid), index+1+offset, len(records)+offset)
 				}
 				err = jeq.NewError(jeq.CodeInputInvalid, selectErr.Error())
 			} else {
@@ -252,7 +252,7 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 			state, selectErr := pipeline.Select(record, f.statePointer)
 			if selectErr != nil {
 				if tr != nil {
-					tr.EmitOperation(cmd.CommandPath(), "run.failed", "state_selection", "failed", string(jeq.CodeInputInvalid), index+1, len(records))
+					tr.EmitOperation(cmd.CommandPath(), "run.failed", "state_selection", "failed", string(jeq.CodeInputInvalid), index+1+offset, len(records)+offset)
 				}
 				err = jeq.NewError(jeq.CodeInputInvalid, selectErr.Error())
 			} else if stateErr := contract.CheckStateValue(state); stateErr != nil {
@@ -264,23 +264,23 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		}
 		if err != nil {
 			if tr != nil {
-				tr.EmitOperation(cmd.CommandPath(), "run.failed", "evaluation", "failed", string(err.Code), index+1, len(records))
+				tr.EmitOperation(cmd.CommandPath(), "run.failed", "evaluation", "failed", string(err.Code), index+1+offset, len(records)+offset)
 			}
 			return renderStreamError(renderer, cmd.OutOrStdout(), err, f.input == "ndjson")
 		}
 		if writeErr := renderRaw(renderer, cmd.OutOrStdout(), output); writeErr != nil {
 			if tr != nil {
-				tr.EmitOperation(cmd.CommandPath(), "run.failed", "output", "failed", string(jeq.CodeResponseInvalid), index+1, len(records))
+				tr.EmitOperation(cmd.CommandPath(), "run.failed", "output", "failed", string(jeq.CodeResponseInvalid), index+1+offset, len(records)+offset)
 			}
 			return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing map output"), "output_write")
 		}
 		if tr != nil {
-			tr.EmitOperation(cmd.CommandPath(), "operation.completed", "evaluation", "success", "", index+1, len(records))
-			tr.EmitOperation(cmd.CommandPath(), "output.written", "output", "success", "", index+1, len(records))
+			tr.EmitOperation(cmd.CommandPath(), "operation.completed", "evaluation", "success", "", index+1+offset, len(records)+offset)
+			tr.EmitOperation(cmd.CommandPath(), "output.written", "output", "success", "", index+1+offset, len(records)+offset)
 		}
 	}
 	if tr != nil {
-		tr.EmitSummary(cmd.CommandPath(), len(records), len(records), len(records), 0)
+		tr.EmitSummary(cmd.CommandPath(), len(records)+offset, len(records)+offset, len(records)+offset, 0)
 	}
 	return nil
 }
@@ -305,8 +305,9 @@ func readNDJSONRecord(reader *bufio.Reader) ([]byte, bool, *jeq.Error) {
 
 func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer, reader *bufio.Reader, first []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator) error {
 	record := first
+	offset := 0
 	for {
-		if err := processMapInput(ctx, cmd, renderer, record, f, questions, extra, model, evaluator); err != nil {
+		if err := processMapInput(ctx, cmd, renderer, record, f, questions, extra, model, evaluator, offset); err != nil {
 			return err
 		}
 		next, eof, readErr := readNDJSONRecord(reader)
@@ -317,6 +318,7 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 			return nil
 		}
 		record = next
+		offset++
 	}
 }
 
