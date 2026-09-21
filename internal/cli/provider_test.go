@@ -49,6 +49,22 @@ func TestResolveProviderVercelUsesDedicatedCredential(t *testing.T) {
 	}
 }
 
+func TestResolveProviderUsesVercelOIDCFallback(t *testing.T) {
+	getenv := func(key string) string {
+		if key == "JEQ_PROVIDER" {
+			return "vercel"
+		}
+		if key == "VERCEL_OIDC_TOKEN" {
+			return "oidc-token"
+		}
+		return ""
+	}
+	got, err := cli.ResolveProvider(getenv, nil, nil)
+	if err != nil || got.APIKey != "oidc-token" {
+		t.Fatalf("got=%+v err=%v", got, err)
+	}
+}
+
 func TestResolveProviderRejectsRemoteUnauthenticatedHTTPAndHTTPS(t *testing.T) {
 	getenv := func(key string) string {
 		if key == "JEQ_PROVIDER" {
