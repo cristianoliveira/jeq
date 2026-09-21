@@ -49,7 +49,7 @@ func TestResolveProviderVercelUsesDedicatedCredential(t *testing.T) {
 	}
 }
 
-func TestResolveProviderRejectsRemoteUnauthenticatedHTTP(t *testing.T) {
+func TestResolveProviderRejectsRemoteUnauthenticatedHTTPAndHTTPS(t *testing.T) {
 	getenv := func(key string) string {
 		if key == "JEQ_PROVIDER" {
 			return "custom"
@@ -63,6 +63,22 @@ func TestResolveProviderRejectsRemoteUnauthenticatedHTTP(t *testing.T) {
 		return ""
 	}
 	_, err := cli.ResolveProvider(getenv, nil, nil)
+	if err == nil || !strings.Contains(err.Message, "invalid base_url") {
+		t.Fatalf("err=%v", err)
+	}
+	getenv = func(key string) string {
+		if key == "JEQ_PROVIDER" {
+			return "custom"
+		}
+		if key == "JEQ_BASE_URL" {
+			return "https://example.test"
+		}
+		if key == "JEQ_AUTH" {
+			return "none"
+		}
+		return ""
+	}
+	_, err = cli.ResolveProvider(getenv, nil, nil)
 	if err == nil || !strings.Contains(err.Message, "invalid base_url") {
 		t.Fatalf("err=%v", err)
 	}

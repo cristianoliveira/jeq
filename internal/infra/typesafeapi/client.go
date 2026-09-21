@@ -68,6 +68,9 @@ func New(baseURL string, httpc *http.Client, apiKey string) *Client {
 	if httpc == nil {
 		httpc = &http.Client{Timeout: defaultHTTPTimeout}
 	}
+	// System One requests never follow redirects: a redirect can cross origins
+	// and leak the bearer credential or silently change the selected provider.
+	httpc.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{
 		BaseURL:       strings.TrimSuffix(baseURL, "/"),
 		HTTP:          httpc,

@@ -86,7 +86,7 @@ func TestAskNativeHappyPath(t *testing.T) {
 			return "secret"
 		}
 		if key == "TYPESAFE_BASE_URL" {
-			return "http://fixture"
+			return "http://127.0.0.1:18080"
 		}
 		return ""
 	})
@@ -179,7 +179,7 @@ func TestAskPassesBaseURLTimeoutAndRetryConfiguration(t *testing.T) {
 			return "secret"
 		}
 		if key == "TYPESAFE_BASE_URL" {
-			return "http://env-url"
+			return "http://127.0.0.1:18081"
 		}
 		return ""
 	})
@@ -191,7 +191,7 @@ func TestAskPassesBaseURLTimeoutAndRetryConfiguration(t *testing.T) {
 		return client
 	}
 	code, _, _, _ := runAsk(t, []string{"ask", "--questions", "q", "--state", "s", "--timeout", "3s", "--max-retries", "5"}, deps)
-	if code != 0 || gotURL != "http://env-url" || gotTimeout != 3*time.Second || gotRetries != 5 {
+	if code != 0 || gotURL != "http://127.0.0.1:18081" || gotTimeout != 3*time.Second || gotRetries != 5 {
 		t.Fatalf("code=%d url=%q timeout=%s retries=%d", code, gotURL, gotTimeout, gotRetries)
 	}
 }

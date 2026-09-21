@@ -99,7 +99,7 @@ func builtinProvider(name string) (providerConfig, bool) {
 
 func validateProvider(name string, p *providerConfig) *jeq.Error {
 	u, err := url.Parse(strings.TrimSpace(p.BaseURL))
-	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || !validProviderScheme(u.Scheme, u.Hostname()) {
+	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || !validProviderScheme(u.Scheme, u.Hostname(), p.Auth) {
 		setting := "base_url"
 		if name == "typesafe" {
 			setting = "TYPESAFE_BASE_URL"
@@ -119,8 +119,11 @@ func isLoopback(host string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
-func validProviderScheme(scheme, host string) bool {
-	return scheme == "https" || (scheme == "http" && (isLoopback(host) || host == "fixture" || host == "env-url"))
+func validProviderScheme(scheme, host, auth string) bool {
+	if auth == "none" && !isLoopback(host) {
+		return false
+	}
+	return scheme == "https" || (scheme == "http" && isLoopback(host))
 }
 
 func readProviderConfig(path string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (configDocument, *jeq.Error) {
@@ -176,6 +179,23 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 	if strings.TrimSpace(doc.DefaultProvider) == "" && doc.DefaultProvider != "" {
 		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "default_provider must be non-empty")
 	}
+	if raw, present := fields["providers"]; present {
+		var rawProviders map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &rawProviders); err != nil {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "providers must be an object")
+		}
+		for name, rawProfile := range rawProviders {
+			var profileFields map[string]json.RawMessage
+			if err := json.Unmarshal(rawProfile, &profileFields); err != nil {
+				return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s must be an object", name))
+			}
+			for key := range profileFields {
+				if key != "base_url" && key != "default_model" && key != "auth" && key != "api_key_env" {
+					return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s contains unsupported field %q", name, key))
+				}
+			}
+		}
+	}
 	for name, profile := range doc.Providers {
 		if strings.TrimSpace(name) == "" || name == "typesafe" || name == "vercel" || name == "custom" {
 			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid or reserved provider name %q", name))
@@ -186,7 +206,7 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 		if profile.Auth != "bearer" && profile.Auth != "none" {
 			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has unsupported auth", name))
 		}
-		if profile.Auth == "bearer" && !validEnvName(profile.APIKeyEnv) {
+		if strings.TrimSpace(profile.APIKeyEnv) != "" && !validEnvName(profile.APIKeyEnv) {
 			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has malformed api_key_env", name))
 		}
 	}
