@@ -1,7 +1,7 @@
 ---
 id: TASK-0050
 title: Standardize product name as lowercase jeq
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [branding, docs]
