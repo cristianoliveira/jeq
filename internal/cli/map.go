@@ -240,6 +240,9 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		return framingErr
 	}
 	tr := trace.FromContext(ctx)
+	if _, worker := ctx.Value(mapWorkerContextKey{}).(bool); worker {
+		tr = nil
+	}
 	for index, record := range records {
 		if tr != nil {
 			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1+offset, len(records)+offset)
@@ -358,6 +361,8 @@ func (mapWorkerRenderer) RenderRaw(w io.Writer, raw []byte) error {
 	return err
 }
 
+type mapWorkerContextKey struct{}
+
 const mapWorkerLimit = 4
 
 type mapJob struct {
@@ -383,7 +388,7 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 			for job := range jobs {
 				var out bytes.Buffer
 				workerCmd := *cmd
-				workerCmd.SetContext(ctx)
+				workerCmd.SetContext(context.WithValue(ctx, mapWorkerContextKey{}, true))
 				workerCmd.SetOut(&out)
 				err := processMapInput(ctx, &workerCmd, mapWorkerRenderer{}, job.record, f, questions, extra, model, evaluator, job.index)
 				results <- mapResult{job.index, bytes.TrimSpace(out.Bytes()), err}
@@ -392,15 +397,32 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 	}
 	stop := func(err error) error { cancel(); close(jobs); workers.Wait(); return err }
 	pending, next, want := 0, 0, 0
+	seen, succeeded, emitted, failedCount := 0, 0, 0, 0
+	tr := trace.FromContext(ctx)
+	finish := func(err error) error {
+		if tr != nil {
+			tr.EmitSummary(cmd.CommandPath(), seen, succeeded, emitted, failedCount)
+		}
+		return err
+	}
 	failed := false
-	dispatch := func(record []byte) { jobs <- mapJob{next, record}; next++; pending++ }
+	dispatch := func(record []byte) {
+		index := next
+		jobs <- mapJob{index, record}
+		next++
+		pending++
+		seen++
+		if tr != nil {
+			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1, 0)
+		}
+	}
 	dispatch(first)
 	eof := false
 	var inputErr error
 	completed := make(map[int]mapResult, mapWorkerLimit)
 	for pending > 0 {
 		if ctx.Err() != nil {
-			return stop(jeq.NewError(jeq.CodeInterrupted, "map input cancelled"))
+			return finish(stop(jeq.NewError(jeq.CodeInterrupted, "map input cancelled")))
 		}
 		for !failed && !eof && pending < mapWorkerLimit {
 			record, done, err := readNDJSONRecord(reader)
@@ -419,6 +441,7 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 		pending--
 		if result.err != nil {
 			failed = true
+			failedCount++
 		}
 		completed[result.index] = result
 		for {
@@ -427,21 +450,30 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 				break
 			}
 			if ordered.err != nil {
-				return stop(ordered.err)
+				if tr != nil {
+					tr.EmitOperation(cmd.CommandPath(), "run.failed", "evaluation", "failed", string(jeq.CodeResponseInvalid), want+1, 0)
+				}
+				return finish(stop(ordered.err))
 			}
 			if err := renderRaw(renderer, cmd.OutOrStdout(), ordered.output); err != nil {
-				return stop(err)
+				return finish(stop(err))
 			}
+			if tr != nil {
+				tr.EmitOperation(cmd.CommandPath(), "operation.completed", "evaluation", "success", "", want+1, 0)
+				tr.EmitOperation(cmd.CommandPath(), "output.written", "output", "success", "", want+1, 0)
+			}
+			succeeded++
+			emitted++
 			delete(completed, want)
 			want++
 		}
 		if pending == 0 && inputErr != nil {
-			return stop(inputErr)
+			return finish(stop(inputErr))
 		}
 	}
 	close(jobs)
 	workers.Wait()
-	return nil
+	return finish(nil)
 }
 
 func mapRecords(input []byte, framing string) ([][]byte, *jeq.Error) {
