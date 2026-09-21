@@ -352,6 +352,7 @@ func (mapWorkerRenderer) RenderValue(w io.Writer, value any) error {
 	_, err = w.Write(append(raw, '\n'))
 	return err
 }
+
 func (mapWorkerRenderer) RenderRaw(w io.Writer, raw []byte) error {
 	_, err := w.Write(append(raw, '\n'))
 	return err
