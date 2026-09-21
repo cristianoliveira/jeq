@@ -20,10 +20,16 @@ func (r *readErrorAfterFirst) Read([]byte) (int, error) {
 	return 0, errors.New("synthetic read failure")
 }
 
-type cancelClient struct{ calls int }
+type cancelClient struct {
+	calls  int
+	cancel context.CancelFunc
+}
 
 func (c *cancelClient) Evaluate(ctx context.Context, _ contract.Request) (contract.Response, *jeq.Error) {
 	c.calls++
+	if c.cancel != nil {
+		c.cancel()
+	}
 	if ctx.Err() != nil {
 		return contract.Response{}, jeq.NewError(jeq.CodeInterrupted, "cancelled")
 	}
@@ -41,10 +47,32 @@ func TestMapStreamEmitsBeforeReadError(t *testing.T) {
 	}
 }
 
+func TestMapStreamDoesNotReadAfterEvaluationCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	client := &cancelClient{cancel: cancel}
+	reads := 0
+	reader := &countingReader{reads: &reads}
+	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
+	if err == nil || reads != 0 {
+		t.Fatalf("err=%v reads=%d", err, reads)
+	}
+}
+
+type countingReader struct{ reads *int }
+
+func (r *countingReader) Read([]byte) (int, error) {
+	*r.reads++
+	return 0, errors.New("reader must not be called")
+}
+
 func TestReadNDJSONSkipsEmptyAndRejectsOversized(t *testing.T) {
 	record, eof, err := readNDJSONRecord(bufio.NewReader(strings.NewReader("\n\n{\"x\":1}\n")))
 	if err != nil || eof || string(record) != "{\"x\":1}" {
 		t.Fatalf("record=%q eof=%v err=%v", record, eof, err)
+	}
+	exact := strings.Repeat("x", MapMaxRecordBytes) + "\n"
+	if record, _, err := readNDJSONRecord(bufio.NewReader(strings.NewReader(exact))); err != nil || len(record) != MapMaxRecordBytes {
+		t.Fatalf("boundary record len=%d err=%v", len(record), err)
 	}
 	_, _, err = readNDJSONRecord(bufio.NewReader(strings.NewReader(strings.Repeat("x", MapMaxRecordBytes+1))))
 	if err == nil {

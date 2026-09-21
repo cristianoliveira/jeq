@@ -289,7 +289,11 @@ func readNDJSONRecord(reader *bufio.Reader) ([]byte, bool, *jeq.Error) {
 	var record []byte
 	for {
 		part, err := reader.ReadSlice('\n')
-		if len(record)+len(part) > MapMaxRecordBytes {
+		contentLen := len(record) + len(part)
+		if len(part) > 0 && part[len(part)-1] == '\n' {
+			contentLen--
+		}
+		if contentLen > MapMaxRecordBytes {
 			return nil, false, jeq.NewError(jeq.CodeInputInvalid, "NDJSON record exceeds the byte limit")
 		}
 		record = append(record, part...)
@@ -323,6 +327,9 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 		}
 		if err := processMapInput(ctx, cmd, renderer, record, f, questions, extra, model, evaluator, offset); err != nil {
 			return err
+		}
+		if ctx.Err() != nil {
+			return jeq.NewError(jeq.CodeInterrupted, "map input cancelled")
 		}
 		next, eof, readErr := readNDJSONRecord(reader)
 		if readErr != nil {
