@@ -7,7 +7,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"sync/atomic"
+	"sync"
 )
 
 //nolint:revive
@@ -26,6 +26,7 @@ type Config struct {
 	Enabled          bool
 	Command, ID      string
 	Out              io.Writer
+	mu               sync.Mutex
 	sequence, events uint64
 	suppressed       bool
 }
@@ -82,48 +83,87 @@ func FromContext(ctx context.Context) *Config {
 
 //nolint:revive
 func (c *Config) Emit(command, name, phase, outcome, code string) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.emit(command, name, phase, outcome, code, 0, 0)
 }
 
 //nolint:revive
-func (c *Config) Attempt(a, s int) { c.emitHTTP(c.Command, "request.attempted", a, 0, s) }
+func (c *Config) Attempt(a, s int) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.emitHTTP(c.Command, "request.attempted", a, 0, s)
+}
 
 //nolint:revive
-func (c *Config) Retrying(a, b, s int) { c.emitHTTP(c.Command, "request.retrying", a, b, s) }
+func (c *Config) Retrying(a, b, s int) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.emitHTTP(c.Command, "request.retrying", a, b, s)
+}
 
 func (c *Config) emitHTTP(command, name string, a, b, s int) {
 	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
 		return
 	}
-	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: a, AttemptBudget: b, HTTPStatus: s, HTTPClass: s / 100})
+	c.write(event{Schema: Schema, Sequence: c.nextSequence(), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: "transport", Outcome: "started", Attempt: a, AttemptBudget: b, HTTPStatus: s, HTTPClass: s / 100})
 }
 
 //nolint:revive
 func (c *Config) EmitMetadata(command, model, source, framing, pointer string, names, types []string) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c == nil || !c.Enabled || c.Out == nil || !c.reserve("preflight.completed") {
 		return
 	}
-	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "preflight.completed", Phase: "preflight", Outcome: "success", Model: model, ModelSource: source, Framing: framing, Pointer: pointer, QuestionNames: names, QuestionTypes: types})
+	c.write(event{Schema: Schema, Sequence: c.nextSequence(), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "preflight.completed", Phase: "preflight", Outcome: "success", Model: model, ModelSource: source, Framing: framing, Pointer: pointer, QuestionNames: names, QuestionTypes: types})
 }
 
 //nolint:revive
 func (c *Config) EmitPolicy(command string, pass, ambiguous, reject int) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c == nil || !c.Enabled || c.Out == nil || !c.reserve("run.completed") {
 		return
 	}
-	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "offline_policy", Outcome: "success", Pass: pass, Ambiguous: ambiguous, Reject: reject})
+	c.write(event{Schema: Schema, Sequence: c.nextSequence(), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "offline_policy", Outcome: "success", Pass: pass, Ambiguous: ambiguous, Reject: reject})
 }
 
 //nolint:revive
 func (c *Config) EmitSummary(command string, seen, succeeded, emitted, failed int) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c == nil || !c.Enabled || c.Out == nil {
 		return
 	}
-	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "summary", Outcome: "success", Seen: seen, Succeeded: succeeded, Emitted: emitted, Failed: failed})
+	c.write(event{Schema: Schema, Sequence: c.nextSequence(), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: "run.completed", Phase: "summary", Outcome: "success", Seen: seen, Succeeded: succeeded, Emitted: emitted, Failed: failed})
 }
 
 //nolint:revive
 func (c *Config) EmitOperation(command, name, phase, outcome, code string, index, total int) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if name == "operation.started" {
 		if c.events >= 64 {
 			if !c.suppressed {
@@ -141,7 +181,7 @@ func (c *Config) emit(command, name, phase, outcome, code string, index, total i
 	if c == nil || !c.Enabled || c.Out == nil || !c.reserve(name) {
 		return
 	}
-	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code, OperationIndex: index, Total: total})
+	c.write(event{Schema: Schema, Sequence: c.nextSequence(), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code, OperationIndex: index, Total: total})
 }
 
 func (c *Config) reserve(name string) bool {
@@ -160,7 +200,7 @@ func (c *Config) reserve(name string) bool {
 }
 
 func (c *Config) emitUnbounded(command, name, phase, outcome, code string) {
-	c.write(event{Schema: Schema, Sequence: atomic.AddUint64(&c.sequence, 1), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code})
+	c.write(event{Schema: Schema, Sequence: c.nextSequence(), TraceID: c.ID, EntryPoint: "cli", Command: command, Event: name, Phase: phase, Outcome: outcome, ErrorCode: code})
 }
 
 func (c *Config) write(e event) {
@@ -176,3 +216,5 @@ func ResolveID(flag, env string) (string, bool) {
 	}
 	return id, ValidateID(id)
 }
+
+func (c *Config) nextSequence() uint64 { c.sequence++; return c.sequence }

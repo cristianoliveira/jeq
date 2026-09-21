@@ -3,6 +3,7 @@ package trace
 import (
 	"bytes"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -18,6 +19,31 @@ func TestTraceIsVersionedBoundedAndEphemeral(t *testing.T) {
 	}
 	if !strings.Contains(line, `"schema":"jeq.trace.v1"`) || !strings.Contains(line, `"sequence":1`) {
 		t.Fatalf("unexpected event: %s", line)
+	}
+}
+
+func TestTraceConcurrentObserversKeepOrderedCompleteLines(t *testing.T) {
+	var out bytes.Buffer
+	cfg := New(true, "concurrent", &out)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cfg.EmitOperation("jeq map", "operation.started", "evaluation", "started", "", i, 8)
+			cfg.Attempt(i+1, 200)
+			cfg.Retrying(i+1, 2, 529)
+		}(i)
+	}
+	wg.Wait()
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) == 0 {
+		t.Fatal("no trace events")
+	}
+	for _, line := range lines {
+		if !strings.HasSuffix(line, "}") || !strings.Contains(line, `"schema":"jeq.trace.v1"`) {
+			t.Fatalf("torn trace line: %q", line)
+		}
 	}
 }
 
