@@ -23,23 +23,16 @@ type exampleRecipe struct {
 var exampleRecipes = []exampleRecipe{
 	{
 		ID: "rate-sort", Purpose: "Rate every record with one Score rubric, then sort explicitly with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
-		Shell: `set -euo pipefail
-rated=$(mktemp); trap 'rm -f "$rated"' EXIT
-printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
-  jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \
-    --level 'Cosmetic: no functional impact' --level 'Degraded: an important workflow is impaired' --level 'Critical: service or data is at risk' > "$rated"
-# Sort, select top-k, filter by a caller-owned threshold, and apply explicit policy offline.
-jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse' "$rated"
-jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.id)' "$rated"
-jq 'select(._jeq.severity.answers.severity.score >= 1.5)' "$rated"
-jq -s 'map(if ._jeq.severity.answers.severity.score >= 1.5 then .id else empty end)' "$rated"`,
+		Shell: `printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
+jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \
+  --level 'Cosmetic: no functional impact' --level 'Degraded: an important workflow is impaired' --level 'Critical: service or data is at risk' |
+jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.id)'`,
 		InputShape: "NDJSON records with descriptions", OutputShape: "all records sorted by returned semantic Score", Privacy: "descriptions are sent independently; jq controls final output", Exits: "rate exits 0 on success; jq is offline.",
 	},
 	{
 		ID: "rank-top-k", Purpose: "Rank candidates once, then select an explicit top-k policy with jq.", Covers: []string{"rank", "jq"},
 		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request; jq is offline",
-		Shell: `set -euo pipefail
-printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":"support","description":"Account help"},{"name":"fallback","description":"No specialist match"}]' |
+		Shell: `printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":"support","description":"Account help"},{"name":"fallback","description":"No specialist match"}]' |
   jeq rank --as route --input json --state 'A customer asks about a refund' \
     --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description |
   jq -c '.items[:2] | map(.candidate)'`,
@@ -48,8 +41,7 @@ printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":
 	{
 		ID: "validate-native", Purpose: "Validate one native request locally before spending a network call.", Covers: []string{"validate"},
 		Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests; validation is offline",
-		Shell: `set -euo pipefail
-printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
+		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
   jeq validate --request -`,
 		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "plain validation receipt with valid, mode, model, and question_count lines",
 		Privacy: "validation is local and sends no state to TypeSafe.",
@@ -57,17 +49,14 @@ printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"u
 	{
 		ID: "ask-native", Purpose: "Send one native request from stdin.", Covers: []string{"ask"},
 		Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY"}, Cost: "1 API request",
-		Shell: `set -euo pipefail
-printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
+		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
   jeq ask --request -`,
 		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "one response envelope with _jeq-free answers and usage",
 		Privacy: "stdin state is sent to TypeSafe; project response fields before logs.",
 	},
 	{
 		ID: "debug-chain", Purpose: "Capture safe lifecycle traces for a caller-owned map/rate/reduce chain.", Covers: []string{"verbose", "trace-id", "map", "rate", "reduce"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY"}, Cost: "one request per map/rate record plus one reduce request",
-		Shell: `set -euo pipefail
-export JEQ_TRACE_ID=${JEQ_TRACE_ID:-debug-chain}
-printf '%s\n' '{"description":"incident"}' |
+		Shell: `printf '%s\n' '{"description":"incident"}' |
   jeq --verbose map --as triage --input ndjson --state-pointer /description --questions-json '{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}' 2>map.trace.ndjson |
   jeq --verbose rate --as severity --input ndjson --state-pointer /description --instruction 'How severe?' --level Low --level High 2>rate.trace.ndjson |
   jeq --verbose reduce --as aggregate --input ndjson --questions-json '{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}' 2>reduce.trace.ndjson
@@ -78,8 +67,7 @@ printf '%s\n' '{"description":"incident"}' |
 	{
 		ID: "map-gate", Purpose: "Judge each record and apply an offline threshold.", Covers: []string{"map", "gate"},
 		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N API requests for N records; jq and gate are offline",
-		Shell: `set -euo pipefail
-printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
+		Shell: `printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
   jeq map --as risk --input ndjson --state-pointer /change \
     --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}' |
   jeq gate --as policy --input ndjson --value-pointer /_jeq/risk/answers/risk/noul \
@@ -91,8 +79,7 @@ printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
 	{
 		ID: "reduce-gate", Purpose: "Judge one complete collection and gate its aggregate signal.", Covers: []string{"reduce", "gate"},
 		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request for the complete collection; jq and gate are offline",
-		Shell: `set -euo pipefail
-printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
+		Shell: `printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
   jeq reduce --as coherent --input ndjson \
     --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this collection coherent?"}}}' |
   jeq gate --as policy --value-pointer /_jeq/coherent/answers/coherent/noul \
@@ -104,8 +91,7 @@ printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
 	{
 		ID: "map-reduce-gate", Purpose: "Compose local per-record judgments with one relational aggregate gate.", Covers: []string{"map", "reduce", "gate"},
 		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N map requests plus 1 reduce request; jq and gate are offline",
-		Shell: `set -euo pipefail
-printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","content":"two"}}' |
+		Shell: `printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","content":"two"}}' |
   jeq map --as local --input ndjson --state-pointer /file \
     --questions-json '{"questions":{"local":{"type":"noul","instructions":"Is this file focused?"}}}' |
   jq -c '{file:.file,local:._jeq.local.answers.local.noul}' |

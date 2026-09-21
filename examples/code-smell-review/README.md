@@ -59,7 +59,7 @@ floor. The projection sorts dimensions from lowest to highest and computes the
 top-level `quality_floor` as their minimum:
 
 ```sh
-./examples/code-smell-review/review.sh path/to/file.go |
+./examples/code-smell-review/review.sh examples/code-smell-review/fixtures/cohesive.go.txt |
 jq 'del(.items)
   | ._jeq.code_smells.answers as $answers
   | ($answers | to_entries | map({id: .key, noul: .value.noul}) | sort_by(.noul)) as $dimensions
@@ -72,7 +72,7 @@ The base review remains advisory. Callers can explicitly gate the projected
 quality floor with offline thresholds:
 
 ```sh
-review=$(./examples/code-smell-review/review.sh path/to/file.go)
+review=$(./examples/code-smell-review/review.sh examples/code-smell-review/fixtures/cohesive.go.txt)
 printf '%s\n' "$review" |
 jq 'del(.items)
   | ._jeq.code_smells.answers as $answers

@@ -68,13 +68,13 @@ func runScript(t *testing.T, script, input, endpoint string, extra map[string]st
 	commandArgs := append([]string{filepath.Join(repoRoot, script)}, args...)
 	cmd := exec.CommandContext(ctx, "bash", commandArgs...)
 	cmd.Dir = repoRoot
-	if fake, ok := extra["JEQ_BIN"]; ok {
+	if fake, ok := extra["TEST_FAKE_JEQ"]; ok {
 		toolDir := t.TempDir()
 		if err := os.Symlink(fake, filepath.Join(toolDir, "jeq")); err != nil {
 			t.Fatal(err)
 		}
 		extra = cloneEnv(extra)
-		delete(extra, "JEQ_BIN")
+		delete(extra, "TEST_FAKE_JEQ")
 		extra["PATH"] = toolDir + string(os.PathListSeparator) + os.Getenv("PATH")
 	}
 	cmd.Env = envWith(map[string]string{
@@ -356,14 +356,14 @@ func TestChangeRiskGatePolicyAndOperationalStatus(t *testing.T) {
 	})
 	t.Run("jeq status 2 is unchanged", func(t *testing.T) {
 		wrapper := writeWrapper(t, `exec "$JEQ_REAL" "$@" --unknown-flag`)
-		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"JEQ_BIN": wrapper, "JEQ_REAL": jeqBin})
+		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"TEST_FAKE_JEQ": wrapper, "JEQ_REAL": jeqBin})
 		if result.exit != 2 || strings.TrimSpace(result.stdout) != "" || !strings.HasPrefix(result.stderr, "Error: ") {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
 		}
 	})
 	t.Run("jeq status 130 is unchanged", func(t *testing.T) {
 		wrapper := writeWrapper(t, `printf '%s\n' '{"code":"JEQ_INTERRUPTED","message":"request interrupted","recovery":"rerun the command when ready"}'; exit 130`)
-		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"JEQ_BIN": wrapper})
+		result := runScript(t, "examples/change-risk-gate/gate.sh", "diff", "", map[string]string{"TEST_FAKE_JEQ": wrapper})
 		if result.exit != 130 || result.stderr != "" {
 			t.Fatalf("exit=%d stderr=%q stdout=%q", result.exit, result.stderr, result.stdout)
 		}
@@ -479,7 +479,7 @@ func TestReleaseReadinessScriptPassesExactReduceRequest(t *testing.T) {
 	temp := t.TempDir()
 	argsFile, inputFile, countFile := filepath.Join(temp, "args"), filepath.Join(temp, "input"), filepath.Join(temp, "count")
 	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{
-		"JEQ_BIN": fake, "FAKE_ARGS": argsFile, "FAKE_INPUT": inputFile, "FAKE_COUNT": countFile,
+		"TEST_FAKE_JEQ": fake, "FAKE_ARGS": argsFile, "FAKE_INPUT": inputFile, "FAKE_COUNT": countFile,
 	})
 	if result.exit != 0 || result.stderr != "" {
 		t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
@@ -509,7 +509,7 @@ func TestReleaseReadinessScriptPropagatesFailure(t *testing.T) {
 	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nprintf '1\\n' >>\"$FAKE_COUNT\"\nprintf 'kept stdout\\n'\nprintf 'failure\\n' >&2\nexit 23\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{"JEQ_BIN": fake, "FAKE_COUNT": countFile})
+	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{"TEST_FAKE_JEQ": fake, "FAKE_COUNT": countFile})
 	count, _ := os.ReadFile(countFile)
 	if result.exit != 23 || result.stdout != "kept stdout\n" || result.stderr != "failure\n" || string(count) != "1\n" {
 		t.Fatalf("exit=%d stdout=%q stderr=%q invocations=%q", result.exit, result.stdout, result.stderr, count)
