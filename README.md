@@ -60,6 +60,13 @@ guides:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Examples](examples/README.md)
 
+## Discover from the CLI
+
+JEQ is fully self-discoverable through native help and built-in recipes. Run
+`jeq --help` for the command surface, `jeq <command> --help` for a command's
+contract, and `jeq examples` for complete workflows. Users and agents do not
+need a JEQ-specific skill.
+
 ## Boundaries
 
 - Evaluation commands make network requests. `validate` validates locally.
