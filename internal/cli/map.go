@@ -140,15 +140,11 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 		return withTracePhase(err, "state_selection")
 	}
 
-	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
-	if rootErr != nil {
-		return rootErr
+	provider, providerErr := ResolveProvider(deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	if providerErr != nil {
+		return providerErr
 	}
-
-	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
-	if apiKey == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
-	}
+	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {
 			return jeq.NewError(jeq.CodeInputInvalid, "model is required in composed mode")

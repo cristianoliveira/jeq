@@ -33,7 +33,11 @@ func main() {
 			}, forbidEmpty)
 		},
 		NewClient: func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) cli.APIClient {
-			c := typesafeapi.New(baseURL, &http.Client{Timeout: timeout}, apiKey)
+			httpc := &http.Client{Timeout: timeout, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
+			c := typesafeapi.New(baseURL, httpc, apiKey)
+			if apiKey == "" {
+				c.AuthMode = "none"
+			}
 			c.MaxRetries = maxRetries
 			c.Diagnostic = diagnostic
 			return c

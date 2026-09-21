@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
@@ -45,15 +44,11 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if parseErr != nil || timeout <= 0 {
 				return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", timeoutText)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
 			}
-			baseURL, baseErr := ResolveBaseURL(deps.Getenv)
-			if baseErr != nil {
-				return baseErr
+			provider, providerErr := ResolveProvider(deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+			if providerErr != nil {
+				return providerErr
 			}
-
-			apiKey := deps.Getenv("TYPESAFE_API_KEY")
-			if strings.TrimSpace(apiKey) == "" {
-				return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
-			}
+			baseURL, apiKey := provider.BaseURL, provider.APIKey
 			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 			attachTrace(cmd, client)
 			modelsClient, ok := client.(interface {

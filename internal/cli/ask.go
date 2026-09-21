@@ -179,15 +179,11 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid --timeout %q", f.timeout)).WithRecovery("set --timeout to a positive Go duration, for example 10s")
 	}
 
-	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
-	if rootErr != nil {
-		return rootErr
+	provider, providerErr := ResolveProvider(deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	if providerErr != nil {
+		return providerErr
 	}
-
-	apiKey := deps.Getenv("TYPESAFE_API_KEY")
-	if strings.TrimSpace(apiKey) == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set").WithRecovery("export TYPESAFE_API_KEY with the account key")
-	}
+	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	traceMetadata(cmd, req.Model, modelSource, "json", "", req.Questions)
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)

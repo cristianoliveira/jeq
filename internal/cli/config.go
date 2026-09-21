@@ -17,7 +17,148 @@ const (
 )
 
 type configDocument struct {
+	DefaultModel    string                    `json:"default_model"`
+	DefaultProvider string                    `json:"default_provider"`
+	Providers       map[string]providerConfig `json:"providers"`
+}
+
+type providerConfig struct {
+	BaseURL      string `json:"base_url"`
 	DefaultModel string `json:"default_model"`
+	Auth         string `json:"auth"`
+	APIKeyEnv    string `json:"api_key_env"`
+}
+
+type ResolvedProvider struct {
+	Name, BaseURL, APIKey, Model, Auth string
+}
+
+func ResolveProvider(getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (ResolvedProvider, *jeq.Error) {
+	config, err := readProviderConfig(strings.TrimSpace(getenv("JEQ_CONFIG")), getenv, readFile, readOptional)
+	if err != nil {
+		return ResolvedProvider{}, err
+	}
+	name := strings.TrimSpace(getenv("JEQ_PROVIDER"))
+	if name == "" {
+		name = strings.TrimSpace(config.DefaultProvider)
+	}
+	if name == "" {
+		name = "typesafe"
+	}
+	profile, ok := builtinProvider(name)
+	if !ok {
+		profile, ok = config.Providers[name]
+	}
+	if !ok && name == "custom" {
+		profile = providerConfig{BaseURL: getenv("JEQ_BASE_URL"), DefaultModel: getenv("JEQ_DEFAULT_MODEL"), Auth: getenv("JEQ_AUTH"), APIKeyEnv: "JEQ_API_KEY"}
+		ok = true
+	}
+	if !ok {
+		return ResolvedProvider{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("unknown provider %q", name))
+	}
+	if name == "typesafe" && strings.TrimSpace(getenv("TYPESAFE_BASE_URL")) != "" {
+		profile.BaseURL = getenv("TYPESAFE_BASE_URL")
+	}
+	if profile.DefaultModel == "" {
+		profile.DefaultModel = config.DefaultModel
+	}
+	if profile.DefaultModel == "" {
+		profile.DefaultModel = DefaultModel
+	}
+	if profile.Auth == "" {
+		profile.Auth = "bearer"
+	}
+	if err := validateProvider(name, &profile); err != nil {
+		return ResolvedProvider{}, err
+	}
+	key := ""
+	if profile.Auth == "bearer" {
+		key = strings.TrimSpace(getenv(profile.APIKeyEnv))
+		if key == "" {
+			return ResolvedProvider{}, jeq.NewError(jeq.CodeAuthMissing, fmt.Sprintf("%s credential is not set", profile.APIKeyEnv))
+		}
+	}
+	return ResolvedProvider{Name: name, BaseURL: strings.TrimSuffix(profile.BaseURL, "/"), APIKey: key, Model: profile.DefaultModel, Auth: profile.Auth}, nil
+}
+
+func builtinProvider(name string) (providerConfig, bool) {
+	switch name {
+	case "typesafe":
+		return providerConfig{BaseURL: DefaultBaseURL, Auth: "bearer", APIKeyEnv: "TYPESAFE_API_KEY"}, true
+	case "vercel":
+		key := "AI_GATEWAY_API_KEY"
+		return providerConfig{BaseURL: "https://ai-gateway.vercel.sh/typesafe", DefaultModel: "typesafe-ai/jev", Auth: "bearer", APIKeyEnv: key}, true
+	}
+	return providerConfig{}, false
+}
+
+func validateProvider(name string, p *providerConfig) *jeq.Error {
+	u, err := url.Parse(strings.TrimSpace(p.BaseURL))
+	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(name == "typesafe" || (p.Auth == "none" && isLoopback(u.Hostname()) && u.Scheme == "http"))) {
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has invalid base_url", name))
+	}
+	if p.Auth != "bearer" && p.Auth != "none" {
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has unsupported auth", name))
+	}
+	if p.Auth == "bearer" && strings.TrimSpace(p.APIKeyEnv) == "" {
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s requires api_key_env", name))
+	}
+	return nil
+}
+
+func isLoopback(host string) bool { return host == "localhost" || host == "127.0.0.1" || host == "::1" }
+
+func readProviderConfig(path string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (configDocument, *jeq.Error) {
+	path = strings.TrimSpace(path)
+	explicit := path != ""
+	if !explicit {
+		if root := strings.TrimSpace(getenv("XDG_CONFIG_HOME")); root != "" {
+			path = filepath.Join(root, defaultConfigRelativePath)
+		} else if home := strings.TrimSpace(getenv("HOME")); home != "" {
+			path = filepath.Join(home, ".config", defaultConfigRelativePath)
+		}
+	}
+	if path == "" || readFile == nil || (!explicit && readOptional == nil) {
+		return configDocument{}, nil
+	}
+	var data []byte
+	var err *jeq.Error
+	var found bool
+	if explicit || readOptional == nil {
+		data, err = readFile(path, configMaxBytes)
+		found = err == nil
+	} else {
+		data, err, found = readOptional(path, configMaxBytes)
+	}
+	if err != nil {
+		if !explicit && !found {
+			return configDocument{}, nil
+		}
+		return configDocument{}, err
+	}
+	if !found {
+		return configDocument{}, nil
+	}
+	if len(data) > configMaxBytes {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "config exceeds size limit")
+	}
+	var fields map[string]json.RawMessage
+	if err := contract.ValidateJSON(data); err != nil {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, err.Error())
+	}
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "config must be an object")
+	}
+	for k := range fields {
+		if k != "default_model" && k != "default_provider" && k != "providers" {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config contains unsupported field %q", k))
+		}
+	}
+	var doc configDocument
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, err.Error())
+	}
+	return doc, nil
 }
 
 // ResolveConfiguredModel applies flag > environment > user config > fallback.

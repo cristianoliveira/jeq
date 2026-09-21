@@ -99,15 +99,11 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 		return jeq.NewError(jeq.CodeInputInvalid, "model is required")
 	}
 
-	rootURL, rootErr := ResolveBaseURL(deps.Getenv)
-	if rootErr != nil {
-		return rootErr
+	provider, providerErr := ResolveProvider(deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+	if providerErr != nil {
+		return providerErr
 	}
-
-	apiKey := strings.TrimSpace(deps.Getenv("TYPESAFE_API_KEY"))
-	if apiKey == "" {
-		return jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set")
-	}
+	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, "", questions)
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)

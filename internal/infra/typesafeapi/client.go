@@ -42,9 +42,10 @@ const (
 // Client calls the two TypeSafe endpoints. All fields are injected; there
 // are no globals and the domain never constructs it.
 type Client struct {
-	BaseURL string // API root, e.g. https://api.typesafe.ai
-	HTTP    *http.Client
-	APIKey  string
+	BaseURL  string // API root, e.g. https://api.typesafe.ai
+	HTTP     *http.Client
+	APIKey   string
+	AuthMode string // bearer or none
 
 	MaxBodyBytes  int64
 	MaxErrorBytes int64
@@ -71,6 +72,7 @@ func New(baseURL string, httpc *http.Client, apiKey string) *Client {
 		BaseURL:       strings.TrimSuffix(baseURL, "/"),
 		HTTP:          httpc,
 		APIKey:        apiKey,
+		AuthMode:      "bearer",
 		MaxBodyBytes:  DefaultMaxBodyBytes,
 		MaxErrorBytes: DefaultMaxErrorBytes,
 		MaxRetries:    DefaultMaxRetries,
@@ -114,9 +116,9 @@ func (c *Client) Models(ctx context.Context) (contract.Models, *jeq.Error) {
 }
 
 func (c *Client) call(ctx context.Context, method, path string, body []byte) ([]byte, *jeq.Error) {
-	if c.APIKey == "" {
-		return nil, withRecovery(jeq.NewError(jeq.CodeAuthMissing, "TYPESAFE_API_KEY is not set"),
-			"export TYPESAFE_API_KEY with the account key")
+	if c.AuthMode != "none" && c.APIKey == "" {
+		return nil, withRecovery(jeq.NewError(jeq.CodeAuthMissing, "API credential is not set"),
+			"configure a bearer credential or select unauthenticated loopback mode")
 	}
 
 	retries := c.MaxRetries
@@ -172,7 +174,9 @@ func (c *Client) attemptOnce(ctx context.Context, method, path string, body []by
 		return 0, nil, nil, withRecovery(jeq.WrapError(jeq.CodeNetworkError, err, "building request"),
 			"check TYPESAFE_BASE_URL; it must be a valid API root")
 	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	if c.AuthMode != "none" {
+		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
