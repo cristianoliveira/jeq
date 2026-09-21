@@ -1,7 +1,7 @@
 ---
 id: TASK-0050
 title: Standardize product name as lowercase jeq
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [branding, docs]
@@ -10,7 +10,7 @@ tags: [branding, docs]
 # Standardize product name as lowercase jeq
 
 ## Problem
-Repository prose still renders the product name as uppercase JEQ. Cristian established lowercase jeq as the only correct product spelling.
+Repository prose still renders the product name in all capitals. Cristian established lowercase `jeq` as the only correct product spelling.
 
 ## Desired outcome
 The product has one written identity everywhere: `jeq`, including at sentence starts and in headings. Uppercase remains valid only inside established configuration identifiers such as `JEQ_CONFIG`, `JEQ_TRACE_ID`, and `JEQ_BIN`.
@@ -20,7 +20,7 @@ The product has one written identity everywhere: `jeq`, including at sentence st
 - [ ] Root README title, logo alternative text, and SVG accessible titles use lowercase `jeq`.
 - [ ] Environment variables and identifiers containing the uppercase `JEQ_` namespace remain unchanged.
 - [ ] Root AGENTS.md records lowercase `jeq` as the durable naming rule.
-- [ ] A case-sensitive tracked-file audit finds no standalone uppercase `JEQ` product spelling.
+- [ ] A case-sensitive tracked-file audit finds no standalone all-capital product spelling.
 - [ ] Normal checks pass without adding a grep-based automated test.
 
 ## Non-goals
