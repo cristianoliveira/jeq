@@ -95,7 +95,11 @@ func builtinProvider(name string) (providerConfig, bool) {
 func validateProvider(name string, p *providerConfig) *jeq.Error {
 	u, err := url.Parse(strings.TrimSpace(p.BaseURL))
 	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(name == "typesafe" || (p.Auth == "none" && isLoopback(u.Hostname()) && u.Scheme == "http"))) {
-		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has invalid base_url", name))
+		setting := "base_url"
+		if name == "typesafe" {
+			setting = "TYPESAFE_BASE_URL"
+		}
+		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has invalid %s", name, setting))
 	}
 	if p.Auth != "bearer" && p.Auth != "none" {
 		return jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has unsupported auth", name))
