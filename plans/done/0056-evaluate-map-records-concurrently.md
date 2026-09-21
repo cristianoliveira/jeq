@@ -1,7 +1,7 @@
 ---
 id: TASK-0056
 title: Evaluate map records concurrently
-status: doing
+status: done
 depends_on: [TASK-0054, TASK-0055]
 priority: high
 tags: [cli, map, concurrency, backpressure, determinism]
