@@ -6,6 +6,10 @@ jeq is a command-line client that turns TypeSafe System One judgments into safe,
 
 Write the product name as lowercase `jeq`, including in headings and at sentence starts. Keep the uppercase `JEQ_` prefix only for established environment variables such as `JEQ_CONFIG`, `JEQ_TRACE_ID`, and `JEQ_BIN`.
 
+# Writing
+
+Write user-facing prose in direct, practical language. Start with what the command does, name the real constraint, and tell the reader what to run next. Avoid abstract words such as “surface” and “boundary” when a concrete action is clearer. Do not use em dashes. Keep headings short and natural.
+
 # Architecture
 
 `cmd/jeq` is the production composition root. It wires the shell-facing [CLI](internal/cli/AGENTS.md) to infrastructure adapters for [source input and rendering](internal/infra/AGENTS.md) and the TypeSafe HTTP API. The CLI depends inward on the domain contracts, composition rules, and [pipeline](internal/domain/AGENTS.md); the domain does not depend on Cobra, HTTP, files, or renderers.

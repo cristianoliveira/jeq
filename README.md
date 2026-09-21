@@ -6,14 +6,15 @@
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jeq-logo.svg">
   <img src="docs/assets/jeq-logo-mono.svg" alt="jeq logo" width="160" height="160">
   
-<strong>Intelligence you can pipe.</strong>
+<strong>Jev judgments you can pipe, compose, and gate.</strong>
 </picture>
 
 </div>
 
 
-jeq is a typed judgment CLI for scripts, agents, and systems. It turns a question
-and JSON state into evidence that can move through a Unix pipeline.
+jeq lets scripts and agents ask Jev typed questions and keep the answers as JSON
+data. The result stays JSON, so you can pipe it into the next command instead of
+parsing prose.
 
 ```sh
 printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
@@ -23,9 +24,10 @@ printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
     --pass-min 0.8 --reject-max 0.2
 ```
 
-## Quick start
+## Install it
 
-On Linux, install the verified release archive with the installer:
+On Linux, download the installer first so you can inspect it. It verifies the
+release archive before installing it:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/cristianoliveira/jeq/main/scripts/install-jeq-linux.sh \
@@ -33,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/cristianoliveira/jeq/main/scripts/i
 bash /tmp/install-jeq-linux.sh
 ```
 
-On macOS, install through the Homebrew tap:
+On macOS, Homebrew is simpler:
 
 ```sh
 brew tap cristianoliveira/tap
@@ -41,15 +43,15 @@ brew install cristianoliveira/tap/jeq
 jeq version
 ```
 
-Alternatively, install from the pinned release candidate with Nix:
+If you use Nix, pin the release:
 
 ```sh
 nix run github:cristianoliveira/jeq/v0.1.0-rc.1 -- version
 nix profile install github:cristianoliveira/jeq/v0.1.0-rc.1
 ```
 
-Then set `TYPESAFE_API_KEY` and run an explicit judgment. Start with the focused
-guides:
+Set `TYPESAFE_API_KEY` when you are ready to make an API call. These guides
+cover the rest:
 
 - [Installation](docs/guides/installation.md)
 - [Getting started](docs/guides/getting-started.md)
@@ -60,24 +62,28 @@ guides:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Examples](examples/README.md)
 
-## Discover from the CLI
+## Learn it from the CLI
 
-jeq is fully self-discoverable through native help and built-in recipes. Run
-`jeq --help` for the command surface, `jeq <command> --help` for a command's
-contract, and `jeq examples` for complete workflows. Users and agents do not
-need a jeq-specific skill.
+jeq explains itself. Run `jeq --help` to list every command,
+`jeq <command> --help` to see its flags and examples, and `jeq examples` for
+complete workflows. You do not need to install a jeq-specific skill for an
+agent to use it.
 
-## Boundaries
+## Before you run it
 
-- Evaluation commands make network requests. `validate` validates locally.
-- Input is untrusted data. Do not treat model output, IDs, or excerpts as commands.
-- Review prompts, state, and output before sending. Do not send credentials or
-  private data unintentionally.
-- API usage costs money. Retries, batch size, and model choice affect cost.
-- Output and exit codes are designed for pipelines; policy `reject` and
-  `uncertain` are non-zero. Verbose traces go to stderr.
-- jeq does not own actions, memory, sessions, or release tags. The caller owns
-  state, credentials, retries, and automation policy.
+- `ask`, `map`, `rate`, `reduce`, `rank`, and `models` call TypeSafe. `validate`
+  and `gate` run locally.
+- Treat every input and model answer as data. An ID or excerpt is not a command
+  just because Jev returned it.
+- Check what you send. Do not put credentials or private data in a prompt,
+  state, or log.
+- API calls cost money. Retries, the number of records, and model choice change
+  that cost.
+- Check exit codes in scripts. A rejected or uncertain gate returns a nonzero
+  code. `--verbose` writes traces to stderr.
+- jeq does not run actions or keep memory between commands. Your script keeps
+  the state and credentials, decides when to retry, and decides what happens
+  next.
 
 ## More documentation
 
