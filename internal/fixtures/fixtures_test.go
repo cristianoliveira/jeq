@@ -25,7 +25,7 @@ func TestInvalidManifestParses(t *testing.T) {
 	}
 	for _, entry := range manifest {
 		if !strings.HasPrefix(entry.Code, "JEQ_") {
-			t.Errorf("fixture %s: code %q is not a JEQ code", entry.Fixture, entry.Code)
+			t.Errorf("fixture %s: code %q is not a jeq code", entry.Fixture, entry.Code)
 		}
 		if entry.Rule == "" {
 			t.Errorf("fixture %s: missing rule", entry.Fixture)

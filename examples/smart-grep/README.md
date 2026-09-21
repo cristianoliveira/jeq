@@ -1,6 +1,6 @@
 # Smart grep: retrieve locally, judge a shortlist
 
-Use JEQ to prioritize log excerpts against a question, without sending the whole
+Use jeq to prioritize log excerpts against a question, without sending the whole
 log or making one request per line. This is a retrieval-and-ranking recipe, not
 an exhaustive semantic grep or a root-cause detector.
 
@@ -94,7 +94,7 @@ jq '.items[:5] | map({
 
 The script is a thin wrapper around `jeq rank`. It accepts exactly one query,
 reads reviewed JSON on stdin, and disables retries so the experiment attempts
-at most one API request. `JEQ_BIN` can select a local binary. Normal JEQ model
+at most one API request. `JEQ_BIN` can select a local binary. Normal jeq model
 configuration and `TYPESAFE_BASE_URL` still apply.
 
 The complete result retains `_jeq.relevance`, including the resolved model and
@@ -164,7 +164,7 @@ not included in the table.
 The test log is 121 lines / 10,750 bytes. Plain `FAIL` matching finds 32 headers;
 local extraction produces 23 excerpts plus fallback, encoded in 8,158 bytes of
 candidate JSON. Names alone use 4,109 bytes but performed worse. Candidate JSON
-size is not wire size: JEQ constructs the API question from the descriptions.
+size is not wire size: jeq constructs the API question from the descriptions.
 
 The build log is only 1,008 bytes; its candidate JSON is **larger**, at 1,223
 bytes. This example demonstrates useful prioritization, not universal bandwidth
@@ -196,7 +196,7 @@ the workstation path and Nix derivation hash replaced and terminal colors remove
 Neither log describes the current health of the repository.
 
 The Go examples suite tests exact grouping, context, line references, input and
-payload limits, no-match and invalid-input paths, and the real JEQ CLI against a
+payload limits, no-match and invalid-input paths, and the real jeq CLI against a
 local fake API. It checks request count, evidence preservation, and no retries
 on API failure. It does not assert live model judgments.
 

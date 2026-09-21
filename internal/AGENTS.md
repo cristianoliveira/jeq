@@ -1,6 +1,6 @@
 # Purpose
 
-`internal` contains JEQ's application implementation, separated into shell orchestration, domain capabilities, and infrastructure adapters.
+`internal` contains jeq's application implementation, separated into shell orchestration, domain capabilities, and infrastructure adapters.
 
 # Boundaries
 

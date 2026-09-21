@@ -11,7 +11,7 @@ tags: [cli, typesafe, composability]
 
 ## Problem
 
-JEQ can already send Score questions through `map`, but callers must author a
+jeq can already send Score questions through `map`, but callers must author a
 separate questions JSON document for the common case of rating every record
 against the same ordered semantic rubric. This obscures a useful TypeSafe
 primitive and adds ceremony to sorting, filtering, and gating independently

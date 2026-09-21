@@ -11,7 +11,7 @@ tags: [cli, observability, privacy, composability]
 
 ## Problem
 
-JEQ preserves probabilistic evidence in stdout, but agents cannot observe how a
+jeq preserves probabilistic evidence in stdout, but agents cannot observe how a
 multi-record or multi-stage command resolved configuration, progressed through
 evaluations and retries, or where a `map` / `rate` / `reduce` / `rank` / `gate`
 chain failed. This makes failures in probabilistic workflows hard to localize
@@ -31,18 +31,18 @@ jeq --verbose map ... 2>map.trace.ndjson |
 
 The result JSON/NDJSON remains the semantic evidence: what System One returned,
 including probabilities, confidence, model, usage, and provider trace fields.
-The verbose stderr trace explains how JEQ executed that chain: which operation
+The verbose stderr trace explains how jeq executed that chain: which operation
 and record ran, which safe configuration was resolved, which request attempt or
 retry occurred, and where a failure stopped progress.
 
-This is not access to model chain-of-thought. JEQ observes explicit request
+This is not access to model chain-of-thought. jeq observes explicit request
 lifecycle and returned evidence only.
 
 ## Operational questions
 
 The trace must let an agent answer:
 
-1. Which JEQ command, probabilistic operation, and bounded record or collection
+1. Which jeq command, probabilistic operation, and bounded record or collection
    was executing when the chain stopped?
 2. Did failure occur during input validation, state selection, request creation,
    transport/retry, response validation, output writing, or offline policy?
@@ -57,12 +57,12 @@ Every emitted field must answer one of these questions.
 
 ## Ubiquitous language
 
-- **Probabilistic chain:** explicit sequence of JEQ commands and returned
+- **Probabilistic chain:** explicit sequence of jeq commands and returned
   evidence. It is not hidden model reasoning.
 - **Execution trace:** structured lifecycle metadata written to stderr.
 - **Evidence:** lossless System One response written to stdout under `_jeq` or
   as the command result.
-- **Trace ID:** caller-provided identifier that correlates separate JEQ
+- **Trace ID:** caller-provided identifier that correlates separate jeq
   processes in one shell workflow.
 - **Operation index:** one-based bounded position of a record or collection
   evaluation inside one command.
@@ -79,7 +79,7 @@ Every emitted field must answer one of these questions.
       with current behavior.
 - [x] With `--verbose`, result data remains exclusively on stdout and is
       byte-identical to the same successful invocation without verbosity.
-- [x] JEQ remains stateless: it never creates, discovers, reads, or updates a
+- [x] jeq remains stateless: it never creates, discovers, reads, or updates a
       memory, history, trace, session, or run-state file. A later invocation
       sees prior evidence only when the caller explicitly supplies it as input.
 - [x] Trace events are ephemeral single-line JSON objects on stderr using the versioned
@@ -115,7 +115,7 @@ Every emitted field must answer one of these questions.
       including schema, sequence, trace ID when supplied, entry point, command,
       event, phase, operation index, bounded counts, question names/types,
       framing, pointer, model and model source, attempt budget, HTTP status
-      class/code, stable JEQ error code, and outcome.
+      class/code, stable jeq error code, and outcome.
 - [x] Events do not use interpolated prose as the primary data contract.
 - [x] Existing retry diagnostics originate from typed retry information rather
       than parsing transport log strings; default non-verbose retry messages
@@ -138,14 +138,14 @@ Every emitted field must answer one of these questions.
       missing authentication, API rejection, retry exhaustion, timeout,
       interruption, malformed response, output failure, and partial-stream
       failure each emit a stable `run.failed` event with phase, operation index
-      when applicable, and JEQ error code before the existing final error.
+      when applicable, and jeq error code before the existing final error.
 - [x] A partial `map` or `rate` failure preserves all prior stdout exactly and
       names only the failed record index in the trace.
 
 ### Boundedness and privacy
 
 - [x] Detailed per-operation and per-attempt events have a fixed documented
-      budget. After the budget, JEQ emits one `events.suppressed` event and still
+      budget. After the budget, jeq emits one `events.suppressed` event and still
       emits failures and the final summary.
 - [x] Event volume and memory use remain bounded at maximum supported record and
       retry counts.

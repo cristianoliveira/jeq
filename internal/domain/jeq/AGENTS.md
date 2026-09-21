@@ -1,6 +1,6 @@
 # Purpose
 
-JEQ rules own source-mode validation, state composition, and stable error-code presentation for the application.
+jeq rules own source-mode validation, state composition, and stable error-code presentation for the application.
 
 # Boundaries
 
@@ -9,7 +9,7 @@ This package is pure Go. It receives resolved bytes and values, never reads file
 # Connections
 
 - [Contract](../contract/AGENTS.md): supplies document decoding and validation used while composing requests.
-- [Pipeline](../pipeline/AGENTS.md): consumes stable JEQ errors for semantic operations.
+- [Pipeline](../pipeline/AGENTS.md): consumes stable jeq errors for semantic operations.
 - [CLI](../../cli/AGENTS.md): invokes source checks and composition after shell inputs are resolved.
 - [Infrastructure](../../infra/AGENTS.md): uses stable errors when adapters classify external failures.
 

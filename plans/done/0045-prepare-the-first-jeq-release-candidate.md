@@ -1,19 +1,19 @@
 ---
 id: TASK-0045
-title: Prepare the first JEQ release candidate
+title: Prepare the first jeq release candidate
 status: done
 depends_on: []
 priority: high
 tags: [release, qa, documentation, security]
 ---
 
-# Prepare the first JEQ release candidate
+# Prepare the first jeq release candidate
 
 ## Problem
-JEQ has no published tags and now has automated packaging, but the first release still needs an explicit version and license decision, exact-commit release evidence, useful release notes, and a final no-publish readiness verdict.
+jeq has no published tags and now has automated packaging, but the first release still needs an explicit version and license decision, exact-commit release evidence, useful release notes, and a final no-publish readiness verdict.
 
 ## Desired outcome
-A named, immutable commit is demonstrably ready for JEQ's first public prerelease or release. The owner receives a concise release summary and exact tag command, while tag creation and publication remain separate explicit actions.
+A named, immutable commit is demonstrably ready for jeq's first public prerelease or release. The owner receives a concise release summary and exact tag command, while tag creation and publication remain separate explicit actions.
 
 ## Context
 There are no existing Git tags or GitHub releases. `main` matches `origin/main`. GoReleaser and the tag-only workflow are ready. The public repository currently has no license; GitHub reports `licenseInfo: null`. The last paid live verification predates substantial command and flake changes, so it cannot certify this candidate.

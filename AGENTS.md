@@ -1,6 +1,10 @@
 # Purpose
 
-JEQ is a command-line client that turns TypeSafe System One judgments into safe, composable Unix data. It preserves request and response evidence as JSON and keeps policy decisions explicit and deterministic.
+jeq is a command-line client that turns TypeSafe System One judgments into safe, composable Unix data. It preserves request and response evidence as JSON and keeps policy decisions explicit and deterministic.
+
+# Naming
+
+Write the product name as lowercase `jeq`, including in headings and at sentence starts. Keep the uppercase `JEQ_` prefix only for established environment variables such as `JEQ_CONFIG`, `JEQ_TRACE_ID`, and `JEQ_BIN`.
 
 # Architecture
 

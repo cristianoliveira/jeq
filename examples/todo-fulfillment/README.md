@@ -15,7 +15,7 @@ git diff main...HEAD > /tmp/change.patch
 ./examples/todo-fulfillment/review.sh /tmp/todos.json /tmp/change.patch
 ```
 
-The output is one JSON object per todo item. `probability` is JEQ's probability
+The output is one JSON object per todo item. `probability` is jeq's probability
 for the literal fulfillment condition. It is not automatically calibrated
 confidence. `confidence` is preserved when the model returns that separate
 field.

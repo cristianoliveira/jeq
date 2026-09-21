@@ -10,10 +10,10 @@ tags: [cli, documentation, examples, typesafe, jev]
 # Teach Jev's decision-model role in CLI help and examples
 
 ## Problem
-JEQ help names TypeSafe System One but does not explain that Jev is a fast semantic decision model, not a chat or generative LLM. Users may ask it for prose, code, or reasoning instead of defining bounded typed judgments that code can combine.
+jeq help names TypeSafe System One but does not explain that Jev is a fast semantic decision model, not a chat or generative LLM. Users may ask it for prose, code, or reasoning instead of defining bounded typed judgments that code can combine.
 
 ## Desired outcome
-Every user who discovers JEQ through `--help` or `jeq examples` understands the correct mental model: Jev is “a classifier on steroids”—a System One semantic decision model that maps natural-language state into caller-defined typed answers and probabilities. It is not a chat/completion model, prose or code generator, or source of reasoning explanations.
+Every user who discovers jeq through `--help` or `jeq examples` understands the correct mental model: Jev is “a classifier on steroids”—a System One semantic decision model that maps natural-language state into caller-defined typed answers and probabilities. It is not a chat/completion model, prose or code generator, or source of reasoning explanations.
 
 ## Context
 Current TypeSafe documentation states that Jev understands natural-language input but returns typed decisions and probabilities rather than generated text. It does not write replies, produce code, or generate reasoning explanations. The caller defines answer spaces with Noul, Choice, and Score; code owns deterministic checks, workflow, thresholds, actions, and escalation.

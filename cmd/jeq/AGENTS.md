@@ -1,6 +1,6 @@
 # Purpose
 
-The command package owns the process entry point and production dependency wiring for JEQ.
+The command package owns the process entry point and production dependency wiring for jeq.
 
 # Boundaries
 

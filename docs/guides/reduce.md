@@ -43,6 +43,6 @@ Choose the primitive that matches the question:
 | `gate` | Offline threshold decision | No request |
 
 The script is intentionally singular: it reads synthetic findings, runs exactly
-one reduce, and performs no deployment or release action. It preserves JEQ's
+one reduce, and performs no deployment or release action. It preserves jeq's
 stdout, stderr, and exit status. Set `JEQ_BIN` to a fake executable for offline
-checks or to a reviewed JEQ binary for a real request.
+checks or to a reviewed jeq binary for a real request.

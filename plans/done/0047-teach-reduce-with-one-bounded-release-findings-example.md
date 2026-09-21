@@ -25,13 +25,13 @@ A reader can answer “when and how do I use reduce?” from one short guide, th
 - [ ] The guide shows the expected `_jeq.release_ready.answers.release_ready.noul` shape and an optional offline `gate` using the exact RFC 6901 pointer.
 - [ ] Gate direction is intuitive: high release-readiness probability passes, low probability rejects, middle is uncertain.
 - [ ] README and examples index link the reduce guide/example without expanding the landing page substantially.
-- [ ] Automated behavior tests prove the entry point passes exact input/arguments to an injected fake JEQ and propagates failures; tests do not merely grep documentation.
+- [ ] Automated behavior tests prove the entry point passes exact input/arguments to an injected fake jeq and propagates failures; tests do not merely grep documentation.
 - [ ] Offline tests and the normal gate pass; no live TypeSafe request is required.
 
 ## Constraints and non-goals
 - Keep this a singular teaching example, not a multi-stage release framework.
 - Do not execute deployment or release actions.
 - Do not claim probability thresholds are calibrated defaults; label them illustrative.
-- Do not add a hidden collection-size policy to JEQ.
+- Do not add a hidden collection-size policy to jeq.
 - Keep fixtures synthetic and free of credentials or proprietary data.
 

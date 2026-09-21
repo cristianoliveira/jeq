@@ -10,10 +10,10 @@ tags: [docs, cli]
 # State self-discoverable CLI contract in README
 
 ## Problem
-JEQ's README does not explicitly state that users and agents can discover the complete CLI through native help and built-in examples without installing a JEQ-specific skill.
+jeq's README does not explicitly state that users and agents can discover the complete CLI through native help and built-in examples without installing a jeq-specific skill.
 
 ## Desired outcome
-Users and agents understand that JEQ teaches its complete command and workflow surface through the executable itself; no JEQ-specific agent skill is required.
+Users and agents understand that jeq teaches its complete command and workflow surface through the executable itself; no jeq-specific agent skill is required.
 
 ## Acceptance criteria
 - [ ] README explicitly states the self-discoverability contract.

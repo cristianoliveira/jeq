@@ -9,7 +9,7 @@ It accepts validated domain values and an evaluator port. It does not read strea
 # Connections
 
 - [Contract](../contract/AGENTS.md): supplies request and response types and validation.
-- [JEQ rules](../jeq/AGENTS.md): supplies stable errors used by pipeline failures.
+- [jeq rules](../jeq/AGENTS.md): supplies stable errors used by pipeline failures.
 - [CLI](../../cli/AGENTS.md): orchestrates framing, limits, evaluation, and output around pipeline calls.
 - [TypeSafe adapter](../../infra/typesafeapi/AGENTS.md): implements the evaluator port consumed by map and reduce.
 

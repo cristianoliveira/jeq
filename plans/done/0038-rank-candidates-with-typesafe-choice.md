@@ -11,7 +11,7 @@ tags: [cli, typesafe, composability]
 
 ## Problem
 
-JEQ exposes raw Choice requests, but callers must construct question JSON, map
+jeq exposes raw Choice requests, but callers must construct question JSON, map
 probabilities back to their original candidates, and sort them. Returning only
 the winning candidate would discard the rest of TypeSafe's probability
 distribution and force another abstraction for top-k, routing, and reranking.
@@ -19,7 +19,7 @@ distribution and force another abstraction for top-k, routing, and reranking.
 ## Desired outcome
 
 A caller pipes a bounded collection of candidate records into one general
-`jeq rank` command. JEQ asks one TypeSafe Choice question and returns every
+`jeq rank` command. jeq asks one TypeSafe Choice question and returns every
 original candidate sorted by probability, plus the complete typed response.
 Picking one, selecting top-k, applying a threshold, or switching on the selected
 id remains ordinary deterministic code.
@@ -72,7 +72,7 @@ Target envelope:
 - [x] Before credential lookup or network access, reject empty/invalid input,
       duplicate or non-string ids, missing pointer values, and more than
       TypeSafe's 255 Choice options.
-- [x] JEQ never invents a `none` option. The caller supplies an explicit
+- [x] jeq never invents a `none` option. The caller supplies an explicit
       candidate or a separate Noul when all candidates may be unsuitable.
 
 ### Request and ranked response
@@ -130,7 +130,7 @@ Target envelope:
   independently testable.
 - Keep output lossless JSON and diagnostics plain text on stderr.
 - Tests and normal CI remain offline and deterministic.
-- Candidate content is untrusted data, never instructions for JEQ itself.
+- Candidate content is untrusted data, never instructions for jeq itself.
 
 ## Non-goals
 

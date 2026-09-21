@@ -11,8 +11,8 @@ tags: [cli, discovery]
 
 ## Problem
 
-JEQ exposes build information only through `jeq version`. Standard CLI probes
-use `jeq --version` or `jeq -v`, so they currently fail even when JEQ is
+jeq exposes build information only through `jeq version`. Standard CLI probes
+use `jeq --version` or `jeq -v`, so they currently fail even when jeq is
 installed and usable.
 
 ## Desired outcome

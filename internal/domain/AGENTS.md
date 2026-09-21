@@ -1,17 +1,17 @@
 # Purpose
 
-The domain owns the language of JEQ requests and responses, local validation and composition, and append-only judgment pipelines. It remains independent of shell, network, filesystem, and output adapters.
+The domain owns the language of jeq requests and responses, local validation and composition, and append-only judgment pipelines. It remains independent of shell, network, filesystem, and output adapters.
 
 # Boundaries
 
-[Contract](contract/AGENTS.md) defines lossless TypeSafe documents. [JEQ rules](jeq/AGENTS.md) define source selection, composition, and stable errors. [Pipeline](pipeline/AGENTS.md) defines map, reduce, and gate enrichment. The small `codes`, `arch`, `blackbox`, and fixture support groupings stay documented by their owning guides.
+[Contract](contract/AGENTS.md) defines lossless TypeSafe documents. [jeq rules](jeq/AGENTS.md) define source selection, composition, and stable errors. [Pipeline](pipeline/AGENTS.md) defines map, reduce, and gate enrichment. The small `codes`, `arch`, `blackbox`, and fixture support groupings stay documented by their owning guides.
 
 # Connections
 
 - [CLI](../cli/AGENTS.md): consumes domain operations and supplies orchestration and ports.
 - [Contract](contract/AGENTS.md): provides typed request, response, question, and model values.
-- [JEQ rules](jeq/AGENTS.md): provides source and composition decisions and stable errors.
-- [Pipeline](pipeline/AGENTS.md): consumes contracts and JEQ errors to enrich records.
+- [jeq rules](jeq/AGENTS.md): provides source and composition decisions and stable errors.
+- [Pipeline](pipeline/AGENTS.md): consumes contracts and jeq errors to enrich records.
 - [Infrastructure](../infra/AGENTS.md): consumes contracts and domain errors at external boundaries.
 
 # Landmarks

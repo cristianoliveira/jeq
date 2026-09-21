@@ -8,7 +8,7 @@ It implements the evaluator and model-fetching behavior expected by the CLI and 
 
 # Connections
 
-- [Domain](../../domain/AGENTS.md): supplies contract values and stable JEQ errors.
+- [Domain](../../domain/AGENTS.md): supplies contract values and stable jeq errors.
 - [Pipeline](../../domain/pipeline/AGENTS.md): consumes this package as its `pipeline.Evaluator` implementation.
 - [CLI](../../cli/AGENTS.md): consumes the adapter through injected API ports.
 - [Infrastructure](../AGENTS.md): owns this adapter's external-boundary placement.

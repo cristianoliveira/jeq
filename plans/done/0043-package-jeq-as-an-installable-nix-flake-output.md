@@ -1,24 +1,24 @@
 ---
 id: TASK-0043
-title: Package JEQ as an installable Nix flake output
+title: Package jeq as an installable Nix flake output
 status: done
 depends_on: []
 priority: high
 tags: [nix, packaging, release]
 ---
 
-# Package JEQ as an installable Nix flake output
+# Package jeq as an installable Nix flake output
 
 ## Problem
-The flake provides only a development shell, so Nix users cannot build, run, or install JEQ directly and packaged binaries do not prove the existing version contract.
+The flake provides only a development shell, so Nix users cannot build, run, or install jeq directly and packaged binaries do not prove the existing version contract.
 
 ## Desired outcome
-A Nix user can build, run, or install JEQ directly from the repository flake. The packaged binary reports meaningful, reproducible build metadata.
+A Nix user can build, run, or install jeq directly from the repository flake. The packaged binary reports meaningful, reproducible build metadata.
 
 ## Context
 The current flake declares `aarch64-darwin`, `aarch64-linux`, `x86_64-darwin`, and `x86_64-linux`, but exposes only `devShells`. PXP's `buildGoModule` package and app outputs are a useful local reference. Do not copy PXP's hard-coded version.
 
-Pinned nixpkgs 26.11 explicitly dropped `x86_64-darwin`; `nix flake check --all-systems` cannot evaluate that output. JEQ's Nix system list must therefore match current nixpkgs support. GoReleaser may still cross-build a Darwin amd64 archive because that uses the Go toolchain rather than nixpkgs packages.
+Pinned nixpkgs 26.11 explicitly dropped `x86_64-darwin`; `nix flake check --all-systems` cannot evaluate that output. jeq's Nix system list must therefore match current nixpkgs support. GoReleaser may still cross-build a Darwin amd64 archive because that uses the Go toolchain rather than nixpkgs packages.
 
 ## Acceptance criteria
 - [ ] `packages.<system>.jeq` and `packages.<system>.default` build `cmd/jeq` with `buildGoModule` on the three systems supported by pinned nixpkgs: `aarch64-darwin`, `aarch64-linux`, and `x86_64-linux`.
@@ -34,5 +34,5 @@ Pinned nixpkgs 26.11 explicitly dropped `x86_64-darwin`; `nix flake check --all-
 - Do not publish to nixpkgs or another registry in this task.
 - Do not hard-code a release version that must be updated in two places.
 - Do not add network calls to tests beyond normal pinned Nix dependency resolution.
-- Do not change JEQ runtime behavior or supported CLI commands.
+- Do not change jeq runtime behavior or supported CLI commands.
 

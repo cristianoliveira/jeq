@@ -36,5 +36,5 @@ process-local unless the caller correlates them. Check exit codes in scripts:
 | 130 | Interrupted |
 
 Credentials and private state must remain outside logs and arguments. The caller
-owns retries, persistence, redaction, and actions; JEQ never executes model
+owns retries, persistence, redaction, and actions; jeq never executes model
 output.

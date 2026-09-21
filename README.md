@@ -1,10 +1,10 @@
-# JEQ
+# jeq
 
 
 <div align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jeq-logo.svg">
-  <img src="docs/assets/jeq-logo-mono.svg" alt="JEQ logo" width="160" height="160">
+  <img src="docs/assets/jeq-logo-mono.svg" alt="jeq logo" width="160" height="160">
   
 <strong>Intelligence you can pipe.</strong>
 </picture>
@@ -12,7 +12,7 @@
 </div>
 
 
-JEQ is a typed judgment CLI for scripts, agents, and systems. It turns a question
+jeq is a typed judgment CLI for scripts, agents, and systems. It turns a question
 and JSON state into evidence that can move through a Unix pipeline.
 
 ```sh
@@ -62,10 +62,10 @@ guides:
 
 ## Discover from the CLI
 
-JEQ is fully self-discoverable through native help and built-in recipes. Run
+jeq is fully self-discoverable through native help and built-in recipes. Run
 `jeq --help` for the command surface, `jeq <command> --help` for a command's
 contract, and `jeq examples` for complete workflows. Users and agents do not
-need a JEQ-specific skill.
+need a jeq-specific skill.
 
 ## Boundaries
 
@@ -76,7 +76,7 @@ need a JEQ-specific skill.
 - API usage costs money. Retries, batch size, and model choice affect cost.
 - Output and exit codes are designed for pipelines; policy `reject` and
   `uncertain` are non-zero. Verbose traces go to stderr.
-- JEQ does not own actions, memory, sessions, or release tags. The caller owns
+- jeq does not own actions, memory, sessions, or release tags. The caller owns
   state, credentials, retries, and automation policy.
 
 ## More documentation

@@ -17,7 +17,7 @@ Bare action commands such as jeq ask currently enter domain validation and emit 
 - [x] Preserve real invocation validation: once any action-specific flag is supplied, incomplete/conflicting input uses standard Cobra stderr/domain code and the established exit class.
 - [x] Preserve commands whose bare invocation is a complete action: `jeq version` prints version; `jeq models` lists models or reports operational/auth failure; `jeq examples` and recipe leaves use native Cobra help; completion keeps Cobra behavior.
 - [x] Audit every command's bare/help/success/failure surface in one table and add a parameterized black-box regression so no other custom no-arg behavior remains.
-- [x] Root and examples TASK-0031/0032 behavior and all JEQ rebrand contracts remain unchanged.
+- [x] Root and examples TASK-0031/0032 behavior and all jeq rebrand contracts remain unchanged.
 - [x] Update current docs/QA, run full checks/govulncheck/independent QA, and commit.
 
 ## Constraint

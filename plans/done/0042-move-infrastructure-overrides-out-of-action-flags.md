@@ -11,7 +11,7 @@ tags: [cli, configuration, composability]
 
 ## Problem
 
-JEQ repeats `--base-url` and `--config` across probabilistic action commands
+jeq repeats `--base-url` and `--config` across probabilistic action commands
 even though endpoint and config-file selection are process infrastructure. This
 clutters agent-facing help, complicates chains, and exposes testing seams as
 question-level UX.
@@ -41,7 +41,7 @@ controls, not endpoint or config-path selection.
 ### Config path
 
 1. Non-empty `JEQ_CONFIG` names an explicit config file.
-2. Otherwise JEQ optionally reads
+2. Otherwise jeq optionally reads
    `${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`.
 3. Otherwise built-in defaults apply.
 
@@ -55,7 +55,7 @@ document. The config schema remains deliberately small:
 ### API root
 
 1. Non-empty `TYPESAFE_BASE_URL` overrides the API root for the process.
-2. Otherwise JEQ uses its built-in TypeSafe API root.
+2. Otherwise jeq uses its built-in TypeSafe API root.
 
 The API root does not need a config-file field in this task. Scripts, local fake
 endpoints, staging, and tests use the environment override.
@@ -104,7 +104,7 @@ the same composed-request config resolution used by `map`, `reduce`, `rank`, and
 
 ### Pipeline behavior
 
-- [x] One exported `JEQ_CONFIG` and `TYPESAFE_BASE_URL` apply to every JEQ
+- [x] One exported `JEQ_CONFIG` and `TYPESAFE_BASE_URL` apply to every jeq
       process in a shell pipeline without repeated arguments.
 - [x] Native `ask --request` and native `map --request-pointer` continue using
       the request model and do not fail merely because a default-model config is

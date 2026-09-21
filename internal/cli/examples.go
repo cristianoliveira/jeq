@@ -76,7 +76,7 @@ printf '%s\n' '{"description":"incident"}' |
   "$JEQ_BIN" --verbose map --as triage --input ndjson --state-pointer /description --questions-json '{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}' 2>map.trace.ndjson |
   "$JEQ_BIN" --verbose rate --as severity --input ndjson --state-pointer /description --instruction 'How severe?' --level Low --level High 2>rate.trace.ndjson |
   "$JEQ_BIN" --verbose reduce --as aggregate --input ndjson --questions-json '{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}' 2>reduce.trace.ndjson
-# Trace files are caller-owned; JEQ never creates or reloads them.
+# Trace files are caller-owned; jeq never creates or reloads them.
 `,
 		InputShape: "NDJSON records", OutputShape: "JSON/NDJSON evidence on stdout; trace events on stderr", Privacy: "traces contain metadata only, never payloads or credentials.", Exits: "all stages must succeed; inspect trace files for lifecycle failures.",
 	},

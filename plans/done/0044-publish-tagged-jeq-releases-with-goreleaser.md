@@ -1,25 +1,25 @@
 ---
 id: TASK-0044
-title: Publish tagged JEQ releases with GoReleaser
+title: Publish tagged jeq releases with GoReleaser
 status: done
 depends_on: [TASK-0043]
 priority: high
 tags: [release, goreleaser, github-actions]
 ---
 
-# Publish tagged JEQ releases with GoReleaser
+# Publish tagged jeq releases with GoReleaser
 
 ## Problem
-JEQ documents a manual cross-build loop but has no executable release contract, so archive targets, names, checksums, version metadata, and GitHub publication can drift or require error-prone manual work.
+jeq documents a manual cross-build loop but has no executable release contract, so archive targets, names, checksums, version metadata, and GitHub publication can drift or require error-prone manual work.
 
 ## Desired outcome
-An explicitly approved Git tag produces reproducible JEQ archives, checksums, and one GitHub release through GoReleaser. Ordinary branches and pull requests can verify the release contract but cannot publish.
+An explicitly approved Git tag produces reproducible jeq archives, checksums, and one GitHub release through GoReleaser. Ordinary branches and pull requests can verify the release contract but cannot publish.
 
 ## Context
-PXP's tag-triggered workflow is a useful reference for permissions, generated notes, prerelease handling, and explicit tag approval. JEQ should use GoReleaser as the single owner of the build matrix, archive names, checksums, and GitHub publication instead of copying PXP's hand-written archive loop.
+PXP's tag-triggered workflow is a useful reference for permissions, generated notes, prerelease handling, and explicit tag approval. jeq should use GoReleaser as the single owner of the build matrix, archive names, checksums, and GitHub publication instead of copying PXP's hand-written archive loop.
 
 ## Acceptance criteria
-- [ ] A GoReleaser v2 configuration builds `cmd/jeq` with `CGO_ENABLED=0` and `-trimpath` for linux and darwin on amd64 and arm64, matching JEQ's documented release targets.
+- [ ] A GoReleaser v2 configuration builds `cmd/jeq` with `CGO_ENABLED=0` and `-trimpath` for linux and darwin on amd64 and arm64, matching jeq's documented release targets.
 - [ ] Release ldflags inject GoReleaser's version and commit into `internal/cli.Version` and `internal/cli.Commit`.
 - [ ] Archives have deterministic names, include the binary and README, and GoReleaser emits one checksum file.
 - [ ] Prerelease tags such as `v0.1.0-rc.1` are published as GitHub prereleases.

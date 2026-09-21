@@ -1,8 +1,8 @@
 # Composition
 
-JEQ commands compose through JSON or NDJSON. Keep one record per line for streams.
+jeq commands compose through JSON or NDJSON. Keep one record per line for streams.
 Use `set -o pipefail` so a failed producer or policy cannot be hidden by a later
-successful command. `jq` owns deterministic selection and reshaping; JEQ owns
+successful command. `jq` owns deterministic selection and reshaping; jeq owns
 judgment and typed evidence; the shell owns sequencing and final actions.
 
 Native `ask` sends one complete request. Composed commands construct requests
