@@ -75,6 +75,46 @@ func (w *orderedWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
+type blockedPipeReader struct {
+	*io.PipeReader
+	blocked chan struct{}
+}
+
+func (r *blockedPipeReader) Read(p []byte) (int, error) {
+	select {
+	case <-r.blocked:
+	default:
+		close(r.blocked)
+	}
+	return r.PipeReader.Read(p)
+}
+
+func TestRunMapCancellationClosesBlockedPipe(t *testing.T) {
+	pipeReader, pipeWriter := io.Pipe()
+	reader := &blockedPipeReader{PipeReader: pipeReader, blocked: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	deps := AskDeps{Stdin: reader, ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { return nil, nil }, ReadFile: func(string, int64) ([]byte, *jeq.Error) {
+		return []byte(`{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`), nil
+	}, NewClient: func(string, time.Duration, string, int, func(string)) APIClient { return &streamClient{} }, Getenv: func(key string) string {
+		if key == "TYPESAFE_API_KEY" {
+			return "test"
+		}
+		return ""
+	}}
+	cmd := NewMapCmd(deps)
+	cmd.SetArgs([]string{"--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"})
+	done := make(chan error, 1)
+	go func() { done <- cmd.ExecuteContext(ctx) }()
+	<-reader.blocked
+	cancel()
+	err := <-done
+	_ = pipeWriter
+	if err == nil || !strings.Contains(err.Error(), string(jeq.CodeInterrupted)) {
+		t.Fatalf("err=%v", err)
+	}
+}
+
 func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
 	written := make(chan struct{})
 	var output bytes.Buffer
