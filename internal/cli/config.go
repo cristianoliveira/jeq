@@ -176,6 +176,21 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 		}
 	}
 	var doc configDocument
+	if raw, present := fields["default_provider"]; present {
+		var value string
+		if json.Unmarshal(raw, &value) != nil || strings.TrimSpace(value) == "" {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "default_provider must be a non-empty string")
+		}
+	}
+	if raw, present := fields["default_model"]; present {
+		var value string
+		if json.Unmarshal(raw, &value) != nil || strings.TrimSpace(value) == "" {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "default_model must be a non-empty string")
+		}
+	}
+	if raw, present := fields["providers"]; present && string(raw) == "null" {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "providers must be an object")
+	}
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
@@ -188,6 +203,9 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "providers must be an object")
 		}
 		for name, rawProfile := range rawProviders {
+			if string(rawProfile) == "null" {
+				return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s must be an object", name))
+			}
 			var profileFields map[string]json.RawMessage
 			if err := json.Unmarshal(rawProfile, &profileFields); err != nil {
 				return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s must be an object", name))

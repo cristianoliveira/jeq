@@ -38,7 +38,7 @@ type AskDeps struct {
 	ReadOptionalFile func(path string, limit int64) ([]byte, *jeq.Error, bool)
 	ReadStdin        func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *jeq.Error)
 	NewClient        func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
-	NewProfileClient func(baseURL string, timeout time.Duration, apiKey, authMode, providerClass string, maxRetries int, diagnostic func(string)) APIClient
+	NewProfileClient func(baseURL string, timeout time.Duration, apiKey, authMode string, maxRetries int, diagnostic func(string)) APIClient
 	Getenv           func(string) string
 	Stdin            io.Reader
 	Renderer         Renderer

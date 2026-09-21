@@ -32,7 +32,7 @@ func main() {
 				return err == nil && info.Mode()&os.ModeCharDevice != 0
 			}, forbidEmpty)
 		},
-		NewProfileClient: func(baseURL string, timeout time.Duration, apiKey, authMode, _ string, maxRetries int, diagnostic func(string)) cli.APIClient {
+		NewProfileClient: func(baseURL string, timeout time.Duration, apiKey, authMode string, maxRetries int, diagnostic func(string)) cli.APIClient {
 			httpc := &http.Client{Timeout: timeout}
 			c := typesafeapi.New(baseURL, httpc, apiKey)
 			c.AuthMode = authMode

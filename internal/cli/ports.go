@@ -34,12 +34,8 @@ func traceMetadata(cmd *cobra.Command, model, source, framing, pointer string, q
 }
 
 func newClient(deps AskDeps, provider ResolvedProvider, timeout time.Duration, maxRetries int, diagnostic func(string)) APIClient {
-	class := provider.Name
-	if class != "typesafe" && class != "vercel" {
-		class = "custom"
-	}
 	if deps.NewProfileClient != nil {
-		return deps.NewProfileClient(provider.BaseURL, timeout, provider.APIKey, provider.Auth, class, maxRetries, diagnostic)
+		return deps.NewProfileClient(provider.BaseURL, timeout, provider.APIKey, provider.Auth, maxRetries, diagnostic)
 	}
 	return deps.NewClient(provider.BaseURL, timeout, provider.APIKey, maxRetries, diagnostic)
 }
