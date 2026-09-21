@@ -257,6 +257,7 @@ func (schedulerFailingRenderer) RenderError(io.Writer, *jeq.Error) error { retur
 func (schedulerFailingRenderer) RenderRaw(io.Writer, []byte) error {
 	return errors.New("stdout failed")
 }
+
 func (schedulerFailingRenderer) RenderValue(io.Writer, any) error { return errors.New("stdout failed") }
 
 func TestMapSchedulerOutputFailureStopsAtDispatchBound(t *testing.T) {
