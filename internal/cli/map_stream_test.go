@@ -38,16 +38,47 @@ func (c *cancelClient) Evaluate(ctx context.Context, _ contract.Request) (contra
 	return contract.Response{Model: "m"}, nil
 }
 
-type channelWriter chan []byte
+type orderedReader struct {
+	phase   int
+	written <-chan struct{}
+}
 
-func (w channelWriter) Write(p []byte) (int, error) {
-	w <- append([]byte(nil), p...)
-	return len(p), nil
+func (r *orderedReader) Read(p []byte) (int, error) {
+	if r.phase == 0 {
+		r.phase = 1
+		return copy(p, []byte("{\"state\":\"first\"}\n")), nil
+	}
+	if r.phase == 2 {
+		return 0, io.EOF
+	}
+	select {
+	case <-r.written:
+		r.phase = 2
+		return copy(p, []byte("{\"state\":\"second\"}\n")), nil
+	default:
+		return 0, errors.New("read occurred before first output")
+	}
+}
+
+type orderedWriter struct {
+	output  *bytes.Buffer
+	written chan struct{}
+}
+
+func (w *orderedWriter) Write(p []byte) (int, error) {
+	n, err := w.output.Write(p)
+	select {
+	case <-w.written:
+	default:
+		close(w.written)
+	}
+	return n, err
 }
 
 func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
-	reader, writer := io.Pipe()
-	output := make(channelWriter, 2)
+	written := make(chan struct{})
+	var output bytes.Buffer
+	reader := &orderedReader{written: written}
 	client := &streamClient{}
 	deps := AskDeps{Stdin: reader, ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { return nil, nil }, ReadFile: func(string, int64) ([]byte, *jeq.Error) {
 		return []byte(`{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`), nil
@@ -57,25 +88,9 @@ func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
 		}
 		return ""
 	}}
-	done := make(chan int, 1)
-	go func() {
-		done <- RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, output, io.Discard, streamRenderer{}, deps)
-	}()
-	if _, err := writer.Write([]byte("{\"state\":\"first\"}\n")); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case got := <-output:
-		if !bytes.Contains(got, []byte("first")) {
-			t.Fatalf("output=%q", got)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("first output waited for EOF")
-	}
-	_, _ = writer.Write([]byte("{\"state\":\"second\"}\n"))
-	_ = writer.Close()
-	if code := <-done; code != 0 || client.calls != 2 {
-		t.Fatalf("code=%d calls=%d", code, client.calls)
+	code := RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, &orderedWriter{output: &output, written: written}, io.Discard, streamRenderer{}, deps)
+	if code != 0 || client.calls != 2 || !bytes.Contains(output.Bytes(), []byte("first")) {
+		t.Fatalf("code=%d calls=%d output=%q", code, client.calls, output.String())
 	}
 }
 
