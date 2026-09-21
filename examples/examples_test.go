@@ -452,7 +452,7 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 
 func TestReleaseReadinessScriptPassesExactReduceRequest(t *testing.T) {
 	fake := filepath.Join(t.TempDir(), "fake-jeq")
-	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nset -euo pipefail\nprintf '1\\n' >\"$FAKE_COUNT\"\nprintf '%s\\0' \"$@\" >\"$FAKE_ARGS\"\ncat >\"$FAKE_INPUT\"\nprintf '%s\\n' '{\"model\":\"fake\"}'\n"), 0o700); err != nil {
+	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nset -euo pipefail\nprintf '1\\n' >>\"$FAKE_COUNT\"\nprintf '%s\\0' \"$@\" >\"$FAKE_ARGS\"\ncat >\"$FAKE_INPUT\"\nprintf '%s\\n' '{\"model\":\"fake\"}'\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	temp := t.TempDir()
@@ -485,7 +485,7 @@ func TestReleaseReadinessScriptPropagatesFailure(t *testing.T) {
 	temp := t.TempDir()
 	fake := filepath.Join(temp, "fake-jeq")
 	countFile := filepath.Join(temp, "count")
-	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nprintf '1\\n' >\"$FAKE_COUNT\"\nprintf 'kept stdout\\n'\nprintf 'failure\\n' >&2\nexit 23\n"), 0o700); err != nil {
+	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nprintf '1\\n' >>\"$FAKE_COUNT\"\nprintf 'kept stdout\\n'\nprintf 'failure\\n' >&2\nexit 23\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{"JEQ_BIN": fake, "FAKE_COUNT": countFile})
