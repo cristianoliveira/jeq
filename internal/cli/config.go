@@ -136,7 +136,7 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 			path = filepath.Join(home, ".config", defaultConfigRelativePath)
 		}
 	}
-	if path == "" || readFile == nil || (!explicit && readOptional == nil) {
+	if path == "" || (!explicit && readOptional == nil) || (explicit && readFile == nil) {
 		return configDocument{}, nil
 	}
 	var data []byte
@@ -166,6 +166,9 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 	}
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "config must be an object")
+	}
+	if len(fields) == 0 {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "config must define a provider or default_model")
 	}
 	for k := range fields {
 		if k != "default_model" && k != "default_provider" && k != "providers" {
@@ -238,83 +241,43 @@ func ResolveConfiguredModel(flagModel, explicitPath string, getenv func(string) 
 
 // ResolveConfiguredModelWithSource also reports which precedence layer won.
 func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (string, string, *jeq.Error) {
-	if explicitPath = strings.TrimSpace(explicitPath); explicitPath != "" {
-		configModel, err := readUserConfig(explicitPath, getenv, readFile, readOptional)
-		if err != nil {
-			return "", "", err
-		}
-		if flagModel != "" {
-			return flagModel, "flag", nil
-		}
-		if envModel := strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL")); envModel != "" {
-			return envModel, "environment", nil
-		}
-		if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
-			return envModel, "environment", nil
-		}
-		return configModel, "config", nil
+	config, err := readProviderConfig(strings.TrimSpace(explicitPath), getenv, readFile, readOptional)
+	if err != nil {
+		return "", "", err
+	}
+	providerName := strings.TrimSpace(getenv("JEQ_PROVIDER"))
+	if providerName == "" {
+		providerName = strings.TrimSpace(config.DefaultProvider)
+	}
+	if providerName == "" {
+		providerName = "typesafe"
+	}
+	profile, ok := builtinProvider(providerName)
+	if !ok {
+		profile, ok = config.Providers[providerName]
+	}
+	if !ok && providerName != "custom" {
+		return "", "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("unknown provider %q", providerName))
+	}
+	if !ok {
+		profile = providerConfig{DefaultModel: strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL"))}
 	}
 	if flagModel != "" {
 		return flagModel, "flag", nil
 	}
-	if envModel := strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL")); envModel != "" {
-		return envModel, "environment", nil
+	if model := strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL")); model != "" {
+		return model, "environment", nil
 	}
-	if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
-		return envModel, "environment", nil
+	if model := strings.TrimSpace(profile.DefaultModel); model != "" {
+		return model, "provider", nil
 	}
-	configModel, err := readUserConfig("", getenv, readFile, readOptional)
-	if err != nil {
-		return "", "", err
+	if model := strings.TrimSpace(config.DefaultModel); model != "" {
+		return model, "config", nil
 	}
-	if configModel != "" {
-		return configModel, "config", nil
+	if model := strings.TrimSpace(getenv(DefaultModelEnv)); model != "" {
+		return model, "environment", nil
 	}
 	return DefaultModel, "default", nil
-}
-
-func readUserConfig(explicitPath string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (string, *jeq.Error) {
-	path := strings.TrimSpace(explicitPath)
-	explicit := path != ""
-	if !explicit {
-		if root := strings.TrimSpace(getenv("XDG_CONFIG_HOME")); root != "" {
-			path = filepath.Join(root, defaultConfigRelativePath)
-		} else if home := strings.TrimSpace(getenv("HOME")); home != "" {
-			path = filepath.Join(home, ".config", defaultConfigRelativePath)
-		} else {
-			return "", nil
-		}
-	}
-	if !explicit && readOptional != nil {
-		data, err, found := readOptional(path, configMaxBytes)
-		if err != nil {
-			return "", err
-		}
-		if !found {
-			return "", nil
-		}
-		return decodeUserConfig(path, data)
-	}
-	if !explicit && readOptional == nil {
-		return "", nil
-	}
-	if readFile == nil {
-		return "", nil
-	}
-	data, err := readFile(path, configMaxBytes)
-	if err != nil {
-		if !explicit && strings.Contains(err.Message, "does not exist") {
-			return "", nil
-		}
-		if !explicit && strings.Contains(err.Message, "no such file") {
-			return "", nil
-		}
-		if explicit {
-			return "", err
-		}
-		return "", err
-	}
-	return decodeUserConfig(path, data)
 }
 
 // ResolveBaseURL applies the process-wide API root override and validates it before auth/client creation.
@@ -328,35 +291,4 @@ func ResolveBaseURL(getenv func(string) string) (string, *jeq.Error) {
 		return "", jeq.NewError(jeq.CodeInputInvalid, "TYPESAFE_BASE_URL must be an absolute http(s) URL")
 	}
 	return strings.TrimSuffix(base, "/"), nil
-}
-
-func decodeUserConfig(path string, data []byte) (string, *jeq.Error) {
-	if len(data) > configMaxBytes {
-		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s exceeds the %d byte limit", path, configMaxBytes))
-	}
-	if err := contract.ValidateJSON(data); err != nil {
-		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s: %v", path, err))
-	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(data, &fields); err != nil {
-		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s must be an object: %v", path, err))
-	}
-	for key := range fields {
-		if key != "default_model" && key != "default_provider" && key != "providers" {
-			return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s contains unsupported field %q", path, key))
-		}
-	}
-	var doc configDocument
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s is invalid", path))
-	}
-	if len(fields) == 0 {
-		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s must define a provider or default_model", path))
-	}
-	if raw, present := fields["default_model"]; present {
-		if err := json.Unmarshal(raw, &doc.DefaultModel); err != nil || strings.TrimSpace(doc.DefaultModel) == "" {
-			return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s.default_model must be a non-empty string", path))
-		}
-	}
-	return strings.TrimSpace(doc.DefaultModel), nil
 }

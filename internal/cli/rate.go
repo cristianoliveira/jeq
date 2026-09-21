@@ -97,9 +97,6 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 		return providerErr
 	}
 	rootURL, apiKey := provider.BaseURL, provider.APIKey
-	if f.model == "" && strings.TrimSpace(deps.Getenv(DefaultModelEnv)) == "" {
-		resolvedModel, modelSource = provider.Model, "provider"
-	}
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, f.statePointer, map[string]contract.Question{f.name: question})
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
