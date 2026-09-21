@@ -1,7 +1,7 @@
 ---
 id: TASK-0049
 title: State self-discoverable CLI contract in README
-status: todo
+status: doing
 depends_on: []
 priority: normal
 tags: [docs, cli]
