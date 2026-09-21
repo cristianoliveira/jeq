@@ -116,9 +116,23 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	var firstRecord []byte
 	if f.input == "ndjson" {
 		stream = bufio.NewReader(deps.Stdin)
+		stopClose := make(chan struct{})
+		if closer, ok := deps.Stdin.(io.Closer); ok {
+			go func() {
+				select {
+				case <-cmd.Context().Done():
+					_ = closer.Close()
+				case <-stopClose:
+				}
+			}()
+		}
+		defer close(stopClose)
 		var eof bool
 		firstRecord, eof, readErr = readNDJSONRecord(stream)
 		if readErr != nil {
+			if cmd.Context().Err() != nil {
+				return jeq.NewError(jeq.CodeInterrupted, "map input cancelled")
+			}
 			return readErr
 		}
 		if eof {
