@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -390,7 +391,7 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 				workerCmd := *cmd
 				workerCmd.SetContext(context.WithValue(ctx, mapWorkerContextKey{}, true))
 				workerCmd.SetOut(&out)
-				err := processMapInput(ctx, &workerCmd, mapWorkerRenderer{}, job.record, f, questions, extra, model, evaluator, job.index)
+				err := processMapInput(workerCmd.Context(), &workerCmd, mapWorkerRenderer{}, job.record, f, questions, extra, model, evaluator, job.index)
 				results <- mapResult{job.index, bytes.TrimSpace(out.Bytes()), err}
 			}
 		}()
@@ -451,7 +452,12 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 			}
 			if ordered.err != nil {
 				if tr != nil {
-					tr.EmitOperation(cmd.CommandPath(), "run.failed", "evaluation", "failed", string(jeq.CodeResponseInvalid), want+1, 0)
+					code := string(jeq.CodeResponseInvalid)
+					var coded *jeq.Error
+					if errors.As(ordered.err, &coded) {
+						code = string(coded.Code)
+					}
+					tr.EmitOperation(cmd.CommandPath(), "run.failed", "evaluation", "failed", code, want+1, 0)
 				}
 				return finish(stop(ordered.err))
 			}
