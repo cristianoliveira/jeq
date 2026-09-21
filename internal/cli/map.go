@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -110,9 +111,24 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	}
 
 	var inputDoc []byte
-	inputDoc, readErr := deps.ReadStdin(deps.Stdin, MapMaxInputBytes, true)
-	if readErr != nil {
-		return readErr
+	var readErr *jeq.Error
+	var stream *bufio.Reader
+	var firstRecord []byte
+	if f.input == "ndjson" {
+		stream = bufio.NewReader(deps.Stdin)
+		var eof bool
+		firstRecord, eof, readErr = readNDJSONRecord(stream)
+		if readErr != nil {
+			return readErr
+		}
+		if eof {
+			return jeq.NewError(jeq.CodeInputInvalid, "input is empty")
+		}
+	} else {
+		inputDoc, readErr = deps.ReadStdin(deps.Stdin, MapMaxInputBytes, true)
+		if readErr != nil {
+			return readErr
+		}
 	}
 	var questions map[string]contract.Question
 	var extra map[string]json.RawMessage
@@ -123,9 +139,15 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 			return sourceErr
 		}
 	}
-	records, framingErr := mapRecords(inputDoc, f.input)
-	if framingErr != nil {
-		return framingErr
+	var records [][]byte
+	if f.input == "ndjson" {
+		records = [][]byte{firstRecord}
+	} else {
+		var framingErr *jeq.Error
+		records, framingErr = mapRecords(inputDoc, f.input)
+		if framingErr != nil {
+			return framingErr
+		}
 	}
 	resolvedModel := "native"
 	modelSource := "native"
@@ -153,6 +175,9 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
 	evaluator := client
+	if f.input == "ndjson" {
+		return processMapStream(cmd.Context(), cmd, deps.Renderer, stream, firstRecord, f, questions, extra, resolvedModel, evaluator)
+	}
 	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator); processErr != nil {
 		return processErr
 	}
@@ -258,6 +283,41 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 		tr.EmitSummary(cmd.CommandPath(), len(records), len(records), len(records), 0)
 	}
 	return nil
+}
+
+func readNDJSONRecord(reader *bufio.Reader) ([]byte, bool, *jeq.Error) {
+	for {
+		line, err := reader.ReadBytes('\n')
+		if len(line) > MapMaxRecordBytes {
+			return nil, false, jeq.NewError(jeq.CodeInputInvalid, "NDJSON record exceeds the byte limit")
+		}
+		if len(line) > 0 && strings.TrimSpace(string(line)) != "" {
+			return bytes.TrimSpace(line), false, nil
+		}
+		if err == io.EOF {
+			return nil, true, nil
+		}
+		if err != nil {
+			return nil, false, jeq.NewError(jeq.CodeInputInvalid, "reading NDJSON input")
+		}
+	}
+}
+
+func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer, reader *bufio.Reader, first []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator) error {
+	record := first
+	for {
+		if err := processMapInput(ctx, cmd, renderer, record, f, questions, extra, model, evaluator); err != nil {
+			return err
+		}
+		next, eof, readErr := readNDJSONRecord(reader)
+		if readErr != nil {
+			return readErr
+		}
+		if eof {
+			return nil
+		}
+		record = next
+	}
 }
 
 func mapRecords(input []byte, framing string) ([][]byte, *jeq.Error) {
