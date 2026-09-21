@@ -29,7 +29,7 @@ func TestLoopbackUnauthenticatedRequestOmitsAuthorization(t *testing.T) {
 }
 
 func TestRedirectResponseDoesNotFollow(t *testing.T) {
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("redirect target was reached") }))
+	target := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { t.Error("redirect target was reached") }))
 	defer target.Close()
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, http.StatusFound) }))
 	defer source.Close()

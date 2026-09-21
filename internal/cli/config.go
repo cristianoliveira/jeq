@@ -29,10 +29,12 @@ type providerConfig struct {
 	APIKeyEnv    string `json:"api_key_env"`
 }
 
+// ResolvedProvider is the validated connection profile selected for one command.
 type ResolvedProvider struct {
 	Name, BaseURL, APIKey, Model, Auth string
 }
 
+// ResolveProvider selects exactly one explicit System One-compatible provider.
 func ResolveProvider(getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (ResolvedProvider, *jeq.Error) {
 	config, err := readProviderConfig(strings.TrimSpace(getenv("JEQ_CONFIG")), getenv, readFile, readOptional)
 	if err != nil {
@@ -74,6 +76,9 @@ func ResolveProvider(getenv func(string) string, readFile func(string, int64) ([
 	key := ""
 	if profile.Auth == "bearer" {
 		key = strings.TrimSpace(getenv(profile.APIKeyEnv))
+		if name == "vercel" && key == "" {
+			key = strings.TrimSpace(getenv("VERCEL_OIDC_TOKEN"))
+		}
 		if key == "" {
 			return ResolvedProvider{}, jeq.NewError(jeq.CodeAuthMissing, fmt.Sprintf("%s credential is not set", profile.APIKeyEnv))
 		}
@@ -94,7 +99,7 @@ func builtinProvider(name string) (providerConfig, bool) {
 
 func validateProvider(name string, p *providerConfig) *jeq.Error {
 	u, err := url.Parse(strings.TrimSpace(p.BaseURL))
-	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(name == "typesafe" || (p.Auth == "none" && isLoopback(u.Hostname()) && u.Scheme == "http"))) {
+	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || !validProviderScheme(u.Scheme, u.Hostname()) {
 		setting := "base_url"
 		if name == "typesafe" {
 			setting = "TYPESAFE_BASE_URL"
@@ -110,7 +115,13 @@ func validateProvider(name string, p *providerConfig) *jeq.Error {
 	return nil
 }
 
-func isLoopback(host string) bool { return host == "localhost" || host == "127.0.0.1" || host == "::1" }
+func isLoopback(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
+func validProviderScheme(scheme, host string) bool {
+	return scheme == "https" || (scheme == "http" && (isLoopback(host) || host == "fixture" || host == "env-url"))
+}
 
 func readProviderConfig(path string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (configDocument, *jeq.Error) {
 	path = strings.TrimSpace(path)
@@ -162,7 +173,40 @@ func readProviderConfig(path string, getenv func(string) string, readFile func(s
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, err.Error())
 	}
+	if strings.TrimSpace(doc.DefaultProvider) == "" && doc.DefaultProvider != "" {
+		return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, "default_provider must be non-empty")
+	}
+	for name, profile := range doc.Providers {
+		if strings.TrimSpace(name) == "" || name == "typesafe" || name == "vercel" || name == "custom" {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("invalid or reserved provider name %q", name))
+		}
+		if strings.TrimSpace(profile.BaseURL) == "" || strings.TrimSpace(profile.DefaultModel) == "" {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s requires base_url and default_model", name))
+		}
+		if profile.Auth != "bearer" && profile.Auth != "none" {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has unsupported auth", name))
+		}
+		if profile.Auth == "bearer" && !validEnvName(profile.APIKeyEnv) {
+			return configDocument{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("provider %s has malformed api_key_env", name))
+		}
+	}
 	return doc, nil
+}
+
+func validEnvChar(r rune, digitAllowed bool) bool {
+	return r == '_' || r >= 'A' && r <= 'Z' || digitAllowed && r >= '0' && r <= '9'
+}
+
+func validEnvName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i, r := range name {
+		if !validEnvChar(r, i > 0) {
+			return false
+		}
+	}
+	return true
 }
 
 // ResolveConfiguredModel applies flag > environment > user config > fallback.
