@@ -3,11 +3,33 @@ package examples_test
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestReadableWorkflowSnippetsUseRootFixtures(t *testing.T) {
+	fakeDir := t.TempDir()
+	fake := filepath.Join(fakeDir, "jeq")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\ncat\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ name, fixture, questions string }{
+		{"release", "examples/readable-workflows/release/fixtures/release.json", "examples/readable-workflows/release/questions.json"},
+		{"support", "examples/readable-workflows/support/fixtures/ticket.json", "examples/readable-workflows/support/questions.json"},
+		{"incident", "examples/readable-workflows/incident/fixtures/incident.json", "examples/readable-workflows/incident/category-questions.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command("bash", "-c", "< "+tc.fixture+" jeq map --as example --questions "+tc.questions+" --state-pointer /change")
+			cmd.Dir, cmd.Env = repoRoot, append(os.Environ(), "PATH="+fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+			if out, err := cmd.Output(); err != nil || len(out) == 0 {
+				t.Fatalf("snippet failed: err=%v output=%q", err, out)
+			}
+		})
+	}
+}
 
 func TestIncidentCatalogJQKnownAndUnknownKeys(t *testing.T) {
 	catalog := filepath.Join(repoRoot, "examples/readable-workflows/incident/runbook-catalog.json")
