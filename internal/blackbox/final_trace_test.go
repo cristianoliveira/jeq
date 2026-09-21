@@ -8,8 +8,8 @@ import (
 
 func TestBlackBoxVerbosePartialMapFailurePreservesPriorOutput(t *testing.T) {
 	response := fixture(t, "response_200_full.json")
-	api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, count int) {
-		if count == 1 {
+	api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request, _ int) {
+		if !strings.Contains(r.Header.Get("X-Test-Body"), "second") {
 			_, _ = w.Write(response)
 			return
 		}

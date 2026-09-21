@@ -181,6 +181,7 @@ func newFakeAPI(t *testing.T, handler func(http.ResponseWriter, *http.Request, i
 		api.lastBody = append([]byte(nil), body...)
 		api.bodies = append(api.bodies, append([]byte(nil), body...))
 		api.bodyMu.Unlock()
+		r.Header.Set("X-Test-Body", string(body))
 		handler(w, r, count)
 	}))
 	t.Cleanup(api.server.Close)
