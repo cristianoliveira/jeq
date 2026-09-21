@@ -4,7 +4,7 @@ The CLI owns Cobra commands, flag and source policy, human diagnostics, stream o
 
 # Boundaries
 
-It translates shell input into domain calls and consumes injected ports. It does not implement JSON contract semantics, HTTP, filesystem access, or rendering details.
+It translates shell input into domain calls and consumes injected ports. Provider selection and the shared model resolver belong here; they produce one explicit connection profile for all network commands. It does not implement JSON contract semantics, HTTP, filesystem access, or rendering details.
 
 # Connections
 

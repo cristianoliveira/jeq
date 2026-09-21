@@ -18,8 +18,7 @@ it, project away sensitive state explicitly:
 jq 'del(.customer_message, .details, ._jeq.route)'
 ```
 
-A live run needs `TYPESAFE_API_KEY` and spends account budget. Use a local fake
-endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. `rank`, `map`, and `reduce` resolve models as `--model`, `TYPESAFE_DEFAULT_MODEL`, user config (`${XDG_CONFIG_HOME:-$HOME/.config}/jeq/config.json`), then `jev-latest`; the config contains only `default_model`.
+A live run needs the selected provider credential and spends account budget. Use a local fake endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. Composed commands resolve models as `--model`, `JEQ_DEFAULT_MODEL`, selected profile, legacy top-level/`TYPESAFE_DEFAULT_MODEL`, then the provider default; config stores only provider settings and credential environment names.
 
 
 ## Recommended pipelines

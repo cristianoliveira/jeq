@@ -1,5 +1,8 @@
 # Purpose
 
+The System One adapter accepts one resolved provider profile. Keep wire compatibility in this adapter; do not create provider-specific adapters for compatible `/v1/systemone` and `/v1/models` routes.
+
+
 Infrastructure owns jeq's external adapters: explicit source reading, machine-output rendering, and the TypeSafe HTTP client.
 
 # Boundaries
