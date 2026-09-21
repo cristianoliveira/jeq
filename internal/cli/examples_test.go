@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cristianoliveira/jeq/internal/cli"
+	"github.com/spf13/cobra"
 )
 
 func TestExamplesUseNativeCobraHelp(t *testing.T) {
@@ -31,11 +32,25 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 				t.Fatalf("%s missing %q", id, field)
 			}
 		}
-		if !strings.Contains(out.String(), "JEQ_BIN=${JEQ_BIN:-jeq}") || strings.Contains(out.String(), "Next:") {
+		if !strings.Contains(out.String(), "Jev supplies typed semantic evidence") || !strings.Contains(out.String(), "jq and the shell own") || strings.Contains(out.String(), "Next:") {
 			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
 		}
 		if id == "debug-chain" && !strings.Contains(out.String(), "reduce --as aggregate --input ndjson") {
 			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
+		}
+	}
+}
+
+func TestJudgmentHelpStatesJevRole(t *testing.T) {
+	for _, command := range []*cobra.Command{cli.NewAskCmd(cli.AskDeps{}), cli.NewMapCmd(cli.AskDeps{}), cli.NewRateCmd(cli.AskDeps{}), cli.NewRankCmd(cli.AskDeps{}), cli.NewReduceCmd(cli.AskDeps{})} {
+		var out bytes.Buffer
+		command.SetOut(&out)
+		command.SetErr(&out)
+		if err := command.Help(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), "typed semantic") || !strings.Contains(out.String(), "caller") {
+			t.Fatalf("%s help=%q", command.Name(), out.String())
 		}
 	}
 }
@@ -56,7 +71,7 @@ func TestRootAndCommandHelpPointToExamples(t *testing.T) {
 	if code := cli.RunWithDeps(nil, &out, &errOut, r, cli.AskDeps{}); code != 0 {
 		t.Fatal(code)
 	}
-	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "jeq examples map-reduce-gate") {
+	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "jeq examples map-reduce-gate") || !strings.Contains(out.String(), "classifier on steroids") || !strings.Contains(out.String(), "does not generate prose") {
 		t.Fatalf("root help=%q", out.String())
 	}
 }

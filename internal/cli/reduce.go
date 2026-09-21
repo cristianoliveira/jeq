@@ -25,6 +25,7 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reduce",
 		Short: "Aggregate JSON records with one named judgment",
+		Long:  "Jev supplies one typed semantic judgment over the bounded collection; the caller owns policy and actions.",
 		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | jeq reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
   jeq examples reduce-gate`,

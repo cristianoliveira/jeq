@@ -131,7 +131,7 @@ printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","cont
 func NewExamplesCmd(_ AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "examples",
-		Short: "Discover self-contained workflow recipes",
+		Short: "Discover self-contained workflow recipes (Jev evidence, jq/shell policy)",
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
@@ -150,7 +150,7 @@ func NewExamplesCmd(_ AskDeps) *cobra.Command {
 }
 
 func recipeLong(recipe exampleRecipe) string {
-	long := fmt.Sprintf("%s\n\nCommands: %s\nRequirements: %s\nNetwork calls: %s\nInput: %s\nOutput: %s\nPrivacy: %s", recipe.Purpose, strings.Join(recipe.Covers, ", "), strings.Join(recipe.Requirements, ", "), recipe.Cost, recipe.InputShape, recipe.OutputShape, recipe.Privacy)
+	long := fmt.Sprintf("%s\n\nJev supplies typed semantic evidence; jq and the shell own projection, deterministic policy, and actions.\n\nCommands: %s\nRequirements: %s\nNetwork calls: %s\nInput: %s\nOutput: %s\nPrivacy: %s", recipe.Purpose, strings.Join(recipe.Covers, ", "), strings.Join(recipe.Requirements, ", "), recipe.Cost, recipe.InputShape, recipe.OutputShape, recipe.Privacy)
 	if recipe.Exits != "" {
 		long += "\nExits: " + recipe.Exits
 	}

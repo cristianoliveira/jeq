@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const modelRoleNote = "Jev is a classifier on steroids: TypeSafe System One maps natural-language state to caller-defined typed decisions and probabilities. It does not generate prose, code, chat, or hidden reasoning. The caller owns state, answer space, deterministic policy, actions, and escalation."
+
 // withBareHelp wraps an action so a bare invocation opens native Cobra help.
 func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
@@ -26,7 +28,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "jeq",
 		Short:         "Agent-first CLI for TypeSafe System One",
-		Long:          "Execution traces from --verbose are safe lifecycle metadata on stderr, not model reasoning or raw payloads. Use --trace-id or JEQ_TRACE_ID to correlate caller-owned pipelines.",
+		Long:          modelRoleNote + "\n\nExecution traces from --verbose are safe lifecycle metadata on stderr, not model reasoning or raw payloads. Use --trace-id or JEQ_TRACE_ID to correlate caller-owned pipelines.",
 		Example:       "  jeq examples\n  jeq examples map-reduce-gate",
 		SilenceUsage:  true,
 		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping

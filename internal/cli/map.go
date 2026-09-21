@@ -33,6 +33,7 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "map",
 		Short: "Enrich each JSON record with one named judgment",
+		Long:  "Jev supplies typed semantic evidence per record; the caller owns state, deterministic policy, and actions.",
 		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
   jeq examples map-gate`,

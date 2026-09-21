@@ -53,6 +53,7 @@ guides:
 
 - [Installation](docs/guides/installation.md)
 - [Getting started](docs/guides/getting-started.md)
+- [Jev mental model](docs/guides/jev.md)
 - [Composition](docs/guides/composition.md)
 - [Reduce a bounded collection](docs/guides/reduce.md)
 - [CLI reference](docs/guides/cli-reference.md)

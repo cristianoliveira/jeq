@@ -1,5 +1,9 @@
 # Readable Unix pipelines
 
+Jev supplies bounded typed semantic evidence; `jq` and the shell own projection,
+deterministic policy, and actions. Read the [Jev mental model](../docs/guides/jev.md)
+before choosing a primitive.
+
 Start with `jeq examples` for installed, self-contained recipes. This repository
 contains expanded executable references for those workflows. A rank result can be composed explicitly, for example: `jeq rank ... | jq '.items[:3] | map(.candidate)'`. Choice probabilities are relative; include an explicit fallback candidate when needed.
 
