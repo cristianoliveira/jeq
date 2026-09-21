@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const modelRoleNote = "Jev is a classifier on steroids: TypeSafe System One maps natural-language state to caller-defined typed decisions and probabilities. It does not generate prose, code, chat, or hidden reasoning. The caller owns state, answer space, deterministic policy, actions, and escalation."
+const modelRoleNote = "Jev is a classifier on steroids: TypeSafe System One maps natural-language state to caller-defined typed decisions and probabilities. It does not write replies, produce code, or return reasoning explanations. The caller owns state, answer space, deterministic policy, actions, and escalation."
 
 // withBareHelp wraps an action so a bare invocation opens native Cobra help.
 func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {

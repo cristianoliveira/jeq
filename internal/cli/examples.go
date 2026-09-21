@@ -132,6 +132,7 @@ func NewExamplesCmd(_ AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "examples",
 		Short: "Discover self-contained workflow recipes (Jev evidence, jq/shell policy)",
+		Long:  "Jev maps natural-language state to caller-defined typed decisions and probabilities; jq and the shell own deterministic policy and actions. Jev does not write replies, produce code, or return reasoning explanations.",
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
@@ -150,7 +151,11 @@ func NewExamplesCmd(_ AskDeps) *cobra.Command {
 }
 
 func recipeLong(recipe exampleRecipe) string {
-	long := fmt.Sprintf("%s\n\nJev supplies typed semantic evidence; jq and the shell own projection, deterministic policy, and actions.\n\nCommands: %s\nRequirements: %s\nNetwork calls: %s\nInput: %s\nOutput: %s\nPrivacy: %s", recipe.Purpose, strings.Join(recipe.Covers, ", "), strings.Join(recipe.Requirements, ", "), recipe.Cost, recipe.InputShape, recipe.OutputShape, recipe.Privacy)
+	role := "Jev supplies typed semantic evidence; jq and the shell own projection, deterministic policy, and actions."
+	if recipe.ID == "validate-native" {
+		role = "This recipe does not call Jev: it validates the caller-defined request shape locally before spend."
+	}
+	long := fmt.Sprintf("%s\n\n%s\n\nCommands: %s\nRequirements: %s\nNetwork calls: %s\nInput: %s\nOutput: %s\nPrivacy: %s", recipe.Purpose, role, strings.Join(recipe.Covers, ", "), strings.Join(recipe.Requirements, ", "), recipe.Cost, recipe.InputShape, recipe.OutputShape, recipe.Privacy)
 	if recipe.Exits != "" {
 		long += "\nExits: " + recipe.Exits
 	}

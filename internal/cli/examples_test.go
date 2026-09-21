@@ -10,7 +10,7 @@ import (
 )
 
 func TestExamplesUseNativeCobraHelp(t *testing.T) {
-	ids := []string{"validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
+	ids := []string{"rate-sort", "rank-top-k", "validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
 	var parent, parentHelp, stderr bytes.Buffer
 	if code := cli.RunWithDeps([]string{"examples"}, &parent, &stderr, nil, cli.AskDeps{}); code != 0 {
 		t.Fatalf("parent code=%d stderr=%q", code, stderr.String())
@@ -18,6 +18,11 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 	stderr.Reset()
 	if code := cli.RunWithDeps([]string{"examples", "--help"}, &parentHelp, &stderr, nil, cli.AskDeps{}); code != 0 || parent.String() != parentHelp.String() {
 		t.Fatalf("parent/help code=%d stderr=%q\nparent=%q\nhelp=%q", code, stderr.String(), parent.String(), parentHelp.String())
+	}
+	for _, phrase := range []string{"typed decisions and probabilities", "jq and the shell own", "does not write replies"} {
+		if !strings.Contains(parent.String(), phrase) {
+			t.Fatalf("parent missing role contract %q: %s", phrase, parent.String())
+		}
 	}
 	for _, id := range ids {
 		var out, help, errOut bytes.Buffer
@@ -32,7 +37,14 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 				t.Fatalf("%s missing %q", id, field)
 			}
 		}
-		if !strings.Contains(out.String(), "Jev supplies typed semantic evidence") || !strings.Contains(out.String(), "jq and the shell own") || strings.Contains(out.String(), "Next:") {
+		if id == "validate-native" {
+			if !strings.Contains(out.String(), "does not call Jev") || !strings.Contains(out.String(), "validates the caller-defined request shape") {
+				t.Fatalf("%s missing offline role note: %q", id, out.String())
+			}
+		} else if !strings.Contains(out.String(), "Jev supplies typed semantic evidence") || !strings.Contains(out.String(), "jq and the shell own") {
+			t.Fatalf("%s missing role note: %q", id, out.String())
+		}
+		if strings.Contains(out.String(), "Next:") {
 			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
 		}
 		if id == "debug-chain" && !strings.Contains(out.String(), "reduce --as aggregate --input ndjson") {
@@ -71,7 +83,7 @@ func TestRootAndCommandHelpPointToExamples(t *testing.T) {
 	if code := cli.RunWithDeps(nil, &out, &errOut, r, cli.AskDeps{}); code != 0 {
 		t.Fatal(code)
 	}
-	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "jeq examples map-reduce-gate") || !strings.Contains(out.String(), "classifier on steroids") || !strings.Contains(out.String(), "does not generate prose") {
+	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "examples") || !strings.Contains(out.String(), "jeq examples map-reduce-gate") || !strings.Contains(out.String(), "classifier on steroids") || !strings.Contains(out.String(), "does not write replies") || !strings.Contains(out.String(), "typed decisions and probabilities") {
 		t.Fatalf("root help=%q", out.String())
 	}
 }

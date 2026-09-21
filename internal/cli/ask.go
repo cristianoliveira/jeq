@@ -66,7 +66,7 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ask",
 		Short: "Send one System One request",
-		Long:  "Jev returns caller-defined typed semantic decisions and probabilities; it does not generate prose, code, chat, or reasoning.",
+		Long:  "Jev returns caller-defined typed semantic decisions and probabilities; it does not write replies, produce code, or return reasoning explanations.",
 		Args:  cobra.NoArgs,
 		Example: `  jeq ask --request request.json
   jeq examples ask-native`,
