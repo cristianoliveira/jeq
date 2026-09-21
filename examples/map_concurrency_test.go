@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -21,7 +22,38 @@ func TestMapConcurrencyExampleUsesBuiltBinary(t *testing.T) {
 		t.Fatalf("example failed: %v\n%s", err, output)
 	}
 	line := strings.TrimSpace(string(output))
-	if !strings.Contains(line, "records=100") || !strings.Contains(line, "requests=100") || !strings.Contains(line, "PASS") {
-		t.Fatalf("unexpected output: %q", line)
+	var summary struct {
+		Records  int    `json:"records"`
+		Requests int    `json:"requests"`
+		Peak     int    `json:"peak"`
+		Order    bool   `json:"order"`
+		Status   string `json:"status"`
+	}
+	fields := strings.Fields(line)
+	if len(fields) != 6 {
+		t.Fatalf("unexpected summary fields: %q", line)
+	}
+	for _, field := range fields {
+		if field == "PASS" {
+			summary.Status = "PASS"
+			continue
+		}
+		parts := strings.SplitN(field, "=", 2)
+		if len(parts) != 2 {
+			t.Fatalf("invalid summary field: %q", field)
+		}
+		switch parts[0] {
+		case "records":
+			summary.Records, _ = strconv.Atoi(parts[1])
+		case "requests":
+			summary.Requests, _ = strconv.Atoi(parts[1])
+		case "peak":
+			summary.Peak, _ = strconv.Atoi(parts[1])
+		case "order":
+			summary.Order = parts[1] == "true"
+		}
+	}
+	if summary.Records != 100 || summary.Requests != 100 || summary.Peak <= 1 || summary.Peak > 4 || !summary.Order || summary.Status != "PASS" {
+		t.Fatalf("unexpected summary: %q", line)
 	}
 }

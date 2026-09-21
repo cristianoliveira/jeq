@@ -39,6 +39,7 @@ A live run needs the selected provider credential and spends account budget. Use
 - [`todo-fulfillment`](todo-fulfillment/README.md): compare every prioritized
   todo item with the same complete code diff and preserve an explicit
   fulfilled/not-fulfilled/uncertain decision.
+- [`map-concurrency`](map-concurrency/README.md): local loopback stress run proving bounded overlapping map requests and ordered output.
 - [`unix-review-pipeline`](unix-review-pipeline/README.md): visible emitter,
   rank, map, jq, reduce, gate, and safe final projection pipeline.
 

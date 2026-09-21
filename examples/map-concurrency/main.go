@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -45,7 +46,12 @@ func main() {
 		if current >= 2 {
 			once.Do(func() { close(gate) })
 		}
-		<-gate
+		select {
+		case <-gate:
+		case <-r.Context().Done():
+			active.Add(-1)
+			return
+		}
 		active.Add(-1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"model":"local","answers":{"risk":{"type":"noul","noul":0.5}},"usage":{"input_tokens":1,"output_tokens":1}}`)
@@ -60,14 +66,20 @@ func main() {
 	for i := 0; i < *records; i++ {
 		fmt.Fprintf(&input, `{"state":"record-%d"}`+"\n", i)
 	}
-	cmd := exec.Command(binary, "map", "--input", "ndjson", "--as", "risk", "--state-pointer", "/state", "--questions-json", `{"questions":{"risk":{"type":"noul","instructions":"is it safe?"}}}`)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "map", "--input", "ndjson", "--as", "risk", "--state-pointer", "/state", "--questions-json", `{"questions":{"risk":{"type":"noul","instructions":"is it safe?"}}}`)
 	cmd.Stdin = &input
 	cmd.Env = append(os.Environ(), "TYPESAFE_BASE_URL="+server.URL, "TYPESAFE_API_KEY=local-only", "JEQ_MODEL=local")
 	start := time.Now()
 	out, err := cmd.CombinedOutput()
 	elapsed := time.Since(start)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v: %s", err, out)
+		if ctx.Err() != nil {
+			fmt.Fprintf(os.Stderr, "map timed out: %v", ctx.Err())
+		} else {
+			fmt.Fprintf(os.Stderr, "%v: %s", err, out)
+		}
 		os.Exit(1)
 	}
 	scanner := bufio.NewScanner(bytes.NewReader(out))
