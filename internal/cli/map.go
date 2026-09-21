@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
@@ -332,29 +333,90 @@ func readNDJSONRecord(reader *bufio.Reader) ([]byte, bool, *jeq.Error) {
 	}
 }
 
+const mapWorkerLimit = 4
+
+type mapJob struct {
+	index  int
+	record []byte
+}
+type mapResult struct {
+	index  int
+	output []byte
+	err    error
+}
+
 func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer, reader *bufio.Reader, first []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator) error {
-	record := first
-	offset := 0
-	for {
-		if ctx.Err() != nil {
-			return jeq.NewError(jeq.CodeInterrupted, "map input cancelled")
-		}
-		if err := processMapInput(ctx, cmd, renderer, record, f, questions, extra, model, evaluator, offset); err != nil {
-			return err
-		}
-		if ctx.Err() != nil {
-			return jeq.NewError(jeq.CodeInterrupted, "map input cancelled")
-		}
-		next, eof, readErr := readNDJSONRecord(reader)
-		if readErr != nil {
-			return readErr
-		}
-		if eof {
-			return nil
-		}
-		record = next
-		offset++
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	jobs := make(chan mapJob, mapWorkerLimit)
+	results := make(chan mapResult, mapWorkerLimit)
+	var workers sync.WaitGroup
+	for i := 0; i < mapWorkerLimit; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for job := range jobs {
+				var out bytes.Buffer
+				workerCmd := *cmd
+				workerCmd.SetContext(ctx)
+				workerCmd.SetOut(&out)
+				err := processMapInput(ctx, &workerCmd, streamRenderer{}, job.record, f, questions, extra, model, evaluator, job.index)
+				results <- mapResult{job.index, bytes.TrimSpace(out.Bytes()), err}
+			}
+		}()
 	}
+	stop := func(err error) error { cancel(); close(jobs); workers.Wait(); return err }
+	pending, next, want := 0, 0, 0
+	failed := false
+	dispatch := func(record []byte) { jobs <- mapJob{next, record}; next++; pending++ }
+	dispatch(first)
+	eof := false
+	var inputErr error
+	completed := make(map[int]mapResult, mapWorkerLimit)
+	for pending > 0 {
+		if ctx.Err() != nil {
+			return stop(jeq.NewError(jeq.CodeInterrupted, "map input cancelled"))
+		}
+		for !failed && !eof && pending < mapWorkerLimit {
+			record, done, err := readNDJSONRecord(reader)
+			if err != nil {
+				inputErr = err
+				eof = true
+				break
+			}
+			if done {
+				eof = true
+				break
+			}
+			dispatch(record)
+		}
+		result := <-results
+		pending--
+		if result.err != nil {
+			failed = true
+		}
+		completed[result.index] = result
+		for {
+			ordered, ok := completed[want]
+			if !ok {
+				break
+			}
+			if ordered.err != nil {
+				return stop(ordered.err)
+			}
+			if err := renderRaw(renderer, cmd.OutOrStdout(), ordered.output); err != nil {
+				return stop(err)
+			}
+			delete(completed, want)
+			want++
+		}
+		if pending == 0 && inputErr != nil {
+			return stop(inputErr)
+		}
+	}
+	close(jobs)
+	workers.Wait()
+	return nil
 }
 
 func mapRecords(input []byte, framing string) ([][]byte, *jeq.Error) {

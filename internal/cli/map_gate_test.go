@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,11 +44,14 @@ func (streamRenderer) RenderRaw(w io.Writer, raw []byte) error {
 }
 
 type streamClient struct {
+	mu       sync.Mutex
 	calls    int
 	requests []contract.Request
 }
 
 func (c *streamClient) Evaluate(_ context.Context, request contract.Request) (contract.Response, *jeq.Error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.calls++
 	c.requests = append(c.requests, request)
 	return contract.Response{Model: "m", Answers: map[string]contract.Answer{}, Usage: contract.Usage{}}, nil

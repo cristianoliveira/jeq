@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -219,7 +220,7 @@ func TestMapStreamStopsOnOutputFailure(t *testing.T) {
 	reader := &countingDataReader{reads: &reads, data: []byte("{\"state\":\"second\"}\n")}
 	client := &streamClient{}
 	err := processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
-	if err == nil || reads != 0 || client.calls != 1 {
+	if err == nil || reads > 4 || client.calls > 4 {
 		t.Fatalf("err=%v reads=%d calls=%d", err, reads, client.calls)
 	}
 }
@@ -247,16 +248,21 @@ func TestMapStreamStopsOnProviderFailure(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
-	if err == nil || client.calls != 2 || reads != 1 || !strings.Contains(out.String(), "first") {
+	if err == nil || client.calls > 4 || reads > 3 || !strings.Contains(out.String(), "first") {
 		t.Fatalf("err=%v calls=%d reads=%d out=%q", err, client.calls, reads, out.String())
 	}
 }
 
-type failingStreamClient struct{ calls int }
+type failingStreamClient struct {
+	mu    sync.Mutex
+	calls int
+}
 
-func (c *failingStreamClient) Evaluate(context.Context, contract.Request) (contract.Response, *jeq.Error) {
+func (c *failingStreamClient) Evaluate(_ context.Context, request contract.Request) (contract.Response, *jeq.Error) {
+	c.mu.Lock()
 	c.calls++
-	if c.calls == 2 {
+	c.mu.Unlock()
+	if strings.Contains(string(request.State), "second") {
 		return contract.Response{}, jeq.NewError(jeq.CodeServerError, "provider failure")
 	}
 	return contract.Response{Model: "m"}, nil
