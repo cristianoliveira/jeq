@@ -3,7 +3,6 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-JEQ_BIN=${JEQ_BIN:-jeq}
 JEQ_MODEL=${JEQ_MODEL:-jev-latest}
 PASS_MIN=${PASS_MIN:-0.85}
 REJECT_MAX=${REJECT_MAX:-0.40}
@@ -29,7 +28,7 @@ status=0
 
 while IFS= read -r todo; do
   state=$(jq -cn --argjson todo "$todo" --rawfile diff "$DIFF_FILE" '{todo:$todo,diff:$diff}')
-  if response=$(printf '%s\n' "$state" | "$JEQ_BIN" ask \
+  if response=$(printf '%s\n' "$state" | jeq ask \
       --questions "$SCRIPT_DIR/questions.json" \
       --state-json - \
       --model "$JEQ_MODEL"); then

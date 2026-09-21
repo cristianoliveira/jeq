@@ -5,9 +5,8 @@ network call. The command returns `0` for all pass records, `10` when any record
 is rejected, and `11` when none are rejected but at least one is uncertain.
 
 ```sh
-JEQ_BIN=${JEQ_BIN:-jeq}
-"$JEQ_BIN" map --as risk --questions questions.json --state-pointer /change |
-  "$JEQ_BIN" gate --as release_policy \
+jeq map --as risk --questions questions.json --state-pointer /change |
+  jeq gate --as release_policy \
     --value-pointer /_jeq/risk/answers/risk/score \
     --pass-min 0.80 --reject-max 0.30
 ```
@@ -23,7 +22,7 @@ For a bounded batch, `reduce` makes one request over the complete collection;
 there is no iterative fold or hidden per-item request:
 
 ```sh
-cat fixtures/release.json | "$JEQ_BIN" reduce --as batch_risk \
+cat fixtures/release.json | jeq reduce --as batch_risk \
   --questions questions.json --input ndjson --model jev-latest
 ```
 

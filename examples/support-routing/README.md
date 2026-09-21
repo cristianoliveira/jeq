@@ -6,7 +6,7 @@ script maps only `billing`, `technical`, and `sales` to fixed queue labels.
 Unknown routes and route confidence below `0.70` become `human_review`.
 
 ```sh
-JEQ_BIN=jeq JEQ_MODEL=jev-latest \
+JEQ_MODEL=jev-latest \
   ./route.sh < fixtures/ticket.txt
 ```
 

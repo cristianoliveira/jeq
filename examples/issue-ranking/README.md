@@ -18,7 +18,7 @@ This makes request count and spend predictable. A valid input with `n` lines
 makes exactly `n` paid evaluation requests.
 
 ```sh
-JEQ_BIN=jeq JEQ_MODEL=jev-latest \
+JEQ_MODEL=jev-latest \
   ./rank.sh < fixtures/issues.ndjson
 ```
 

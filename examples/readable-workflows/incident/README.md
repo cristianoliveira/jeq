@@ -6,9 +6,8 @@ request into a new record field. The second map evaluates that request. Gate
 then checks its numeric confidence offline.
 
 ```sh
-JEQ_BIN=${JEQ_BIN:-jeq}
 
-"$JEQ_BIN" map --as category --questions category-questions.json \
+jeq map --as category --questions category-questions.json \
     --state-pointer /incident |
   jq --slurpfile catalog runbook-catalog.json '
     (._jeq.category.answers.category.choice // error("missing category answer")) as $category |
@@ -29,8 +28,8 @@ JEQ_BIN=${JEQ_BIN:-jeq}
       }
     end
   ' |
-  "$JEQ_BIN" map --as runbook --request-pointer /request |
-  "$JEQ_BIN" gate --as incident_policy \
+  jeq map --as runbook --request-pointer /request |
+  jeq gate --as incident_policy \
     --value-pointer /_jeq/runbook/answers/runbook/confidence \
     --pass-min 0.80 --reject-max 0.40
 ```

@@ -13,7 +13,7 @@ questions. A successful review is advisory and exits 0.
 ## Run it
 
 ```sh
-JEQ_BIN=jeq JQ_BIN=jq \
+\
   ./examples/code-smell-review/review.sh \
   internal/cli/map.go internal/domain/pipeline/reduce.go
 ```

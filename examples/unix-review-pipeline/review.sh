@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-JEQ_BIN=${JEQ_BIN:-jeq}
-JQ_BIN=${JQ_BIN:-jq}
 MAX_FILES=20
 MAX_BYTES=$((256 * 1024))
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-if ! command -v "$JEQ_BIN" >/dev/null 2>&1; then
-	printf 'unix-review-pipeline: JEQ_BIN is unavailable: %s\n' "$JEQ_BIN" >&2
+if ! command -v jeq >/dev/null 2>&1; then
+	printf 'unix-review-pipeline: jeq is unavailable on PATH: %s\n' jeq >&2
 	exit 127
 fi
-if ! command -v "$JQ_BIN" >/dev/null 2>&1; then
-	printf 'unix-review-pipeline: JQ_BIN is unavailable: %s\n' "$JQ_BIN" >&2
+if ! command -v jq >/dev/null 2>&1; then
+	printf 'unix-review-pipeline: jq is unavailable on PATH: %s\n' jq >&2
 	exit 127
 fi
 if (($# < 1 || $# > MAX_FILES)); then
@@ -35,7 +33,7 @@ done
 
 emit_files() {
 	for path in "$@"; do
-		"$JQ_BIN" -c -n --arg path "$path" --rawfile content "$path" \
+		jq -c -n --arg path "$path" --rawfile content "$path" \
 			'{file: {path: $path, content: $content}}'
 	done
 }
@@ -43,8 +41,8 @@ emit_files() {
 # Keep each stage visible: emit records -> local map -> shape -> aggregate reduce
 # -> offline gate -> source-free final projection.
 emit_files "$@" |
-	"$JEQ_BIN" map --as local_focus --questions "$SCRIPT_DIR/local-questions.json" --state-pointer /file --input ndjson |
-	"$JQ_BIN" -c '{file: .file, local_focus: ._jeq.local_focus.answers.local_focus.noul}' |
-	"$JEQ_BIN" reduce --as aggregate_focus --questions "$SCRIPT_DIR/change-questions.json" --input ndjson |
-	"$JEQ_BIN" gate --as focus_policy --value-pointer /_jeq/aggregate_focus/answers/aggregate_focus/noul --pass-min 0.80 --reject-max 0.40 |
-	"$JQ_BIN" -c 'del(.items)'
+	jeq map --as local_focus --questions "$SCRIPT_DIR/local-questions.json" --state-pointer /file --input ndjson |
+	jq -c '{file: .file, local_focus: ._jeq.local_focus.answers.local_focus.noul}' |
+	jeq reduce --as aggregate_focus --questions "$SCRIPT_DIR/change-questions.json" --input ndjson |
+	jeq gate --as focus_policy --value-pointer /_jeq/aggregate_focus/answers/aggregate_focus/noul --pass-min 0.80 --reject-max 0.40 |
+	jq -c 'del(.items)'

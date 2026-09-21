@@ -3,7 +3,6 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-JEQ_BIN=${JEQ_BIN:-jeq}
 JEQ_MODEL=${JEQ_MODEL:-jev-latest}
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/jeq-rank.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -13,7 +12,7 @@ JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$
 run_jeq() {
   local state_json=$1
   local status
-  if printf '%s\n' "$state_json" | "$JEQ_BIN" "${JEQ_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
+  if printf '%s\n' "$state_json" | jeq "${JEQ_ARGS[@]}" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
     status=0
   else
     status=$?

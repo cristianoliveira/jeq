@@ -94,7 +94,7 @@ jq '.items[:5] | map({
 
 The script is a thin wrapper around `jeq rank`. It accepts exactly one query,
 reads reviewed JSON on stdin, and disables retries so the experiment attempts
-at most one API request. `JEQ_BIN` can select a local binary. Normal jeq model
+at most one API request. `jeq` can select a local binary. Normal jeq model
 configuration and `TYPESAFE_BASE_URL` still apply.
 
 The complete result retains `_jeq.relevance`, including the resolved model and

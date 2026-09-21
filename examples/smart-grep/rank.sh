@@ -7,8 +7,7 @@ if [[ $# -ne 1 || -z ${1//[[:space:]]/} ]]; then
 	exit 2
 fi
 
-JEQ_BIN=${JEQ_BIN:-jeq}
-exec "$JEQ_BIN" rank \
+exec jeq rank \
 	--as relevance \
 	--id-pointer /id \
 	--criteria-pointer /description \

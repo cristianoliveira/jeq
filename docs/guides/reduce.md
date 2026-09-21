@@ -7,7 +7,7 @@ Do not use `reduce` for unbounded streams, per-record decisions, or relative
 ordering.
 
 ```sh
-JEQ_BIN=jeq ./examples/release-readiness/review.sh
+./examples/release-readiness/review.sh
 ```
 
 `reduce` makes one TypeSafe request for the complete NDJSON collection. Keep the
@@ -23,7 +23,7 @@ The example's output can be sent to an offline policy gate. These thresholds are
 illustrative, not calibrated defaults:
 
 ```sh
-JEQ_BIN=jeq ./examples/release-readiness/review.sh \
+./examples/release-readiness/review.sh \
   | jeq gate --as release_policy \
     --value-pointer /_jeq/release_ready/answers/release_ready/noul \
     --pass-min 0.80 --reject-max 0.40
@@ -44,5 +44,5 @@ Choose the primitive that matches the question:
 
 The script is intentionally singular: it reads synthetic findings, runs exactly
 one reduce, and performs no deployment or release action. It preserves jeq's
-stdout, stderr, and exit status. Set `JEQ_BIN` to a fake executable for offline
+stdout, stderr, and exit status. Set `jeq` to a fake executable for offline
 checks or to a reviewed jeq binary for a real request.

@@ -37,6 +37,10 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	jeqBin = filepath.Join(temp, "jeq")
+	if err := os.Symlink(jeqBin, filepath.Join(temp, "jeq-test")); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	build := exec.Command("go", "build", "-o", jeqBin, "./cmd/jeq")
 	build.Dir = repoRoot
 	build.Stdout = os.Stdout
@@ -64,8 +68,17 @@ func runScript(t *testing.T, script, input, endpoint string, extra map[string]st
 	commandArgs := append([]string{filepath.Join(repoRoot, script)}, args...)
 	cmd := exec.CommandContext(ctx, "bash", commandArgs...)
 	cmd.Dir = repoRoot
+	if fake, ok := extra["JEQ_BIN"]; ok {
+		toolDir := t.TempDir()
+		if err := os.Symlink(fake, filepath.Join(toolDir, "jeq")); err != nil {
+			t.Fatal(err)
+		}
+		extra = cloneEnv(extra)
+		delete(extra, "JEQ_BIN")
+		extra["PATH"] = toolDir + string(os.PathListSeparator) + os.Getenv("PATH")
+	}
 	cmd.Env = envWith(map[string]string{
-		"JEQ_BIN":           jeqBin,
+		"PATH":              filepath.Dir(jeqBin) + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"TYPESAFE_BASE_URL": endpoint,
 		"JEQ_MODEL":         "jev-latest",
 		"TYPESAFE_API_KEY":  "examples-test-key",
@@ -80,6 +93,14 @@ func runScript(t *testing.T, script, input, endpoint string, extra map[string]st
 		t.Fatalf("%s timed out: stdout=%q stderr=%q", script, stdout.String(), stderr.String())
 	}
 	return processResult{stdout: stdout.String(), stderr: stderr.String(), exit: processExit(cmd)}
+}
+
+func cloneEnv(input map[string]string) map[string]string {
+	output := make(map[string]string, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
 }
 
 func envWith(base, extra map[string]string) []string {

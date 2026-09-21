@@ -4,9 +4,8 @@ The map asks one typed question. The gate is offline and inspects the response
 confidence; it never calls the API.
 
 ```sh
-JEQ_BIN=${JEQ_BIN:-jeq}
-"$JEQ_BIN" map --as route --questions questions.json --state-pointer /ticket |
-  "$JEQ_BIN" gate --as route_policy \
+jeq map --as route --questions questions.json --state-pointer /ticket |
+  jeq gate --as route_policy \
     --value-pointer /_jeq/route/answers/route/confidence \
     --pass-min 0.70 --reject-max 0.40
 ```

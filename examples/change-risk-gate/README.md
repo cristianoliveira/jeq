@@ -8,7 +8,7 @@ policy to the `safe_to_ship` Noul signal:
 - between those thresholds: `uncertain`, exit `11`.
 
 ```sh
-JEQ_BIN=jeq JEQ_MODEL=jev-latest \
+JEQ_MODEL=jev-latest \
   ./gate.sh < fixtures/change.diff
 ```
 
