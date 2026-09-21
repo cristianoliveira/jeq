@@ -1,7 +1,7 @@
 ---
 id: TASK-0051
 title: Rewrite README in Cristian's voice
-status: doing
+status: done
 depends_on: []
 priority: normal
 tags: [docs, readability]
