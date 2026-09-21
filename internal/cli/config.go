@@ -226,6 +226,9 @@ func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv fun
 		if flagModel != "" {
 			return flagModel, "flag", nil
 		}
+		if envModel := strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL")); envModel != "" {
+			return envModel, "environment", nil
+		}
 		if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
 			return envModel, "environment", nil
 		}
@@ -233,6 +236,9 @@ func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv fun
 	}
 	if flagModel != "" {
 		return flagModel, "flag", nil
+	}
+	if envModel := strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL")); envModel != "" {
+		return envModel, "environment", nil
 	}
 	if envModel := strings.TrimSpace(getenv(DefaultModelEnv)); envModel != "" {
 		return envModel, "environment", nil
@@ -316,13 +322,21 @@ func decodeUserConfig(path string, data []byte) (string, *jeq.Error) {
 		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s must be an object: %v", path, err))
 	}
 	for key := range fields {
-		if key != "default_model" {
+		if key != "default_model" && key != "default_provider" && key != "providers" {
 			return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s contains unsupported field %q", path, key))
 		}
 	}
 	var doc configDocument
-	if err := json.Unmarshal(data, &doc); err != nil || strings.TrimSpace(doc.DefaultModel) == "" {
-		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s.default_model must be a non-empty string", path))
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s is invalid", path))
+	}
+	if len(fields) == 0 {
+		return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s must define a provider or default_model", path))
+	}
+	if raw, present := fields["default_model"]; present {
+		if err := json.Unmarshal(raw, &doc.DefaultModel); err != nil || strings.TrimSpace(doc.DefaultModel) == "" {
+			return "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("config %s.default_model must be a non-empty string", path))
+		}
 	}
 	return strings.TrimSpace(doc.DefaultModel), nil
 }
