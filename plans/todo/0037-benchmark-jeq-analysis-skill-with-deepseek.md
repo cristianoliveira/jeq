@@ -35,3 +35,6 @@ The new skill is structurally valid, but we do not yet have measured evidence th
 ## Iteration 1 result
 Four of six runs completed. The eval 2 and eval 3 no-skill baselines timed out at 300 seconds and remain ungraded. Candidate completed 15/16 expectations; the only completed pair favored the skill 7/7 versus 6/7. A second approved paid iteration is required for a complete paired benchmark.
 
+## Iteration 2 result — partial, 2026-09-21
+The frozen prompts, fixtures, model, medium thinking, sequential execution, and 300-second timeout were reused. Four of six runs completed: both candidate content runs and both deterministic-latency runs. The eval 1 and eval 2 no-skill baselines timed out at 300 seconds while exploring the local environment; they produced no valid deliverable and remain ungraded. Candidate eval 1 and eval 2 each recorded exactly four HTTP attempts with `--max-retries 0`; both eval 3 runs made no JEQ call. Observed TypeSafe attempts: 8 of the 16-attempt ceiling; no credential or raw payload was printed. This iteration remains incomplete because the two paired no-skill content baselines failed at runtime. Raw artifacts are under `/Users/cristianoliveira/.agents/jeq-complex-analysis-workspace/iteration-2/`; see `.tmp/reports/21-09-26/TASK-0037-second-iteration.md`.
+
