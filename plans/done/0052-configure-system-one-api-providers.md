@@ -1,7 +1,7 @@
 ---
 id: TASK-0052
 title: Configure System One API providers
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [cli, configuration, providers, security, typesafe, vercel]
