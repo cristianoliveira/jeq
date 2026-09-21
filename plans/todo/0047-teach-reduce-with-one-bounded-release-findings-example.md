@@ -1,7 +1,7 @@
 ---
 id: TASK-0047
 title: Teach reduce with one bounded release-findings example
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [documentation, examples, reduce, onboarding]
