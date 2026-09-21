@@ -1,7 +1,7 @@
 ---
 id: TASK-0055
 title: Make trace emission concurrency-safe
-status: doing
+status: done
 depends_on: [TASK-0054]
 priority: high
 tags: [trace, concurrency, observability, determinism, testing]
