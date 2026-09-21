@@ -1,7 +1,7 @@
 ---
 id: TASK-0037
 title: Benchmark jeq analysis skill with DeepSeek
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: []
@@ -37,4 +37,7 @@ Four of six runs completed. The eval 2 and eval 3 no-skill baselines timed out a
 
 ## Iteration 2 result — partial, 2026-09-21
 The frozen prompts, fixtures, model, medium thinking, sequential execution, and 300-second timeout were reused. Four of six runs completed: both candidate content runs and both deterministic-latency runs. The eval 1 and eval 2 no-skill baselines timed out at 300 seconds while exploring the local environment; they produced no valid deliverable and remain ungraded. Candidate eval 1 and eval 2 each recorded exactly four HTTP attempts with `--max-retries 0`; both eval 3 runs made no JEQ call. Observed TypeSafe attempts: 8 of the 16-attempt ceiling; no credential or raw payload was printed. This iteration remains incomplete because the two paired no-skill content baselines failed at runtime. Raw artifacts are under `/Users/cristianoliveira/.agents/jeq-complex-analysis-workspace/iteration-2/`; see `.tmp/reports/21-09-26/TASK-0037-second-iteration.md`.
+
+## Closure decision — incomplete, 2026-09-21
+After two paid iterations produced baseline runtime failures, the user chose to stop rather than spend more or change the frozen protocol. The unchecked grading criterion is intentionally unmet: TASK-0037 closes as an incomplete benchmark and makes no claim that the skill's improvement was measured conclusively. Any protocol redesign must be separate future work with a new approval and budget.
 
