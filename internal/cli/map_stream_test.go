@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -35,6 +36,47 @@ func (c *cancelClient) Evaluate(ctx context.Context, _ contract.Request) (contra
 		return contract.Response{}, jeq.NewError(jeq.CodeInterrupted, "cancelled")
 	}
 	return contract.Response{Model: "m"}, nil
+}
+
+type channelWriter chan []byte
+
+func (w channelWriter) Write(p []byte) (int, error) {
+	w <- append([]byte(nil), p...)
+	return len(p), nil
+}
+
+func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
+	reader, writer := io.Pipe()
+	output := make(channelWriter, 2)
+	client := &streamClient{}
+	deps := AskDeps{Stdin: reader, ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { return nil, nil }, ReadFile: func(string, int64) ([]byte, *jeq.Error) {
+		return []byte(`{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`), nil
+	}, NewClient: func(string, time.Duration, string, int, func(string)) APIClient { return client }, Getenv: func(key string) string {
+		if key == "TYPESAFE_API_KEY" {
+			return "test"
+		}
+		return ""
+	}}
+	done := make(chan int, 1)
+	go func() {
+		done <- RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, output, io.Discard, streamRenderer{}, deps)
+	}()
+	if _, err := writer.Write([]byte("{\"state\":\"first\"}\n")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-output:
+		if !bytes.Contains(got, []byte("first")) {
+			t.Fatalf("output=%q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("first output waited for EOF")
+	}
+	_, _ = writer.Write([]byte("{\"state\":\"second\"}\n"))
+	_ = writer.Close()
+	if code := <-done; code != 0 || client.calls != 2 {
+		t.Fatalf("code=%d calls=%d", code, client.calls)
+	}
 }
 
 func TestMapStreamEmitsBeforeReadError(t *testing.T) {
