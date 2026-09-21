@@ -35,6 +35,11 @@ process-local unless the caller correlates them. Check exit codes in scripts:
 | 11 | Gate uncertain decision |
 | 130 | Interrupted |
 
-Credentials and private state must remain outside logs and arguments. The caller
-owns retries, persistence, redaction, and actions; jeq never executes model
-output.
+Provider selection is explicit: `JEQ_PROVIDER=typesafe|vercel|custom`, or
+`default_provider` in `JEQ_CONFIG`; there is no credential inference or fallback.
+Named profiles use `base_url`, `default_model`, `auth`, and `api_key_env`.
+Remote endpoints require HTTPS. Unauthenticated HTTP is loopback-only.
+`JEQ_CONFIG` overrides the optional `$XDG_CONFIG_HOME/jeq/config.json`, then
+`$HOME/.config/jeq/config.json`. Credentials and private state must remain
+outside logs and arguments. The caller owns retries, persistence, redaction, and
+actions; jeq never executes model output.

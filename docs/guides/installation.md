@@ -72,5 +72,11 @@ metadata. Use the Nix package or release archives when release metadata matters.
 
 For a checkout development install, use `nix develop -c go install ./cmd/jeq`.
 
-Set `TYPESAFE_API_KEY` only in the environment that needs evaluation. Do not put
+Set `TYPESAFE_API_KEY` only in the environment that needs evaluation. Provider
+selection may use `JEQ_PROVIDER=vercel` with `AI_GATEWAY_API_KEY`, or
+`JEQ_PROVIDER=custom` with `JEQ_BASE_URL`, `JEQ_DEFAULT_MODEL`, and either
+`JEQ_API_KEY` or `JEQ_AUTH=none` for loopback HTTP. JSON configuration is read
+from `JEQ_CONFIG` when set; otherwise the optional
+`$XDG_CONFIG_HOME/jeq/config.json` or `$HOME/.config/jeq/config.json`.
+Credentials are environment names in config, never values. Do not put
 credentials in prompts, state, shell history, or committed files.
