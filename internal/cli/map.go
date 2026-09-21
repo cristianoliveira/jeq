@@ -286,18 +286,29 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 }
 
 func readNDJSONRecord(reader *bufio.Reader) ([]byte, bool, *jeq.Error) {
+	var record []byte
 	for {
-		line, err := reader.ReadBytes('\n')
-		if len(line) > MapMaxRecordBytes {
+		part, err := reader.ReadSlice('\n')
+		if len(record)+len(part) > MapMaxRecordBytes {
 			return nil, false, jeq.NewError(jeq.CodeInputInvalid, "NDJSON record exceeds the byte limit")
 		}
-		if len(line) > 0 && strings.TrimSpace(string(line)) != "" {
-			return bytes.TrimSpace(line), false, nil
+		record = append(record, part...)
+		if len(record) > 0 && record[len(record)-1] == '\n' {
+			if strings.TrimSpace(string(record)) != "" {
+				return bytes.TrimSpace(record), false, nil
+			}
+			record = record[:0]
 		}
 		if err == io.EOF {
+			if len(record) == 0 {
+				return nil, true, nil
+			}
+			if strings.TrimSpace(string(record)) != "" {
+				return bytes.TrimSpace(record), false, nil
+			}
 			return nil, true, nil
 		}
-		if err != nil {
+		if err != nil && err != bufio.ErrBufferFull {
 			return nil, false, jeq.NewError(jeq.CodeInputInvalid, "reading NDJSON input")
 		}
 	}
@@ -307,6 +318,9 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 	record := first
 	offset := 0
 	for {
+		if ctx.Err() != nil {
+			return jeq.NewError(jeq.CodeInterrupted, "map input cancelled")
+		}
 		if err := processMapInput(ctx, cmd, renderer, record, f, questions, extra, model, evaluator, offset); err != nil {
 			return err
 		}
