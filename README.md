@@ -1,11 +1,16 @@
 # JEQ
 
-**Intelligence you can pipe.**
 
+<div align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jeq-logo.svg">
   <img src="docs/assets/jeq-logo-mono.svg" alt="JEQ logo" width="160" height="160">
+  
+<strong>Intelligence you can pipe.</strong>
 </picture>
+
+</div>
+
 
 JEQ is a typed judgment CLI for scripts, agents, and systems. It turns a question
 and JSON state into evidence that can move through a Unix pipeline.
