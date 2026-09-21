@@ -1,7 +1,7 @@
 ---
 id: TASK-0048
 title: Teach Jev's decision-model role in CLI help and examples
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [cli, documentation, examples, typesafe, jev]
