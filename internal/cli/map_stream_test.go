@@ -189,7 +189,6 @@ type eofEvidenceReader struct {
 }
 
 func (r *eofEvidenceReader) Read([]byte) (int, error) {
-
 	r.eofSeen = true
 	return 0, io.EOF
 }
