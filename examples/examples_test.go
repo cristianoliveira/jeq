@@ -452,19 +452,27 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 
 func TestReleaseReadinessScriptPassesExactReduceRequest(t *testing.T) {
 	fake := filepath.Join(t.TempDir(), "fake-jeq")
-	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s' \"$*\" >\"$FAKE_ARGS\"\ncat >\"$FAKE_INPUT\"\nprintf '%s\\n' '{\"model\":\"fake\"}'\n"), 0o700); err != nil {
+	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nset -euo pipefail\nprintf '1\\n' >\"$FAKE_COUNT\"\nprintf '%s\\0' \"$@\" >\"$FAKE_ARGS\"\ncat >\"$FAKE_INPUT\"\nprintf '%s\\n' '{\"model\":\"fake\"}'\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	argsFile, inputFile := filepath.Join(t.TempDir(), "args"), filepath.Join(t.TempDir(), "input")
+	temp := t.TempDir()
+	argsFile, inputFile, countFile := filepath.Join(temp, "args"), filepath.Join(temp, "input"), filepath.Join(temp, "count")
 	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{
-		"JEQ_BIN": fake, "FAKE_ARGS": argsFile, "FAKE_INPUT": inputFile,
+		"JEQ_BIN": fake, "FAKE_ARGS": argsFile, "FAKE_INPUT": inputFile, "FAKE_COUNT": countFile,
 	})
 	if result.exit != 0 || result.stderr != "" {
 		t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
 	}
-	args, _ := os.ReadFile(argsFile)
-	if !strings.HasPrefix(string(args), "reduce --as release_ready --input ndjson --questions-json ") {
-		t.Fatalf("args=%q", args)
+	argsData, _ := os.ReadFile(argsFile)
+	args := bytes.Split(bytes.TrimSuffix(argsData, []byte{0}), []byte{0})
+	questions, _ := os.ReadFile(filepath.Join(repoRoot, "examples/release-readiness/questions.json"))
+	expectedArgs := []string{"reduce", "--as", "release_ready", "--input", "ndjson", "--questions-json", string(questions)}
+	if got := stringSlice(args); !slicesEqual(got, expectedArgs) {
+		t.Fatalf("args=%q expected=%q", args, expectedArgs)
+	}
+	count, _ := os.ReadFile(countFile)
+	if string(count) != "1\n" {
+		t.Fatalf("invocations=%q", count)
 	}
 	input, _ := os.ReadFile(inputFile)
 	expected, _ := os.ReadFile(filepath.Join(repoRoot, "examples/release-readiness/findings.ndjson"))
@@ -474,12 +482,35 @@ func TestReleaseReadinessScriptPassesExactReduceRequest(t *testing.T) {
 }
 
 func TestReleaseReadinessScriptPropagatesFailure(t *testing.T) {
-	fake := filepath.Join(t.TempDir(), "fake-jeq")
-	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nprintf 'failure\\n' >&2\nexit 23\n"), 0o700); err != nil {
+	temp := t.TempDir()
+	fake := filepath.Join(temp, "fake-jeq")
+	countFile := filepath.Join(temp, "count")
+	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nprintf '1\\n' >\"$FAKE_COUNT\"\nprintf 'kept stdout\\n'\nprintf 'failure\\n' >&2\nexit 23\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{"JEQ_BIN": fake})
-	if result.exit != 23 || result.stderr != "failure\n" {
-		t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
+	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{"JEQ_BIN": fake, "FAKE_COUNT": countFile})
+	count, _ := os.ReadFile(countFile)
+	if result.exit != 23 || result.stdout != "kept stdout\n" || result.stderr != "failure\n" || string(count) != "1\n" {
+		t.Fatalf("exit=%d stdout=%q stderr=%q invocations=%q", result.exit, result.stdout, result.stderr, count)
 	}
+}
+
+func stringSlice(values [][]byte) []string {
+	result := make([]string, len(values))
+	for i, value := range values {
+		result[i] = string(value)
+	}
+	return result
+}
+
+func slicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
