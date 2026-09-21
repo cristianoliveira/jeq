@@ -5,11 +5,13 @@ catalog key, looks up a fixed runbook question, and writes a complete native
 request into a new record field. The second map evaluates that request. Gate
 then checks its numeric confidence offline.
 
-```sh
+From the repository root, run:
 
-jeq map --as category --questions category-questions.json \
+```sh
+< examples/readable-workflows/incident/fixtures/incident.json \
+jeq map --as category --questions examples/readable-workflows/incident/category-questions.json \
     --state-pointer /incident |
-  jq --slurpfile catalog runbook-catalog.json '
+  jq --slurpfile catalog examples/readable-workflows/incident/runbook-catalog.json '
     (._jeq.category.answers.category.choice // error("missing category answer")) as $category |
     ($catalog[0][$category] // error("unknown catalog category: " + $category)) as $criteria |
     if (($criteria | type) != "object" or ($criteria | length) == 0) then

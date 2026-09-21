@@ -22,12 +22,12 @@ type exampleRecipe struct {
 
 var exampleRecipes = []exampleRecipe{
 	{
-		ID: "rate-sort", Purpose: "Rate every record with one Score rubric, then sort explicitly with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
+		ID: "rate-sort", Purpose: "Rate records with one Score rubric, then select the highest-scoring record with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
 		Shell: `printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
 jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \
   --level 'Cosmetic: no functional impact' --level 'Degraded: an important workflow is impaired' --level 'Critical: service or data is at risk' |
 jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.id)'`,
-		InputShape: "NDJSON records with descriptions", OutputShape: "all records sorted by returned semantic Score", Privacy: "descriptions are sent independently; jq controls final output", Exits: "rate exits 0 on success; jq is offline.",
+		InputShape: "NDJSON records with descriptions", OutputShape: "the highest-scoring record selected explicitly with jq", Privacy: "descriptions are sent independently; jq controls final output", Exits: "rate exits 0 on success; jq is offline.",
 	},
 	{
 		ID: "rank-top-k", Purpose: "Rank candidates once, then select an explicit top-k policy with jq.", Covers: []string{"rank", "jq"},
