@@ -1,7 +1,7 @@
 ---
 id: TASK-0051
 title: Use plain README language for CLI discovery and cautions
-status: todo
+status: doing
 depends_on: []
 priority: normal
 tags: [docs, readability]
