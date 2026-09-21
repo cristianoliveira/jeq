@@ -2,6 +2,7 @@ package trace
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"sync"
 	"testing"
@@ -25,25 +26,46 @@ func TestTraceIsVersionedBoundedAndEphemeral(t *testing.T) {
 func TestTraceConcurrentObserversKeepOrderedCompleteLines(t *testing.T) {
 	var out bytes.Buffer
 	cfg := New(true, "concurrent", &out)
+	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 16; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			cfg.EmitOperation("jeq map", "operation.started", "evaluation", "started", "", i, 8)
-			cfg.Attempt(i+1, 200)
-			cfg.Retrying(i+1, 2, 529)
+			<-start
+			for j := 0; j < 30; j++ {
+				cfg.EmitOperation("jeq map", "operation.started", "evaluation", "started", "", i*30+j, 480)
+				cfg.Attempt(j+1, 2)
+				cfg.Retrying(j+1, 2, 529)
+			}
 		}(i)
 	}
+	close(start)
 	wg.Wait()
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) == 0 {
-		t.Fatal("no trace events")
+	if len(lines) < 65 || len(lines) > 257 {
+		t.Fatalf("event count=%d", len(lines))
 	}
+	previous, suppressed := uint64(0), 0
 	for _, line := range lines {
-		if !strings.HasSuffix(line, "}") || !strings.Contains(line, `"schema":"jeq.trace.v1"`) {
-			t.Fatalf("torn trace line: %q", line)
+		var event struct {
+			Schema   string `json:"schema"`
+			Sequence uint64 `json:"sequence"`
+			Event    string `json:"event"`
 		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("invalid line: %v", err)
+		}
+		if event.Schema != Schema || event.Sequence <= previous {
+			t.Fatalf("sequence order: previous=%d current=%d", previous, event.Sequence)
+		}
+		previous = event.Sequence
+		if event.Event == "events.suppressed" {
+			suppressed++
+		}
+	}
+	if suppressed != 1 {
+		t.Fatalf("suppression events=%d", suppressed)
 	}
 }
 
