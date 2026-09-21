@@ -145,6 +145,9 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 		return providerErr
 	}
 	rootURL, apiKey := provider.BaseURL, provider.APIKey
+	if (f.source.fileSet || f.source.inlineSet) && f.model == "" && strings.TrimSpace(deps.Getenv(DefaultModelEnv)) == "" {
+		resolvedModel, modelSource = provider.Model, "provider"
+	}
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {
 			return jeq.NewError(jeq.CodeInputInvalid, "model is required in composed mode")

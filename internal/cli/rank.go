@@ -159,6 +159,9 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 		return providerErr
 	}
 	rootURL, apiKey := provider.BaseURL, provider.APIKey
+	if f.model == "" && strings.TrimSpace(deps.Getenv(DefaultModelEnv)) == "" {
+		resolvedModel, modelSource = provider.Model, "provider"
+	}
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, "", map[string]contract.Question{f.name: {Type: contract.TypeChoice}})
 	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
