@@ -103,9 +103,8 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	if providerErr != nil {
 		return providerErr
 	}
-	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, "", questions)
-	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
 	request := contract.Request{Model: resolvedModel, State: items, Questions: questions, Extra: extra}
 	output, evalErr := pipeline.Reduce(cmd.Context(), items, f.name, request, client)

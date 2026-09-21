@@ -38,6 +38,7 @@ type AskDeps struct {
 	ReadOptionalFile func(path string, limit int64) ([]byte, *jeq.Error, bool)
 	ReadStdin        func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *jeq.Error)
 	NewClient        func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) APIClient
+	NewProfileClient func(baseURL string, timeout time.Duration, apiKey, authMode, providerClass string, maxRetries int, diagnostic func(string)) APIClient
 	Getenv           func(string) string
 	Stdin            io.Reader
 	Renderer         Renderer
@@ -183,9 +184,8 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if providerErr != nil {
 		return providerErr
 	}
-	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	traceMetadata(cmd, req.Model, modelSource, "json", "", req.Questions)
-	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) {
+	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)
 	})
 	attachTrace(cmd, client)

@@ -96,9 +96,8 @@ func runRate(cmd *cobra.Command, deps AskDeps, f rateFlags) error {
 	if providerErr != nil {
 		return providerErr
 	}
-	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, f.statePointer, map[string]contract.Question{f.name: question})
-	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
 	return processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, mf, map[string]contract.Question{f.name: question}, nil, resolvedModel, client)
 }

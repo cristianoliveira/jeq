@@ -3,6 +3,7 @@ package cli
 import (
 	"io"
 	"sort"
+	"time"
 
 	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
@@ -30,6 +31,17 @@ func traceMetadata(cmd *cobra.Command, model, source, framing, pointer string, q
 		}
 		cfg.EmitMetadata(cmd.CommandPath(), model, source, framing, pointer, names, types)
 	}
+}
+
+func newClient(deps AskDeps, provider ResolvedProvider, timeout time.Duration, maxRetries int, diagnostic func(string)) APIClient {
+	class := provider.Name
+	if class != "typesafe" && class != "vercel" {
+		class = "custom"
+	}
+	if deps.NewProfileClient != nil {
+		return deps.NewProfileClient(provider.BaseURL, timeout, provider.APIKey, provider.Auth, class, maxRetries, diagnostic)
+	}
+	return deps.NewClient(provider.BaseURL, timeout, provider.APIKey, maxRetries, diagnostic)
 }
 
 func attachTrace(cmd *cobra.Command, client APIClient) {

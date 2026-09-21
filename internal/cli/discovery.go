@@ -48,8 +48,7 @@ func NewModelsCmd(deps AskDeps) *cobra.Command {
 			if providerErr != nil {
 				return providerErr
 			}
-			baseURL, apiKey := provider.BaseURL, provider.APIKey
-			client := deps.NewClient(baseURL, timeout, apiKey, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+			client := newClient(deps, provider, timeout, DefaultMaxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 			attachTrace(cmd, client)
 			modelsClient, ok := client.(interface {
 				Models(context.Context) (contract.Models, *jeq.Error)

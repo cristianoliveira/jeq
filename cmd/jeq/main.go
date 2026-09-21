@@ -32,12 +32,17 @@ func main() {
 				return err == nil && info.Mode()&os.ModeCharDevice != 0
 			}, forbidEmpty)
 		},
-		NewClient: func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) cli.APIClient {
-			httpc := &http.Client{Timeout: timeout, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
+		NewProfileClient: func(baseURL string, timeout time.Duration, apiKey, authMode, _ string, maxRetries int, diagnostic func(string)) cli.APIClient {
+			httpc := &http.Client{Timeout: timeout}
 			c := typesafeapi.New(baseURL, httpc, apiKey)
-			if apiKey == "" {
-				c.AuthMode = "none"
-			}
+			c.AuthMode = authMode
+			c.MaxRetries = maxRetries
+			c.Diagnostic = diagnostic
+			return c
+		},
+		NewClient: func(baseURL string, timeout time.Duration, apiKey string, maxRetries int, diagnostic func(string)) cli.APIClient {
+			httpc := &http.Client{Timeout: timeout}
+			c := typesafeapi.New(baseURL, httpc, apiKey)
 			c.MaxRetries = maxRetries
 			c.Diagnostic = diagnostic
 			return c

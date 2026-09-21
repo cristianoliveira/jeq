@@ -144,14 +144,13 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if providerErr != nil {
 		return providerErr
 	}
-	rootURL, apiKey := provider.BaseURL, provider.APIKey
 	if f.source.fileSet || f.source.inlineSet {
 		if resolvedModel == "" {
 			return jeq.NewError(jeq.CodeInputInvalid, "model is required in composed mode")
 		}
 	}
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, f.statePointer, questions)
-	client := deps.NewClient(rootURL, timeout, apiKey, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
+	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
 	evaluator := client
 	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator); processErr != nil {
