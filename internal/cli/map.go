@@ -333,6 +333,30 @@ func readNDJSONRecord(reader *bufio.Reader) ([]byte, bool, *jeq.Error) {
 	}
 }
 
+type mapWorkerRenderer struct{}
+
+func (mapWorkerRenderer) RenderSuccess(w io.Writer, response contract.Response) error {
+	raw, err := response.Encode()
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(append(raw, '\n'))
+	return err
+}
+func (mapWorkerRenderer) RenderError(_ io.Writer, err *jeq.Error) error { return err }
+func (mapWorkerRenderer) RenderValue(w io.Writer, value any) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(append(raw, '\n'))
+	return err
+}
+func (mapWorkerRenderer) RenderRaw(w io.Writer, raw []byte) error {
+	_, err := w.Write(append(raw, '\n'))
+	return err
+}
+
 const mapWorkerLimit = 4
 
 type mapJob struct {
@@ -360,7 +384,7 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 				workerCmd := *cmd
 				workerCmd.SetContext(ctx)
 				workerCmd.SetOut(&out)
-				err := processMapInput(ctx, &workerCmd, streamRenderer{}, job.record, f, questions, extra, model, evaluator, job.index)
+				err := processMapInput(ctx, &workerCmd, mapWorkerRenderer{}, job.record, f, questions, extra, model, evaluator, job.index)
 				results <- mapResult{job.index, bytes.TrimSpace(out.Bytes()), err}
 			}
 		}()
