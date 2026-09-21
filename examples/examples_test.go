@@ -449,3 +449,37 @@ func TestIssueRankingOrderRequestCountAndFailFast(t *testing.T) {
 		}
 	})
 }
+
+func TestReleaseReadinessScriptPassesExactReduceRequest(t *testing.T) {
+	fake := filepath.Join(t.TempDir(), "fake-jeq")
+	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s' \"$*\" >\"$FAKE_ARGS\"\ncat >\"$FAKE_INPUT\"\nprintf '%s\\n' '{\"model\":\"fake\"}'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	argsFile, inputFile := filepath.Join(t.TempDir(), "args"), filepath.Join(t.TempDir(), "input")
+	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{
+		"JEQ_BIN": fake, "FAKE_ARGS": argsFile, "FAKE_INPUT": inputFile,
+	})
+	if result.exit != 0 || result.stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
+	}
+	args, _ := os.ReadFile(argsFile)
+	if !strings.HasPrefix(string(args), "reduce --as release_ready --input ndjson --questions-json ") {
+		t.Fatalf("args=%q", args)
+	}
+	input, _ := os.ReadFile(inputFile)
+	expected, _ := os.ReadFile(filepath.Join(repoRoot, "examples/release-readiness/findings.ndjson"))
+	if string(input) != string(expected) {
+		t.Fatalf("input=%q expected=%q", input, expected)
+	}
+}
+
+func TestReleaseReadinessScriptPropagatesFailure(t *testing.T) {
+	fake := filepath.Join(t.TempDir(), "fake-jeq")
+	if err := os.WriteFile(fake, []byte("#!/usr/bin/env bash\nprintf 'failure\\n' >&2\nexit 23\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	result := runScript(t, "examples/release-readiness/review.sh", "", "", map[string]string{"JEQ_BIN": fake})
+	if result.exit != 23 || result.stderr != "failure\n" {
+		t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
+	}
+}

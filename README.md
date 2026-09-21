@@ -49,6 +49,7 @@ guides:
 - [Installation](docs/guides/installation.md)
 - [Getting started](docs/guides/getting-started.md)
 - [Composition](docs/guides/composition.md)
+- [Reduce a bounded collection](docs/guides/reduce.md)
 - [CLI reference](docs/guides/cli-reference.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Examples](examples/README.md)

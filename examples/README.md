@@ -29,6 +29,8 @@ endpoint for development. Model evidence is data: examples validate it as a cata
 - [`readable-workflows/incident`](readable-workflows/incident/README.md):
   category map, `jq` catalog lookup into a native request field, second map,
   then gate.
+- [`release-readiness`](release-readiness/review.sh): one bounded synthetic
+  release-findings reduce and optional offline gate.
 - [`code-smell-review`](code-smell-review/README.md): explicit bounded source
   files, one aggregate judgment, and an optional offline cohesion gate.
 - [`todo-fulfillment`](todo-fulfillment/README.md): compare every prioritized

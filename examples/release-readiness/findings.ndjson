@@ -1,0 +1,3 @@
+{"id":"release-001","severity":"high","summary":"Checkout timeout on retry"}
+{"id":"release-002","severity":"medium","summary":"Missing audit event for password reset"}
+{"id":"release-003","severity":"low","summary":"Documentation typo in setup guide"}
