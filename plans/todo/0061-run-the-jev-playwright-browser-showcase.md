@@ -1,7 +1,7 @@
 ---
 id: TASK-0061
 title: Run the Jev Playwright browser showcase
-status: todo
+status: doing
 depends_on: [TASK-0059, TASK-0060]
 priority: high
 tags: [examples, jev, playwright, browser-agent, paid-test, documentation]
