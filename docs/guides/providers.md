@@ -4,7 +4,7 @@
 
 ## Direct TypeSafe
 
-The default provider is `typesafe`. Set its credential in the environment:
+The default provider is `typesafe` and its default model is `jev-latest`. Set its credential in the environment:
 
 ```sh
 export TYPESAFE_API_KEY='...'
@@ -19,7 +19,7 @@ Select the built-in Vercel profile explicitly:
 
 ```sh
 export AI_GATEWAY_API_KEY='...'
-jeq --provider vercel models
+JEQ_PROVIDER=vercel jeq models
 ```
 
 `VERCEL_OIDC_TOKEN` is accepted when `AI_GATEWAY_API_KEY` is absent. The profile uses the TypeSafe gateway path and its default model. Check the endpoint and model with `jeq models` before a composed command.
