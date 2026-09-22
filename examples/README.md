@@ -13,5 +13,5 @@ examples/playwright-browser-agent/test-hn.sh
 For an explicitly authorized paid headed run, configure `jeq` and run:
 
 ```sh
-JEQ_GOAL='navigate to yesterday then the most-discussed discussion' examples/playwright-browser-agent/hn-browser.sh
+JEQ_GOAL='navigate to yesterday then the most-discussed discussion' examples/playwright-browser-agent/hn-browser.sh --headed
 ```

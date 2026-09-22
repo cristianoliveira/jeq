@@ -6,7 +6,8 @@ run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; 
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
 cleanup() { run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
 trap cleanup EXIT HUP INT TERM
-run_bounded "$PLAYWRIGHT_BIN" -s="$session" open https://news.ycombinator.com/ >/dev/null
+open_args=(open https://news.ycombinator.com/); [[ "${1:-}" == "--headed" ]] && open_args+=(--headed)
+run_bounded "$PLAYWRIGHT_BIN" -s="$session" "${open_args[@]}" >/dev/null
 url=https://news.ycombinator.com/; recent='[]'; expected_url=""
 for step in 1 2 3 4; do
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
@@ -42,7 +43,7 @@ for i,line in enumerate(lines):
     if not href: continue
     parsed=urlparse(urljoin('https://news.ycombinator.com/', href)); path=parsed.path.lower()
     if parsed.scheme != 'https' or parsed.hostname != 'news.ycombinator.com' or parsed.port not in (None,443) or parsed.username or parsed.password: continue
-    if any(key in parsed.query.lower() for key in ('submit','vote','hide','reply','delete','logout')): continue
+    if any(key in parsed.query.lower() for key in ('submit','vote','hide','reply','delete','logout','upvote','downvote')): continue
     if any(word in path for word in ('login','logout','submit','vote','hide','reply')): continue
     if 'comment' in m.group(1).lower() and (parsed.path != '/item' or not re.fullmatch(r'[0-9]+', (parse_qs(parsed.query).get('id') or [''])[0])): continue
     if len(m.group(1)) > 256 or n >= 64: continue
