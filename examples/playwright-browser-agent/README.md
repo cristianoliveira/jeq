@@ -19,7 +19,8 @@ This version uses `playwright-cli` instead of Browser Harness. It uses caller-pr
 - Fill text and dropdown options come from finite caller or page allowlists.
 - Every decision is mapped back to the latest in-memory action plan and then checked again by the browser boundary.
 - Mutations are never retried automatically.
-- Step, state, criteria, command, and subprocess timeouts are bounded.
+- Step, state, criteria, visible body text, command, and subprocess timeouts are bounded.
+- Jev receives bounded visible body text so completion decisions use actual page evidence.
 - `DONE` succeeds only when the final URL, title, and body satisfy fixture-owned checks.
 - The browser session and fixture server close on every exit path.
 
@@ -47,8 +48,10 @@ Set the credential for your selected jeq provider, then run:
 
 ```sh
 export TYPESAFE_API_KEY='...'
-python3 examples/playwright-browser-agent/demo.py
+python3 examples/playwright-browser-agent/demo.py --headed
 ```
+
+Omit `--headed` in environments without a display.
 
 The default goal is:
 

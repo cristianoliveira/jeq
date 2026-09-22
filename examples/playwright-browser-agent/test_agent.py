@@ -45,6 +45,13 @@ class BoundaryTests(unittest.TestCase):
             self.assertEqual(agent.main(), 1)
         self.assertEqual(FakeBoundary.closed, 1)
 
+    def test_headed_mode_is_explicit_only_on_open(self):
+        from agent import BrowserBoundary
+        boundary = BrowserBoundary(headed=True)
+        with patch.object(boundary, "run") as run:
+            boundary.open("http://127.0.0.1:1234/fixture.html")
+        run.assert_called_once_with("open", "http://127.0.0.1:1234/fixture.html", "--headed")
+
     def test_subprocess_failure_is_evidence_and_close_is_safe(self):
         from agent import BrowserBoundary
         boundary = BrowserBoundary(executable="/usr/bin/false")

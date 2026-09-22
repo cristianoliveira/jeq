@@ -10,6 +10,7 @@ import pathlib
 import sys
 import threading
 
+from agent import BrowserBoundary
 from policy import subprocess_runner
 from runner import run_agent
 
@@ -44,6 +45,7 @@ def main() -> int:
     parser.add_argument("--jeq-bin", default="jeq")
     parser.add_argument("--screenshot", type=pathlib.Path, default=DEFAULT_SCREENSHOT)
     parser.add_argument("--max-steps", type=int, default=8)
+    parser.add_argument("--headed", action="store_true", help="show the Playwright browser window")
     args = parser.parse_args()
 
     handler = functools.partial(QuietHandler, directory=str(ROOT))
@@ -60,6 +62,7 @@ def main() -> int:
             decision_runner=subprocess_runner(args.jeq_bin),
             verify=verify_fixture,
             screenshot=args.screenshot,
+            boundary=BrowserBoundary(budget=args.max_steps, headed=args.headed),
             max_steps=args.max_steps,
         )
         checks = verify_fixture(result.outcome)

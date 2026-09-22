@@ -48,6 +48,7 @@ class RunnerTests(unittest.TestCase):
     def test_one_decision_and_at_most_one_action_per_cycle(self):
         browser = FakeBrowser()
         calls = []
+        traces = []
 
         def decide(payload):
             request = json.loads(payload)
@@ -64,10 +65,12 @@ class RunnerTests(unittest.TestCase):
                 verify=lambda outcome: {"body": outcome["body"] == "verified"},
                 screenshot=pathlib.Path(directory) / "final.png",
                 boundary=browser,
-                emit=lambda _line: None,
+                emit=traces.append,
             )
 
         self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["state"]["visible_text"], "verified")
+        self.assertNotIn("verified", "".join(traces))
         self.assertEqual(len(browser.actions), 1)
         self.assertEqual(result.decisions, 2)
         self.assertEqual(browser.closed, 1)

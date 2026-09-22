@@ -103,7 +103,7 @@ class PolicyTests(unittest.TestCase):
             for index in range(80)
         }
 
-        plan = policy.plan(many, "u" * 700, "t" * 400)
+        plan = policy.plan(many, "u" * 700, "t" * 400, "body " * 2_000)
         state = plan.request["state"]
 
         self.assertEqual(len(state["elements"]), 64)
@@ -111,6 +111,7 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(len(plan.targets["select"]), 64)
         self.assertEqual(len(state["recent_actions"]), 8)
         self.assertEqual(len(state["goal"]), 512)
+        self.assertEqual(len(state["visible_text"]), 4_000)
         self.assertEqual(len(policy.fill_values), 16)
         with self.assertRaises(ValueError):
             Policy("g", ("x" * 513,))

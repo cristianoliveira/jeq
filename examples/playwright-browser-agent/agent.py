@@ -73,8 +73,8 @@ def allow(action: Action, elements: dict[str, Element]) -> list[str]:
     raise ValueError("operation is not allowlisted for the observed element")
 
 class BrowserBoundary:
-    def __init__(self, executable: str = "playwright-cli", budget: int = 4):
-        self.executable, self.budget = executable, budget
+    def __init__(self, executable: str = "playwright-cli", budget: int = 4, headed: bool = False):
+        self.executable, self.budget, self.headed = executable, budget, headed
         self.session = "jeq-" + uuid.uuid4().hex[:8]
         self.used = 0
         self.elements: dict[str, Element] = {}
@@ -89,7 +89,8 @@ class BrowserBoundary:
         parsed = urlparse(url)
         if parsed.scheme != "http" or parsed.username or parsed.password or parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or not parsed.port:
             raise ValueError("browser fixture URL must be loopback HTTP without credentials")
-        self.run("open", url)
+        args = ("open", url, "--headed") if self.headed else ("open", url)
+        self.run(*args)
 
     def observe(self) -> dict[str, Element]:
         self.elements = parse_snapshot(self.run("snapshot"))

@@ -48,7 +48,7 @@ def run_agent(
 
             elements = browser.observe()
             observed = browser.inspect()
-            plan = policy.plan(elements, observed["url"], observed["title"])
+            plan = policy.plan(elements, observed["url"], observed["title"], observed["body"])
             decision = policy.consume(ask(decision_runner, plan.request), plan)
             usage = decision.usage or {}
             trace = {
