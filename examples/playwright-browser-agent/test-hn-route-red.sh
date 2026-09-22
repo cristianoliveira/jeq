@@ -25,7 +25,7 @@ case "$n" in
 esac
 printf '{"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
 SH
-chmod +x "$bin"/*; : >"$bin/state"; export PATH="$bin:$PATH" TMP_STATE="$bin/state" TMP_CLOSED="$bin/closed" CAPTURE="$capture"
+chmod +x "$bin"/*; printf '0\n' >"$bin/state"; export PATH="$bin:$PATH" TMP_STATE="$bin/state" TMP_CLOSED="$bin/closed" CAPTURE="$capture"
 set +e; output="$($root/hn-browser.sh 2>&1)"; status=$?; set -e
 if [[ $status -eq 0 ]]; then echo "FAIL: one-cycle script unexpectedly passed route acceptance" >&2; exit 1; fi
 count=$(find "$capture" -type f | wc -l | tr -d ' ')
