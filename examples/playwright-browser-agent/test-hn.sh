@@ -63,7 +63,10 @@ case "$*" in
             '- link "600 comments" [ref=e6]:' '  - /url: "https://news.ycombinator.com:8443/item?id=55"' \
             '- link "601 comments" [ref=e7]:' '  - /url: "item?id=56&vote=1"' \
             '- link "602 comments" [ref=e8]:' '  - /url: "item?id=57&submit=1"' \
-            '- link "603 comments" [ref=e10]:' '  - /url: "item?id=58&reply=1"'
+            '- link "603 comments" [ref=e10]:' '  - /url: "item?id=58&reply=1"' \
+            '- link "604 comments" [ref=e11]:' '  - /url: "delete?id=59"' \
+            '- link "605 comments" [ref=e12]:' '  - /url: "upvote?id=60"' \
+            '- link "606 comments" [ref=e13]:' '  - /url: "item?id=61&delete=1"'
         else
           printf '%s\n' '- link "999 comments" [ref=e9]:' "  - /url: \"front?day=$YESTERDAY\""
         fi
@@ -152,18 +155,21 @@ case "$SCENARIO:$n" in
   jeq-hang:*) sleep 2 ;;
   malformed-response:*) printf 'not-json\n'; exit 0 ;;
   oversized-response:*) printf '{"padding":"'; head -c 70000 < /dev/zero | tr '\0' x; printf '%s\n' '","answers":{"choice":{"choice":"c1"}}}'; exit 0 ;;
-  tie:0|nonmax:0|redirect:0|wrongday:0|badtitle:0|badbody:0|empty-comments:0|malformed-comments:0|missing-depth-comments:0|candidate-count:0|long-label:0|unsafe-links:0|oversized-eval:0|oversized-snapshot:0|click-hang:0|close-hang:0) choice=c1;;
-  tie:1|nonmax:1|redirect:1|wrongday:1|badtitle:1|badbody:1|empty-comments:1|malformed-comments:1|missing-depth-comments:1|candidate-count:1|long-label:1|unsafe-links:1|oversized-eval:1|oversized-snapshot:1|click-hang:1|close-hang:1) choice=c1;;
-  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2|candidate-count:2|long-label:2|unsafe-links:2|oversized-eval:2|oversized-snapshot:2|click-hang:2|close-hang:2) choice=c2;;
+  stale-choice:0) choice=c99;;
+  unknown-choice:0) choice=not-a-choice;;
+  blocked-choice:0) choice=BLOCKED;;
+  tie:0|nonmax:0|redirect:0|wrongday:0|badtitle:0|badbody:0|empty-comments:0|malformed-comments:0|missing-depth-comments:0|candidate-count:0|long-label:0|unsafe-links:0|headed:0|trace:0|oversized-eval:0|oversized-snapshot:0|click-hang:0|close-hang:0) choice=c1;;
+  tie:1|nonmax:1|redirect:1|wrongday:1|badtitle:1|badbody:1|empty-comments:1|malformed-comments:1|missing-depth-comments:1|candidate-count:1|long-label:1|unsafe-links:1|headed:1|trace:1|oversized-eval:1|oversized-snapshot:1|click-hang:1|close-hang:1) choice=c1;;
+  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2|candidate-count:2|long-label:2|unsafe-links:2|headed:2|trace:2|oversized-eval:2|oversized-snapshot:2|click-hang:2|close-hang:2) choice=c2;;
   nonmax:2) choice=c1;;
-  tie:3|nonmax:3|redirect:3|wrongday:3|badtitle:3|badbody:3|empty-comments:3|malformed-comments:3|missing-depth-comments:3|candidate-count:3|long-label:3|unsafe-links:3|oversized-eval:3|oversized-snapshot:3|click-hang:3|close-hang:3)
+  tie:3|nonmax:3|redirect:3|wrongday:3|badtitle:3|badbody:3|empty-comments:3|malformed-comments:3|missing-depth-comments:3|candidate-count:3|long-label:3|unsafe-links:3|headed:3|trace:3|oversized-eval:3|oversized-snapshot:3|click-hang:3|close-hang:3)
     choice=DONE
     printf 'decision DONE\n' >>"$EVENTS"
     ;;
   *) choice=BLOCKED;;
 esac
 printf '%s\n' "$choice" >>"$DECISIONS"
-printf '{"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
+printf '{"model":"jev-latest","usage":{"input_tokens":11,"output_tokens":2},"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
 SH
 
 chmod +x "$bin"/*
@@ -184,8 +190,12 @@ run_case() {
 
   local started finished
   started=$(date +%s)
+  local -a command=("$root/hn-browser.sh")
+  [[ "$scenario" == headed ]] && command+=(--headed)
+  export JEQ_BROWSER_TRACE=0
+  [[ "$scenario" == trace ]] && export JEQ_BROWSER_TRACE=1
   set +e
-  timeout --foreground 3s "$root/hn-browser.sh" >"$case_dir/stdout" 2>"$case_dir/stderr"
+  timeout --foreground 3s "${command[@]}" >"$case_dir/stdout" 2>"$case_dir/stderr"
   local status=$?
   set -e
   finished=$(date +%s)
@@ -216,6 +226,18 @@ run_case() {
       return 1
     fi
     [[ -e "$TMP_CLOSED" ]] || { echo "FAIL [$scenario]: cleanup did not run" >&2; return 1; }
+    return 0
+  fi
+  if [[ "$scenario" == headed ]] && ! grep -q -- '--headed' "$case_dir/events"; then
+    echo "FAIL [headed]: paid invocation did not pass --headed to Playwright open" >&2
+    return 1
+  fi
+  if [[ "$scenario" == stale-choice || "$scenario" == unknown-choice || "$scenario" == blocked-choice ]]; then
+    if [[ "$status" -eq 0 || "$count" -ne 1 ]] || grep -q '^click ' "$case_dir/events" || [[ ! -e "$TMP_CLOSED" ]]; then
+      echo "FAIL [$scenario]: unsafe Jev choice was not rejected before click with cleanup" >&2
+      cat "$case_dir/events" >&2
+      return 1
+    fi
     return 0
   fi
   if [[ "$scenario" == wrongday || "$scenario" == redirect || "$scenario" == badtitle ]]; then
@@ -375,12 +397,32 @@ run_case() {
         cat "$case_dir/stdout" >&2
         return 1
       fi
+      if [[ "$scenario" == badbody ]] && grep -q '^eval comments structural' "$case_dir/events"; then
+        echo "FAIL [badbody]: comments were evaluated before body verification failed" >&2
+        return 1
+      fi
       ;;
   esac
+  if [[ "$scenario" == trace ]]; then
+    local trace_lines="$case_dir/trace.ndjson"
+    grep -E '^\{"event":' "$case_dir/stderr" >"$trace_lines" || true
+    if ! jq -s -e '
+      ([.[] | select(.event == "decision")] | length) == 4 and
+      ([.[] | select(.event == "decision")] | all(has("step") and has("choice") and has("label") and has("model") and (.usage.input_tokens | numbers) and (.usage.output_tokens | numbers) and (.latency_ms | numbers))) and
+      ([.[] | select(.event == "decision") | .choice] == ["c1", "c1", "c2", "DONE"]) and
+      ([.[] | select(.event == "completed")] | length) == 1 and
+      ([.[] | select(.event == "completed") | select((.requests | numbers) and (.usage.input_tokens | numbers) and (.usage.output_tokens | numbers) and (.elapsed_ms | numbers) and (.verification.selected_item_id == "42"))] | length) == 1 and
+      ([.[] | select(.event == "cleanup" and .closed == true)] | length) == 1
+    ' "$trace_lines" >/dev/null; then
+      echo "FAIL [trace]: missing bounded decision, completion, verification, token, latency, or cleanup records" >&2
+      cat "$case_dir/stderr" >&2
+      return 1
+    fi
+  fi
 }
 
 failures=()
-for scenario in tie nonmax redirect wrongday badtitle badbody empty-comments malformed-comments missing-depth-comments candidate-count long-label unsafe-links oversized-snapshot oversized-eval malformed-response oversized-response oversized-request open-hang snapshot-hang eval-hang click-hang close-hang jeq-hang; do
+for scenario in tie nonmax redirect wrongday badtitle badbody empty-comments malformed-comments missing-depth-comments candidate-count long-label unsafe-links headed stale-choice unknown-choice blocked-choice trace oversized-snapshot oversized-eval malformed-response oversized-response oversized-request open-hang snapshot-hang eval-hang click-hang close-hang jeq-hang; do
   if ! run_case "$scenario"; then
     failures+=("$scenario")
   fi
