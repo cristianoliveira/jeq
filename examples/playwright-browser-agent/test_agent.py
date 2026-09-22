@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+import sys
 from agent import Action, Element, allow, parse_snapshot
 
 SNAPSHOT = '''- searchbox "Destination" [ref=e16]
@@ -27,6 +28,24 @@ class BoundaryTests(unittest.TestCase):
         boundary = BrowserBoundary()
         for url in ("http://127.0.0.1:1@evil.example/", "http://evil.example/", "https://127.0.0.1/"):
             with self.assertRaises(ValueError): boundary.open(url)
+
+    def test_main_closes_after_failure(self):
+        import agent
+        class FakeBoundary:
+            closed = 0
+            def open(self, _url): pass
+            def observe(self): self.elements = {}
+            def inspect(self): raise RuntimeError("synthetic failure")
+            def close(self): FakeBoundary.closed += 1
+        with patch.object(agent, "BrowserBoundary", FakeBoundary), patch.object(sys, "argv", ["agent.py", "http://127.0.0.1:1234/"]):
+            self.assertEqual(agent.main(), 1)
+        self.assertEqual(FakeBoundary.closed, 1)
+
+    def test_subprocess_failure_is_evidence_and_close_is_safe(self):
+        from agent import BrowserBoundary
+        boundary = BrowserBoundary(executable="/usr/bin/false")
+        with self.assertRaises(RuntimeError): boundary.run("snapshot")
+        boundary.close()
 
     def test_budget_and_wait_are_bounded(self):
         from agent import BrowserBoundary
