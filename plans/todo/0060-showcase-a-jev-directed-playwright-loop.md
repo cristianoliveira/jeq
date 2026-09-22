@@ -1,7 +1,7 @@
 ---
 id: TASK-0060
 title: Showcase a Jev-directed Playwright loop
-status: todo
+status: doing
 depends_on: [TASK-0059]
 priority: high
 tags: [examples, jev, playwright, browser-agent, composition, paid-test]
