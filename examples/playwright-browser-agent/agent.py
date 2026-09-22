@@ -23,6 +23,7 @@ class Element:
     role: str
     name: str
     options: tuple[str, ...] = ()
+    checked: bool = False
 
 @dataclass(frozen=True)
 class Action:
@@ -40,7 +41,7 @@ def parse_snapshot(snapshot: str) -> dict[str, Element]:
             continue
         role, name, ref = match.groups()
         options = tuple(OPTION.findall("\n".join(lines[i : i + 8]))) if role == "combobox" else ()
-        elements[ref] = Element(ref, role, name or "", options)
+        elements[ref] = Element(ref, role, name or "", options, "[checked]" in line)
     return elements
 
 
