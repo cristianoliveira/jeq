@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
-: "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"
+: "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=10}"
+MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
+run_bounded() { python3 - "$JEQ_SUBPROCESS_TIMEOUT_SECONDS" "$@" <<'PY'
+import subprocess,sys
+try: subprocess.run(sys.argv[2:], check=True, timeout=float(sys.argv[1]))
+except subprocess.TimeoutExpired: raise SystemExit('subprocess timeout')
+PY
+}
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
-cleanup() { "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+cleanup() { run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
 trap cleanup EXIT HUP INT TERM
-"$PLAYWRIGHT_BIN" -s="$session" open https://news.ycombinator.com/ >/dev/null
+run_bounded "$PLAYWRIGHT_BIN" -s="$session" open https://news.ycombinator.com/ >/dev/null
 url=https://news.ycombinator.com/; recent='[]'; expected_url=""
 for step in 1 2 3 4; do
-  "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
-  "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/observe-location"
-  "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/observe-title"
+  run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
+  [[ $(wc -c <"$snapshot") -le $MAX_VISIBLE ]] || { echo "snapshot too large" >&2; exit 1; }
+  run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/observe-location"
+  run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/observe-title"
   observed_url=$(sed -n '/### Result/,$p' "$tmp/observe-location" | tail -1 | tr -d '"')
   observed_title=$(sed -n '/### Result/,$p' "$tmp/observe-title" | tail -1 | tr -d '"')
   [[ "$observed_url" =~ ^https://news\.ycombinator\.com/ ]] || { echo "unsafe observed location" >&2; exit 1; }
@@ -45,15 +53,17 @@ for i,line in enumerate(lines):
 PY
   [[ "$step" -eq 3 ]] && cp "$candidates" "$dated_candidates"
   jq -n --rawfile snap "$snapshot" --slurpfile rows <(jq -Rn '[inputs|split("\t")|{id:.[0],ref:.[1],label:.[2],url:.[3]}]' "$candidates") --arg url "$url" --arg recent "$recent" --argjson step "$step" '{model:"jev-latest",state:{goal:(env.JEQ_GOAL // "Navigate to yesterday then the most-discussed discussion"),current_date:(now|todate),current_url:$url,observed_url:(env.OBSERVED_URL // $url),title:(env.OBSERVED_TITLE // ""),visible_text:($snap|.[0:12000]),recent_decisions:$recent,step:$step},questions:{choice:{type:"choice",instructions:"Choose one current safe link, DONE, or BLOCKED. Do not invent IDs.",criteria:(($rows[0]|map({key:.id,value:.label})|from_entries)+{DONE:"Finish only after independent verification",BLOCKED:"Stop safely"})}}}' >"$request"
-  "$JEQ_BIN" ask --request - <"$request" >"$response"
+  [[ $(wc -c <"$request") -le $MAX_REQUEST ]] || { echo "request too large" >&2; exit 1; }
+  run_bounded "$JEQ_BIN" ask --request - <"$request" >"$response"
+  [[ $(wc -c <"$response") -le $MAX_RESPONSE ]] || { echo "response too large" >&2; exit 1; }
   id="$(jq -er '.answers.choice.choice // .answers.operation.choice' "$response")"
   if [[ "$id" == DONE ]]; then
-    "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
+    run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
     eval_result="$tmp/eval"
-    "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/location"
-    "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
-    "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
-    "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
+    run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/location"
+    run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
+    run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
+    run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
     python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" <<'PY'
 import json, re, sys
 from datetime import datetime, timedelta, timezone
@@ -90,7 +100,7 @@ PY
   [[ "$id" != BLOCKED && "$id" =~ ^c[0-9]+$ ]] || { echo "invalid or blocked choice" >&2; exit 1; }
   line="$(awk -F '\t' -v id="$id" '$1==id{print; exit}' "$candidates")"; [[ -n "$line" ]] || { echo "stale candidate" >&2; exit 1; }
   ref="$(cut -f2 <<<"$line")"; url="$(cut -f4 <<<"$line")"
-  "$PLAYWRIGHT_BIN" -s="$session" click "$ref"
+  run_bounded "$PLAYWRIGHT_BIN" -s="$session" click "$ref"
   expected_url="$url"
   recent="$(jq -cn --argjson old "$recent" --arg id "$id" '$old+[$id]|.[-8:]')"
 done
