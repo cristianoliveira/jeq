@@ -48,7 +48,7 @@ case "$*" in
         ;;
       3)
         printf '%s\n' \
-          '- heading "Chosen story | Hacker News" [ref=e6]' \
+          '- heading "What happened ... | Hacker News" [ref=e6]' \
           "- text: \"Stories from $YESTERDAY (UTC)\"" \
           '- text: "alice: first bounded top-level comment"' \
           '- text: "bob: second bounded top-level comment"'
@@ -60,27 +60,37 @@ case "$*" in
     case "$*" in
       *location.href*)
         printf 'eval location.href state=%s\n' "$state" >>"$EVENTS"
-        if [[ "$state" == 1 ]]; then
-          if [[ "$SCENARIO" == wrongday ]]; then location="https://news.ycombinator.com/front?day=$WRONG_DAY"; else location="https://news.ycombinator.com/front?day=$YESTERDAY"; fi
-        else
-          case "$SCENARIO" in
-            redirect) location='https://news.ycombinator.com/item?id=43' ;;
-            nonmax) location='https://news.ycombinator.com/item?id=10' ;;
-            *) location='https://news.ycombinator.com/item?id=42' ;;
-          esac
-        fi
+        case "$state" in
+          0) location='https://news.ycombinator.com/' ;;
+          1) if [[ "$SCENARIO" == wrongday ]]; then location="https://news.ycombinator.com/front?day=$WRONG_DAY"; else location="https://news.ycombinator.com/front?day=$YESTERDAY"; fi ;;
+          2) if [[ "$SCENARIO" == redirect ]]; then location='https://news.ycombinator.com/item?id=999'; else location="https://news.ycombinator.com/front?day=$YESTERDAY"; fi ;;
+          *) case "$SCENARIO" in
+               nonmax) location='https://news.ycombinator.com/item?id=10' ;;
+               redirect) location='https://news.ycombinator.com/item?id=43' ;;
+               *) location='https://news.ycombinator.com/item?id=42' ;;
+             esac ;;
+        esac
         printf '%s\n' '### Result' "\"$location\""
         ;;
       *document.title*)
         printf 'eval document.title state=%s\n' "$state" >>"$EVENTS"
-        if [[ "$SCENARIO" == badtitle ]]; then printf '%s\n' '### Result' '"Error page"'; else printf '%s\n' '### Result' '"Chosen story | Hacker News"'; fi
+        if [[ "$SCENARIO" == badtitle ]]; then
+          printf '%s\n' '### Result' '"Error page"'
+        else
+          case "$state" in
+            0) printf '%s\n' '### Result' '"Hacker News"' ;;
+            1) printf '%s\n' '### Result' '"Hacker News: past"' ;;
+            2) printf '%s\n' '### Result' '"Hacker News: yesterday"' ;;
+            *) printf '%s\n' '### Result' '"What happened ... | Hacker News"' ;;
+          esac
+        fi
         ;;
       *document.body.innerText*)
         if [[ "$*" == *'slice(0,12000)'* ]]; then printf 'eval body bounded state=%s\n' "$state" >>"$EVENTS"; else printf 'eval body unbounded state=%s\n' "$state" >>"$EVENTS"; fi
-        if [[ "$SCENARIO" == badbody ]]; then printf '%s\n' '### Result' '"Error page without the selected story"'; else printf '%s\n' '### Result' '"Chosen story and discussion body"'; fi
+        if [[ "$SCENARIO" == badbody ]]; then printf '%s\n' '### Result' '"An unrelated error page."'; else printf '%s\n' '### Result' '"An ordinary discussion about what happened."'; fi
         ;;
       *tr.comtr*)
-        if [[ "$*" == *'td.ind img'* && "$*" == *'commtext'* && "$*" == *'hnuser'* && "$*" == *'slice(0,5)'* && "$*" == *'slice(0,600)'* ]]; then printf 'eval comments structural state=%s\n' "$state" >>"$EVENTS"; else printf 'eval comments invalid state=%s\n' "$state" >>"$EVENTS"; fi
+        if [[ "$*" == *'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row)'* && "$*" == *'commtext'* && "$*" == *'hnuser'* && "$*" == *'slice(0,600)'* ]]; then printf 'eval comments structural state=%s\n' "$state" >>"$EVENTS"; else printf 'eval comments invalid state=%s\n' "$state" >>"$EVENTS"; fi
         case "$SCENARIO" in
           malformed-comments) printf '%s\n' '### Result' 'not-json' ;;
           missing-depth-comments) printf '%s\n' '### Result' '[{"user":"alice","text":"missing depth"}]' ;;
@@ -142,23 +152,51 @@ run_case() {
 
   local count
   count=$(find "$case_dir/requests" -type f -name 'request-*.json' | wc -l | tr -d ' ')
-  if [[ "$scenario" == wrongday && "$status" -ne 0 && "$count" -lt 4 ]]; then
-    if ! grep -q '^eval location.href state=1$' "$case_dir/events"; then
-      echo "FAIL [wrongday]: failure did not independently inspect the archive URL" >&2
-      cat "$case_dir/events" >&2
-      return 1
+  if [[ "$scenario" == wrongday || "$scenario" == redirect ]]; then
+    local invalid_state=1
+    [[ "$scenario" == redirect ]] && invalid_state=2
+    if [[ "$status" -ne 0 && "$count" -lt 4 ]]; then
+      if ! grep -q "^eval location.href state=$invalid_state$" "$case_dir/events" || ! grep -q "^eval document.title state=$invalid_state$" "$case_dir/events"; then
+        echo "FAIL [$scenario]: failure did not independently inspect the invalid observed page" >&2
+        cat "$case_dir/events" >&2
+        return 1
+      fi
+      if [[ ! -e "$TMP_CLOSED" ]]; then
+        echo "FAIL [$scenario]: browser cleanup did not run" >&2
+        return 1
+      fi
+      return 0
     fi
-    if [[ ! -e "$TMP_CLOSED" ]]; then
-      echo "FAIL [wrongday]: browser cleanup did not run" >&2
-      return 1
-    fi
-    return 0
   fi
   if [[ "$count" -ne 4 ]]; then
     echo "FAIL [$scenario]: expected 4 jeq requests, got $count" >&2
     cat "$case_dir/stderr" >&2
     return 1
   fi
+
+  for observed_state in 0 1 2; do
+    if ! grep -q "^eval location.href state=$observed_state$" "$case_dir/events" || ! grep -q "^eval document.title state=$observed_state$" "$case_dir/events"; then
+      echo "FAIL [$scenario]: location.href and document.title were not evaluated for state $observed_state" >&2
+      cat "$case_dir/events" >&2
+      return 1
+    fi
+  done
+
+  local expected_url expected_title request_number
+  for request in "$case_dir"/requests/request-*.json; do
+    request_number=${request##*-}; request_number=${request_number%.json}
+    case "$request_number" in
+      0) expected_url='https://news.ycombinator.com/'; expected_title='Hacker News' ;;
+      1|2) expected_url="https://news.ycombinator.com/front?day=$yesterday"; [[ "$request_number" == 1 ]] && expected_title='Hacker News: past' || expected_title='Hacker News: yesterday' ;;
+      3) expected_url='https://news.ycombinator.com/item?id=42'; expected_title='What happened ... | Hacker News' ;;
+      *) echo "FAIL [$scenario]: unexpected request number $request_number" >&2; return 1 ;;
+    esac
+    if ! jq -e --arg url "$expected_url" --arg title "$expected_title" '.state.current_url == $url and .state.title == $title' "$request" >/dev/null; then
+      echo "FAIL [$scenario]: request $request_number did not use observed URL/title" >&2
+      jq '.state | {current_url,title}' "$request" >&2
+      return 1
+    fi
+  done
 
   local expected_decisions
   case "$scenario" in
@@ -206,6 +244,10 @@ run_case() {
   if [[ "$actual_evals" != "$expected_evals" ]]; then
     echo "FAIL [$scenario]: post-DONE eval sequence was not exact" >&2
     printf 'expected:\n%s\nactual:\n%s\n' "$expected_evals" "$actual_evals" >&2
+    return 1
+  fi
+  if grep -Fq 'Chosen story' "$root/hn-browser.sh" || grep -Fq 'discussion body' "$root/hn-browser.sh"; then
+    echo "FAIL [$scenario]: production contains fixture-only title/body constants" >&2
     return 1
   fi
 
