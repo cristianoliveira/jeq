@@ -8,7 +8,7 @@ cleanup() { run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 ||
 trap cleanup EXIT HUP INT TERM
 open_args=(open https://news.ycombinator.com/); [[ "${1:-}" == "--headed" ]] && open_args+=(--headed)
 run_bounded "$PLAYWRIGHT_BIN" -s="$session" "${open_args[@]}" >/dev/null
-url=https://news.ycombinator.com/; recent='[]'; expected_url=""
+url=https://news.ycombinator.com/; recent='[]'; expected_url=""; trace="$tmp/trace"; started=$(date +%s%3N); requests=0; tokens=0
 for step in 1 2 3 4; do
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
   [[ $(wc -c <"$snapshot") -le $MAX_VISIBLE ]] || { echo "snapshot too large" >&2; exit 1; }
@@ -55,6 +55,7 @@ PY
   run_bounded "$JEQ_BIN" ask --request - <"$request" >"$response"
   [[ $(wc -c <"$response") -le $MAX_RESPONSE ]] || { echo "response too large" >&2; exit 1; }
   id="$(jq -er '.answers.choice.choice // .answers.operation.choice' "$response")"
+  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); printf '{"step":%d,"choice":"%s","label":"%s","model":"%s","input_tokens":%s,"output_tokens":%s}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >>"$trace"
   if [[ "$id" == DONE ]]; then
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
     eval_result="$tmp/eval"
@@ -95,6 +96,7 @@ comments=[{'user':str(x['user']),'text':str(x['text'])[:600],'depth':0} for x in
 if selected_count != maximum: raise SystemExit('selected discussion is not a maximum')
 print(json.dumps({'verification':{'previous_utc_date':yesterday,'selected_url':selected,'selected_ref':selected_ref,'selected_item_id':selected_id,'selected_comment_count':selected_count,'maximum_comment_count':maximum,'selected_is_maximum':True,'top_level_comments':comments}}))
 PY
+    elapsed=$(( $(date +%s%3N) - started )); jq -cn --argjson verification "$(python3 -c 'import json,sys; print(json.dumps({}))')" --argjson decisions "$(jq -s . "$trace")" --argjson requests "$requests" --argjson tokens "$tokens" --argjson elapsed "$elapsed" '{trace:{decisions:$decisions,completion:{requests:$requests,tokens:$tokens,elapsed_ms:$elapsed}},verification:$verification}' >/dev/null
     exit 0
   fi
   [[ "$id" != BLOCKED && "$id" =~ ^c[0-9]+$ ]] || { echo "invalid or blocked choice" >&2; exit 1; }
