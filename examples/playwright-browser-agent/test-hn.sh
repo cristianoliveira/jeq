@@ -350,6 +350,7 @@ run_case() {
     return 1
   fi
   expected_evals=$'eval location.href\neval document.title\neval body bounded\neval comments structural'
+  [[ "$scenario" == badbody ]] && expected_evals=$'eval location.href\neval document.title\neval body bounded'
   actual_evals=$(awk -v done="$done_line" 'NR > done && /^eval /{sub(/ state=.*/, ""); print}' "$case_dir/events")
   if [[ "$actual_evals" != "$expected_evals" ]]; then
     echo "FAIL [$scenario]: post-DONE eval sequence was not exact" >&2
