@@ -112,6 +112,9 @@ class BrowserBoundary:
             return str(json.loads(value_line))
         return {"title": value(self.run("eval", "document.title")), "url": value(self.run("eval", "location.href")), "body": value(self.run("eval", "document.body.innerText"))}
 
+    def verify(self, outcome: dict[str, str]) -> bool:
+        return bool(outcome.get("url") and outcome.get("title") and outcome.get("body"))
+
     def close(self) -> None:
         try:
             self.run("close")
