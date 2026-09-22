@@ -14,6 +14,11 @@ else
 fi
 
 today=$(date -u +%F)
+if date -u -v-2d +%F >/dev/null 2>&1; then
+  wrong_day=$(date -u -v-2d +%F)
+else
+  wrong_day=$(date -u -d '2 days ago' +%F)
+fi
 
 cat >"$bin/playwright-cli" <<'SH'
 #!/usr/bin/env bash
@@ -25,7 +30,11 @@ case "$*" in
     printf 'snapshot state=%s\n' "$state" >>"$EVENTS"
     case "$state" in
       0) printf '%s\n' '- link "past" [ref=e1]:' '  - /url: "front"' ;;
-      1) printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: \"front?day=$YESTERDAY\"" ;;
+      1)
+        date_url="$YESTERDAY"
+        [[ "$SCENARIO" == wrongday ]] && date_url="$WRONG_DAY"
+        printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: \"front?day=$date_url\""
+        ;;
       2)
         printf '%s\n' \
           '- link "120 comments" [ref=e3]:' '  - /url: "item?id=10"' \
@@ -35,6 +44,7 @@ case "$*" in
         else
           printf '%s\n' '- link "500 comments" [ref=e5]:' '  - /url: "item?id=43"'
         fi
+        printf '%s\n' '- link "999 comments" [ref=e9]:' "  - /url: \"front?day=$YESTERDAY\""
         ;;
       3)
         printf '%s\n' \
@@ -46,21 +56,39 @@ case "$*" in
     esac
     ;;
   *eval*)
-    # Fixed, code-owned results for post-DONE independent inspection.
-    printf 'eval state=%s %s\n' "$state" "$*" >>"$EVENTS"
+    # Fixed, code-owned results for independent inspection.
     case "$*" in
       *location.href*)
-        case "$SCENARIO" in
-          redirect) location='https://news.ycombinator.com/item?id=43' ;;
-          nonmax) location='https://news.ycombinator.com/item?id=10' ;;
-          *) location='https://news.ycombinator.com/item?id=42' ;;
-        esac
+        printf 'eval location.href state=%s\n' "$state" >>"$EVENTS"
+        if [[ "$state" == 1 ]]; then
+          if [[ "$SCENARIO" == wrongday ]]; then location="https://news.ycombinator.com/front?day=$WRONG_DAY"; else location="https://news.ycombinator.com/front?day=$YESTERDAY"; fi
+        else
+          case "$SCENARIO" in
+            redirect) location='https://news.ycombinator.com/item?id=43' ;;
+            nonmax) location='https://news.ycombinator.com/item?id=10' ;;
+            *) location='https://news.ycombinator.com/item?id=42' ;;
+          esac
+        fi
         printf '%s\n' '### Result' "\"$location\""
         ;;
-      *document.title*) printf '%s\n' '### Result' '"Chosen story | Hacker News"' ;;
-      *tr.comtr*) printf '%s\n' '### Result' '[{"user":"alice","text":"first bounded top-level comment","depth":0},{"user":"bob","text":"second bounded top-level comment","depth":0}]' ;;
-      *document.body.innerText*) printf '%s\n' '### Result' '"Stories and comments"' ;;
-      *) printf '%s\n' '### Result' '{}' ;;
+      *document.title*)
+        printf 'eval document.title state=%s\n' "$state" >>"$EVENTS"
+        if [[ "$SCENARIO" == badtitle ]]; then printf '%s\n' '### Result' '"Error page"'; else printf '%s\n' '### Result' '"Chosen story | Hacker News"'; fi
+        ;;
+      *document.body.innerText*)
+        if [[ "$*" == *'slice(0,12000)'* ]]; then printf 'eval body bounded state=%s\n' "$state" >>"$EVENTS"; else printf 'eval body unbounded state=%s\n' "$state" >>"$EVENTS"; fi
+        if [[ "$SCENARIO" == badbody ]]; then printf '%s\n' '### Result' '"Error page without the selected story"'; else printf '%s\n' '### Result' '"Chosen story and discussion body"'; fi
+        ;;
+      *tr.comtr*)
+        if [[ "$*" == *'td.ind img'* && "$*" == *'commtext'* && "$*" == *'hnuser'* && "$*" == *'slice(0,5)'* && "$*" == *'slice(0,600)'* ]]; then printf 'eval comments structural state=%s\n' "$state" >>"$EVENTS"; else printf 'eval comments invalid state=%s\n' "$state" >>"$EVENTS"; fi
+        case "$SCENARIO" in
+          malformed-comments) printf '%s\n' '### Result' 'not-json' ;;
+          missing-depth-comments) printf '%s\n' '### Result' '[{"user":"alice","text":"missing depth"}]' ;;
+          empty-comments) printf '%s\n' '### Result' '[]' ;;
+          *) printf '%s\n' '### Result' '[{"user":"alice","text":"first bounded top-level comment","depth":0},{"user":"bob","text":"second bounded top-level comment","depth":0}]' ;;
+        esac
+        ;;
+      *) printf 'eval unknown state=%s\n' "$state" >>"$EVENTS"; printf '%s\n' '### Result' '{}' ;;
     esac
     ;;
   *click*)
@@ -79,11 +107,11 @@ n=$(find "$CAPTURE" -type f -name 'request-*.json' | wc -l | tr -d ' ')
 input="$CAPTURE/request-$n.json"
 cat >"$input"
 case "$SCENARIO:$n" in
-  tie:0|nonmax:0|redirect:0) choice=c1;;
-  tie:1|nonmax:1|redirect:1) choice=c1;;
-  tie:2|redirect:2) choice=c2;;
+  tie:0|nonmax:0|redirect:0|wrongday:0|badtitle:0|badbody:0|empty-comments:0|malformed-comments:0|missing-depth-comments:0) choice=c1;;
+  tie:1|nonmax:1|redirect:1|wrongday:1|badtitle:1|badbody:1|empty-comments:1|malformed-comments:1|missing-depth-comments:1) choice=c1;;
+  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2) choice=c2;;
   nonmax:2) choice=c1;;
-  tie:3|nonmax:3|redirect:3)
+  tie:3|nonmax:3|redirect:3|wrongday:3|badtitle:3|badbody:3|empty-comments:3|malformed-comments:3|missing-depth-comments:3)
     choice=DONE
     printf 'decision DONE\n' >>"$EVENTS"
     ;;
@@ -103,7 +131,7 @@ run_case() {
   : >"$case_dir/events"
   : >"$case_dir/decisions"
   export PATH="$bin:$PATH"
-  export SCENARIO="$scenario" YESTERDAY="$yesterday" TODAY="$today"
+  export SCENARIO="$scenario" YESTERDAY="$yesterday" WRONG_DAY="$wrong_day" TODAY="$today"
   export TMP_STATE="$case_dir/state" TMP_CLOSED="$case_dir/closed" EVENTS="$case_dir/events"
   export CAPTURE="$case_dir/requests" DECISIONS="$case_dir/decisions"
 
@@ -114,6 +142,18 @@ run_case() {
 
   local count
   count=$(find "$case_dir/requests" -type f -name 'request-*.json' | wc -l | tr -d ' ')
+  if [[ "$scenario" == wrongday && "$status" -ne 0 && "$count" -lt 4 ]]; then
+    if ! grep -q '^eval location.href state=1$' "$case_dir/events"; then
+      echo "FAIL [wrongday]: failure did not independently inspect the archive URL" >&2
+      cat "$case_dir/events" >&2
+      return 1
+    fi
+    if [[ ! -e "$TMP_CLOSED" ]]; then
+      echo "FAIL [wrongday]: browser cleanup did not run" >&2
+      return 1
+    fi
+    return 0
+  fi
   if [[ "$count" -ne 4 ]]; then
     echo "FAIL [$scenario]: expected 4 jeq requests, got $count" >&2
     cat "$case_dir/stderr" >&2
@@ -133,7 +173,7 @@ run_case() {
 
   local expected_c3
   if [[ "$scenario" == tie ]]; then expected_c3='525 comments'; else expected_c3='500 comments'; fi
-  if ! jq -e --arg expected_c3 "$expected_c3" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == $expected_c3' "$case_dir/requests/request-2.json" >/dev/null; then
+  if ! jq -e --arg expected_c3 "$expected_c3" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == $expected_c3 and ((.questions.choice.criteria | has("c4")) | not)' "$case_dir/requests/request-2.json" >/dev/null; then
     echo "FAIL [$scenario]: discussion candidates were not exposed as Choice options" >&2
     return 1
   fi
@@ -161,9 +201,11 @@ run_case() {
     cat "$case_dir/events" >&2
     return 1
   fi
-  if ! awk -v done="$done_line" 'NR > done && /^eval /{found=1} END{exit !found}' "$case_dir/events"; then
-    echo "FAIL [$scenario]: no independent eval occurred after DONE" >&2
-    cat "$case_dir/events" >&2
+  expected_evals=$'eval location.href\neval document.title\neval body bounded\neval comments structural'
+  actual_evals=$(awk -v done="$done_line" 'NR > done && /^eval /{sub(/ state=.*/, ""); print}' "$case_dir/events")
+  if [[ "$actual_evals" != "$expected_evals" ]]; then
+    echo "FAIL [$scenario]: post-DONE eval sequence was not exact" >&2
+    printf 'expected:\n%s\nactual:\n%s\n' "$expected_evals" "$actual_evals" >&2
     return 1
   fi
 
@@ -182,8 +224,8 @@ run_case() {
         .verification.selected_comment_count == 525 and
         .verification.maximum_comment_count == 525 and
         .verification.selected_is_maximum == true and
-        (.verification.top_level_comments | length == 2) and
-        (.verification.top_level_comments | all(.depth == 0 and (.text | length <= 600)))
+        (.verification.top_level_comments | length >= 1) and
+        (.verification.top_level_comments | all((.user | length) > 0 and (.text | length) > 0 and .depth == 0 and (.text | length <= 600)))
       ' "$case_dir/stdout" >/dev/null; then
         echo "FAIL [tie]: verification did not prove actual URL/ref, dynamic date, maximum, and comments" >&2
         cat "$case_dir/stdout" >&2
@@ -197,9 +239,9 @@ run_case() {
         return 1
       fi
       ;;
-    redirect)
+    redirect|wrongday|badtitle|badbody|empty-comments|malformed-comments|missing-depth-comments)
       if [[ "$status" -eq 0 ]]; then
-        echo "FAIL [redirect]: redirect mismatch was accepted" >&2
+        echo "FAIL [$scenario]: invalid independent evidence was accepted" >&2
         cat "$case_dir/stdout" >&2
         return 1
       fi
@@ -208,7 +250,7 @@ run_case() {
 }
 
 failures=()
-for scenario in tie nonmax redirect; do
+for scenario in tie nonmax redirect wrongday badtitle badbody empty-comments malformed-comments missing-depth-comments; do
   if ! run_case "$scenario"; then
     failures+=("$scenario")
   fi
