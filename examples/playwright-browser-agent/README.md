@@ -69,6 +69,18 @@ python3 examples/playwright-browser-agent/demo.py \
 
 Artifacts are written under `output/playwright/playwright-browser-agent/`. The default screenshot is `final.png`.
 
+## Try read-only Hacker News navigation
+
+This bounded real-site trial lets Jev choose the discussion with the largest displayed comment count on the previous UTC day's Hacker News front page:
+
+```sh
+python3 examples/playwright-browser-agent/hn_demo.py
+```
+
+It runs headed by default. The browser accepts only HTTPS navigation on `news.ycombinator.com`, only `/front` and `/item` paths, and only observed links whose names are numeric comment counts. Login, voting, hiding, submission, external articles, form mutation, and arbitrary URLs are unavailable. Code independently computes the maximum before Jev acts, verifies the selected item afterward, and extracts at most five bounded top-level comments.
+
+This command makes paid Jev requests. It is one read-only site trial, not general website support.
+
 ## Files
 
 - `agent.py`: Playwright CLI observation and allowlisted execution boundary.
@@ -77,3 +89,4 @@ Artifacts are written under `output/playwright/playwright-browser-agent/`. The d
 - `demo.py`: loopback fixture server and live Jev entry point.
 - `fake_e2e.py`: real CLI end-to-end test with a fake loopback TypeSafe API.
 - `fixture.html`: deterministic local page.
+- `hn_demo.py`: headed read-only Hacker News trial with independent maximum and discussion verification.

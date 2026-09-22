@@ -20,6 +20,7 @@ class RunResult:
     elapsed_ms: int
     models: tuple[str, ...]
     screenshot: str
+    evidence: object = None
 
 
 def run_agent(
@@ -34,6 +35,8 @@ def run_agent(
     max_steps: int = 8,
     timeout_seconds: float = 90,
     emit: Callable[[str], None] = print,
+    on_observe: Callable[[int, dict, dict[str, str]], None] | None = None,
+    finalize: Callable[[BrowserBoundary, dict[str, str]], object] | None = None,
 ) -> RunResult:
     browser = boundary or BrowserBoundary(budget=max_steps)
     policy = Policy(goal, fill_values, budget=max_steps)
@@ -48,6 +51,8 @@ def run_agent(
 
             elements = browser.observe()
             observed = browser.inspect()
+            if on_observe is not None:
+                on_observe(step, elements, observed)
             plan = policy.plan(elements, observed["url"], observed["title"], observed["body"])
             decision = policy.consume(ask(decision_runner, plan.request), plan)
             usage = decision.usage or {}
@@ -67,6 +72,7 @@ def run_agent(
                 checks = verify(observed)
                 if not checks or not all(checks.values()):
                     raise RuntimeError(f"independent verification failed: {checks}")
+                evidence = finalize(browser, observed) if finalize is not None else None
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
                 browser.screenshot(str(screenshot))
                 elapsed_ms = round((time.monotonic() - started) * 1000)
@@ -78,6 +84,7 @@ def run_agent(
                     elapsed_ms=elapsed_ms,
                     models=tuple(dict.fromkeys(trace["model"] for trace in traces)),
                     screenshot=str(screenshot),
+                    evidence=evidence,
                 )
                 emit(json.dumps({
                     "status": "PASS",

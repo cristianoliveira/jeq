@@ -49,6 +49,7 @@ class RunnerTests(unittest.TestCase):
         browser = FakeBrowser()
         calls = []
         traces = []
+        observations = []
 
         def decide(payload):
             request = json.loads(payload)
@@ -66,6 +67,8 @@ class RunnerTests(unittest.TestCase):
                 screenshot=pathlib.Path(directory) / "final.png",
                 boundary=browser,
                 emit=traces.append,
+                on_observe=lambda step, elements, outcome: observations.append((step, elements, outcome)),
+                finalize=lambda _browser, outcome: {"body": outcome["body"]},
             )
 
         self.assertEqual(len(calls), 2)
@@ -73,6 +76,8 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn("verified", "".join(traces))
         self.assertEqual(len(browser.actions), 1)
         self.assertEqual(result.decisions, 2)
+        self.assertEqual(len(observations), 2)
+        self.assertEqual(result.evidence, {"body": "verified"})
         self.assertEqual(browser.closed, 1)
         self.assertEqual(len(browser.screenshots), 1)
 

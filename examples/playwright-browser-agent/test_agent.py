@@ -8,7 +8,9 @@ SNAPSHOT = '''- searchbox "Destination" [ref=e16]
 - combobox "Stay category" [ref=e20] [cursor=pointer]:
   - option "All stays" [selected]
   - option "Design"
-- checkbox "Free cancellation" [ref=e22] [cursor=pointer]'''
+- checkbox "Free cancellation" [ref=e22] [cursor=pointer]
+- link "525 comments" [ref=e23] [cursor=pointer]:
+  - /url: item?id=49780820'''
 
 class BoundaryTests(unittest.TestCase):
     def setUp(self):
@@ -18,6 +20,7 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(self.elements["e16"].role, "searchbox")
         self.assertEqual(self.elements["e20"].options, ("All stays", "Design"))
         self.assertEqual(self.elements["e20"].value, "All stays")
+        self.assertEqual(self.elements["e23"].href, "item?id=49780820")
         current = parse_snapshot('- searchbox "Destination" [active] [ref=e1]: Lisbon\n- checkbox "Free" [checked] [ref=e2]')
         self.assertEqual(current["e1"].value, "Lisbon")
         self.assertTrue(current["e2"].checked)
@@ -32,6 +35,38 @@ class BoundaryTests(unittest.TestCase):
         boundary = BrowserBoundary()
         for url in ("http://127.0.0.1:1@evil.example/", "http://evil.example/", "https://127.0.0.1/"):
             with self.assertRaises(ValueError): boundary.open(url)
+
+    def test_remote_read_only_boundary_exposes_only_safe_navigation_links(self):
+        from agent import BrowserBoundary
+        snapshot = '''- link "525 comments" [ref=e1]:
+  - /url: item?id=1
+- link "article" [ref=e2]:
+  - /url: https://example.com/story
+- link "upvote" [ref=e3]:
+  - /url: vote?id=1
+- link "login" [ref=e4]:
+  - /url: login?goto=front
+- link "submit" [ref=e5]:
+  - /url: submit
+- link "hide" [ref=e6]:
+  - /url: hide?id=1'''
+        boundary = BrowserBoundary(
+            allowed_hosts=("news.ycombinator.com",),
+            allowed_paths=("/front", "/item"),
+            read_only=True,
+        )
+        boundary.run = lambda *args: snapshot if args == ("snapshot",) else "ok"
+        boundary.open("https://news.ycombinator.com/front?day=2026-09-21")
+
+        elements = boundary.observe()
+
+        self.assertEqual(set(elements), {"e1"})
+        with self.assertRaises(ValueError):
+            boundary.open("https://news.ycombinator.com@example.com/front")
+        with self.assertRaises(ValueError):
+            boundary.open("https://example.com/")
+        with self.assertRaises(ValueError):
+            boundary.execute(Action("fill", "e1", "unsafe"))
 
     def test_main_closes_after_failure(self):
         import agent

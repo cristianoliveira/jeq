@@ -28,6 +28,7 @@ class Candidate:
     role: str = ""
     name: str = ""
     current_value: str = ""
+    href: str = ""
 
 
 @dataclass(frozen=True)
@@ -80,8 +81,9 @@ class Policy:
             role = str(element.role)
             name = str(element.name)[:256]
             current_value = str(getattr(element, "value", ""))[:MAX_VALUE_LENGTH]
+            href = str(getattr(element, "href", ""))[:MAX_VALUE_LENGTH]
             if role in {"button", "link"}:
-                add("click", Candidate("click", ref, role=role, name=name, current_value=current_value))
+                add("click", Candidate("click", ref, role=role, name=name, current_value=current_value, href=href))
             if role in {"searchbox", "textbox"} and any(value != current_value for value in self.fill_values):
                 add("fill", Candidate("fill", ref, role=role, name=name, current_value=current_value))
             if role == "combobox":
@@ -153,6 +155,7 @@ class Policy:
                     "name": str(element.name)[:256],
                     "checked": bool(getattr(element, "checked", False)),
                     "value": str(getattr(element, "value", ""))[:MAX_VALUE_LENGTH],
+                    "href": str(getattr(element, "href", ""))[:MAX_VALUE_LENGTH],
                     "options": [str(option)[:MAX_VALUE_LENGTH] for option in tuple(element.options)[:MAX_OPTIONS]],
                 }
                 for ref, element in visible
@@ -268,4 +271,6 @@ def _target_description(candidate: Candidate) -> str:
     description = f"{candidate.role} {candidate.name} at observed ref {candidate.ref}; current value {candidate.current_value!r}"
     if candidate.operation == "select":
         description += f"; select observed option {candidate.value}"
+    if candidate.href:
+        description += f"; observed destination {candidate.href}"
     return description
