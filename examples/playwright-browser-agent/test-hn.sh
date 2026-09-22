@@ -64,9 +64,9 @@ case "$*" in
             '- link "601 comments" [ref=e7]:' '  - /url: "item?id=56&vote=1"' \
             '- link "602 comments" [ref=e8]:' '  - /url: "item?id=57&submit=1"' \
             '- link "603 comments" [ref=e10]:' '  - /url: "item?id=58&reply=1"' \
-            '- link "604 comments" [ref=e11]:' '  - /url: "delete?id=59"' \
-            '- link "605 comments" [ref=e12]:' '  - /url: "upvote?id=60"' \
-            '- link "606 comments" [ref=e13]:' '  - /url: "item?id=61&delete=1"'
+            '- link "delete action" [ref=e11]:' '  - /url: "delete?id=59"' \
+            '- link "upvote action" [ref=e12]:' '  - /url: "upvote?id=60"' \
+            '- link "query delete action" [ref=e13]:' '  - /url: "item?id=61&delete=1"'
         else
           printf '%s\n' '- link "999 comments" [ref=e9]:' "  - /url: \"front?day=$YESTERDAY\""
         fi
