@@ -17,10 +17,19 @@ try:
     boundary.observe()
     search = next(e for e in boundary.elements.values() if e.role == "searchbox")
     boundary.execute(Action("fill", search.ref, "Lisbon"))
+    boundary.observe()
+    category = next(e for e in boundary.elements.values() if e.role == "combobox")
+    boundary.execute(Action("select", category.ref, "Design"))
+    boundary.observe()
+    checkbox = next(e for e in boundary.elements.values() if e.role == "checkbox")
+    boundary.execute(Action("check", checkbox.ref))
+    boundary.observe()
+    button = next(e for e in boundary.elements.values() if e.role == "button")
+    boundary.execute(Action("click", button.ref))
     outcome = boundary.inspect()
-    if not outcome["url"].endswith("/fixture.html"):
-        raise SystemExit(f"unexpected URL: {outcome}")
-    print(f"PASS title={outcome['title']} url={outcome['url']}")
+    if not outcome["url"].endswith("/fixture.html") or outcome["title"] != "searched" or "Destination" not in outcome["body"]:
+        raise SystemExit(f"unexpected outcome: {outcome}")
+    print(f"PASS title={outcome['title']} url={outcome['url']} body_checked=true")
 finally:
     boundary.close()
     server.shutdown()

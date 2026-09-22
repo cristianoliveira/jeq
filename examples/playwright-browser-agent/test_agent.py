@@ -17,6 +17,8 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(self.elements["e20"].options, ("All stays", "Design"))
         self.assertEqual(allow(Action("fill", "e16", "Lisbon"), self.elements), ["fill", "e16", "Lisbon"])
         self.assertEqual(allow(Action("select", "e20", "Design"), self.elements), ["select", "e20", "Design"])
+        self.assertEqual(allow(Action("wait", value="2"), self.elements), ["wait", "2"])
+        self.assertEqual(allow(Action("scroll", value="500"), self.elements), ["mousewheel", "0", "500"])
 
     def test_rejects_stale_unknown_and_unsafe_actions(self):
         with self.assertRaises(ValueError): allow(Action("click", "e999"), self.elements)

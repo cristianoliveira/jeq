@@ -43,9 +43,13 @@ def parse_snapshot(snapshot: str) -> dict[str, Element]:
 
 
 def allow(action: Action, elements: dict[str, Element]) -> list[str]:
-    element = elements.get(action.ref)
     if action.operation == "stop":
         return ["stop"]
+    if action.operation == "wait":
+        return ["wait", str(min(max(int(action.value or "1"), 0), 5))]
+    if action.operation == "scroll":
+        return ["mousewheel", "0", str(min(max(int(action.value or "400"), -1000), 1000))]
+    element = elements.get(action.ref)
     if not element:
         raise ValueError("ref is absent from the latest snapshot")
     if action.operation == "click" and element.role in {"button", "link"}:
@@ -99,7 +103,7 @@ class BrowserBoundary:
             except (ValueError, IndexError) as exc: raise RuntimeError(f"unexpected eval output: {output!r}") from exc
             import json
             return str(json.loads(value_line))
-        return {"title": value(self.run("eval", "document.title")), "url": value(self.run("eval", "location.href"))}
+        return {"title": value(self.run("eval", "document.title")), "url": value(self.run("eval", "location.href")), "body": value(self.run("eval", "document.body.innerText"))}
 
     def close(self) -> None:
         try:
