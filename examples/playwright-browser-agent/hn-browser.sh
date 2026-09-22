@@ -43,8 +43,8 @@ for i,line in enumerate(lines):
     if not href: continue
     parsed=urlparse(urljoin('https://news.ycombinator.com/', href)); path=parsed.path.lower()
     if parsed.scheme != 'https' or parsed.hostname != 'news.ycombinator.com' or parsed.port not in (None,443) or parsed.username or parsed.password: continue
-    if any(key in parsed.query.lower() for key in ('submit','vote','hide','reply','delete','logout','upvote','downvote')): continue
-    if any(word in path for word in ('login','logout','submit','vote','hide','reply')): continue
+    if any(key in parsed.query.lower() for key in ('submit','vote','hide','reply','delete','logout','upvote','downvote','action=','do=','op=')): continue
+    if any(word in path for word in ('login','logout','submit','vote','hide','reply','delete','upvote','downvote')): continue
     if 'comment' in m.group(1).lower() and (parsed.path != '/item' or not re.fullmatch(r'[0-9]+', (parse_qs(parsed.query).get('id') or [''])[0])): continue
     if len(m.group(1)) > 256 or n >= 64: continue
     n+=1; print(f'c{n}\t{m.group(2)}\t{m.group(1)}\t{urljoin("https://news.ycombinator.com/",href)}')
