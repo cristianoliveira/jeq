@@ -4,7 +4,7 @@ set -euo pipefail
 MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
 run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; }
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
-cleanup() { run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+cleanup() { local closed=false; run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 && closed=true || true; [[ "${TRACE_EMITTED:-}" != 1 ]] && printf '{"event":"cleanup","closed":%s}\n' "$closed" >&2; TRACE_EMITTED=1; rm -rf "$tmp"; }
 trap cleanup EXIT HUP INT TERM
 open_args=(open https://news.ycombinator.com/); [[ "${1:-}" == "--headed" ]] && open_args+=(--headed)
 run_bounded "$PLAYWRIGHT_BIN" -s="$session" "${open_args[@]}" >/dev/null
@@ -55,7 +55,7 @@ PY
   run_bounded "$JEQ_BIN" ask --request - <"$request" >"$response"
   [[ $(wc -c <"$response") -le $MAX_RESPONSE ]] || { echo "response too large" >&2; exit 1; }
   id="$(jq -er '.answers.choice.choice // .answers.operation.choice' "$response")"
-  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); printf '{"step":%d,"choice":"%s","label":"%s","model":"%s","input_tokens":%s,"output_tokens":%s}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >>"$trace"
+  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); printf '{"event":"decision","step":%d,"choice":"%s","label":"%s","model":"%s","usage":{"input_tokens":%s,"output_tokens":%s},"latency_ms":0}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >&2
   if [[ "$id" == DONE ]]; then
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
     eval_result="$tmp/eval"
@@ -96,7 +96,7 @@ comments=[{'user':str(x['user']),'text':str(x['text'])[:600],'depth':0} for x in
 if selected_count != maximum: raise SystemExit('selected discussion is not a maximum')
 print(json.dumps({'verification':{'previous_utc_date':yesterday,'selected_url':selected,'selected_ref':selected_ref,'selected_item_id':selected_id,'selected_comment_count':selected_count,'maximum_comment_count':maximum,'selected_is_maximum':True,'top_level_comments':comments}}))
 PY
-    elapsed=$(( $(date +%s%3N) - started )); jq -cn --argjson verification "$(python3 -c 'import json,sys; print(json.dumps({}))')" --argjson decisions "$(jq -s . "$trace")" --argjson requests "$requests" --argjson tokens "$tokens" --argjson elapsed "$elapsed" '{trace:{decisions:$decisions,completion:{requests:$requests,tokens:$tokens,elapsed_ms:$elapsed}},verification:$verification}' >/dev/null
+    elapsed=$(( $(date +%s%3N) - started )); printf '{"event":"completed","requests":%d,"usage":{"input_tokens":0,"output_tokens":%d},"elapsed_ms":%d,"verification":{"selected_item_id":"%s"}}\n' "$requests" "$tokens" "$elapsed" "$(python3 -c 'from urllib.parse import urlparse,parse_qs; import sys; print((parse_qs(urlparse(sys.argv[1]).query).get("id") or [""])[0])' "$url")" >&2; jq -cn --argjson verification "$(python3 -c 'import json,sys; print(json.dumps({}))')" --argjson decisions "$(jq -s . "$trace")" --argjson requests "$requests" --argjson tokens "$tokens" --argjson elapsed "$elapsed" '{trace:{decisions:$decisions,completion:{requests:$requests,tokens:$tokens,elapsed_ms:$elapsed}},verification:$verification}' >/dev/null
     exit 0
   fi
   [[ "$id" != BLOCKED && "$id" =~ ^c[0-9]+$ ]] || { echo "invalid or blocked choice" >&2; exit 1; }
