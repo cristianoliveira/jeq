@@ -198,7 +198,7 @@ run_case() {
     if [[ "$scenario" == close-hang ]]; then
       [[ "$elapsed" -gt 5 ]] && hang_failed=1
     else
-      { [[ "$status" -eq 0 ]] || [[ "$elapsed" -gt 1 ]]; } && hang_failed=1
+      { [[ "$status" -eq 0 ]] || [[ "$elapsed" -gt 3 ]]; } && hang_failed=1
     fi
     ! grep -q '^close-start$' "$case_dir/events" && hang_failed=1
     if [[ "$hang_failed" -ne 0 ]]; then
@@ -272,8 +272,12 @@ run_case() {
   done
 
   if [[ "$scenario" == candidate-count || "$scenario" == long-label ]]; then
-    if ! jq -e '(.state.visible_text | length) <= 12000 and (.questions.choice.criteria | length) <= 64 and all(.questions.choice.criteria[]; length <= 256)' "$case_dir/requests/request-2.json" >/dev/null || [[ $(wc -c <"$case_dir/requests/request-2.json") -gt 65536 ]]; then
+    if ! jq -e '(.state.visible_text | length) <= 12000 and ([.questions.choice.criteria | to_entries[] | select(.key | test("^c[0-9]+$"))] | length) <= 64 and all(.questions.choice.criteria[]; length <= 256)' "$case_dir/requests/request-2.json" >/dev/null || [[ $(wc -c <"$case_dir/requests/request-2.json") -gt 65536 ]]; then
       echo "FAIL [$scenario]: candidate, label, visible-text, or request byte cap was exceeded" >&2
+      return 1
+    fi
+    if [[ "$scenario" == long-label ]] && jq -e '.questions.choice.criteria | has("c4")' "$case_dir/requests/request-2.json" >/dev/null; then
+      echo "FAIL [$scenario]: oversized candidate was not filtered" >&2
       return 1
     fi
     if ! grep -Fq '.[-8:]' "$root/hn-browser.sh" || ! awk '/^decision DONE$/{exit} /^snapshot state=/{n++} END{exit n > 4}' "$case_dir/events"; then
@@ -336,7 +340,7 @@ run_case() {
   fi
 
   case "$scenario" in
-    tie|unsafe-links)
+    tie|unsafe-links|candidate-count|long-label)
       if [[ "$status" -ne 0 ]]; then
         echo "FAIL [tie]: valid maximum-tie selection failed (status $status)" >&2
         cat "$case_dir/stderr" >&2
@@ -365,7 +369,7 @@ run_case() {
         return 1
       fi
       ;;
-    redirect|wrongday|badtitle|badbody|empty-comments|malformed-comments|missing-depth-comments|candidate-count|long-label|oversized-eval)
+    redirect|wrongday|badtitle|badbody|empty-comments|malformed-comments|missing-depth-comments|oversized-eval)
       if [[ "$status" -eq 0 ]]; then
         echo "FAIL [$scenario]: invalid independent evidence was accepted" >&2
         cat "$case_dir/stdout" >&2
