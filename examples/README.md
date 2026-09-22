@@ -40,6 +40,7 @@ A live run needs the selected provider credential and spends account budget. Use
   todo item with the same complete code diff and preserve an explicit
   fulfilled/not-fulfilled/uncertain decision.
 - [`map-concurrency`](map-concurrency/README.md): local loopback stress run proving bounded overlapping map requests and ordered output.
+- [`playwright-browser-agent`](playwright-browser-agent/README.md): observe a local page with Playwright CLI, let Jev choose one finite current action per request, execute it through an allowlist, and verify the final page independently.
 - [`unix-review-pipeline`](unix-review-pipeline/README.md): visible emitter,
   rank, map, jq, reduce, gate, and safe final projection pipeline.
 

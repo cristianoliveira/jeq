@@ -26,6 +26,7 @@ class Candidate:
     value: str = ""
     role: str = ""
     name: str = ""
+    current_value: str = ""
 
 
 @dataclass(frozen=True)
@@ -77,14 +78,16 @@ class Policy:
         for ref, element in visible:
             role = str(element.role)
             name = str(element.name)[:256]
+            current_value = str(getattr(element, "value", ""))[:MAX_VALUE_LENGTH]
             if role in {"button", "link"}:
-                add("click", Candidate("click", ref, role=role, name=name))
-            if role in {"searchbox", "textbox"} and self.fill_values:
-                add("fill", Candidate("fill", ref, role=role, name=name))
+                add("click", Candidate("click", ref, role=role, name=name, current_value=current_value))
+            if role in {"searchbox", "textbox"} and any(value != current_value for value in self.fill_values):
+                add("fill", Candidate("fill", ref, role=role, name=name, current_value=current_value))
             if role == "combobox":
                 for option in tuple(element.options)[:MAX_OPTIONS]:
                     value = str(option)[:MAX_VALUE_LENGTH]
-                    add("select", Candidate("select", ref, value, role, name))
+                    if value != current_value:
+                        add("select", Candidate("select", ref, value, role, name, current_value))
             if role == "checkbox":
                 operation = "uncheck" if bool(getattr(element, "checked", False)) else "check"
                 add(operation, Candidate(operation, ref, role=role, name=name))
@@ -147,6 +150,7 @@ class Policy:
                     "role": str(element.role)[:64],
                     "name": str(element.name)[:256],
                     "checked": bool(getattr(element, "checked", False)),
+                    "value": str(getattr(element, "value", ""))[:MAX_VALUE_LENGTH],
                     "options": [str(option)[:MAX_VALUE_LENGTH] for option in tuple(element.options)[:MAX_OPTIONS]],
                 }
                 for ref, element in visible
@@ -210,7 +214,7 @@ def ask(runner: Callable[[bytes], bytes], request: dict) -> AskResult:
     return AskResult(response, latency_ms)
 
 
-def subprocess_runner(binary: str = "jeq") -> Callable[[bytes], bytes]:
+def subprocess_runner(binary: str = "jeq", env: dict[str, str] | None = None) -> Callable[[bytes], bytes]:
     def run(payload: bytes) -> bytes:
         result = subprocess.run(
             [binary, "ask", "--request", "-"],
@@ -218,6 +222,7 @@ def subprocess_runner(binary: str = "jeq") -> Callable[[bytes], bytes]:
             capture_output=True,
             timeout=15,
             check=True,
+            env=env,
         )
         return result.stdout
 
@@ -258,7 +263,7 @@ def _operation_description(operation: str) -> str:
 
 
 def _target_description(candidate: Candidate) -> str:
-    description = f"{candidate.role} {candidate.name} at observed ref {candidate.ref}"
+    description = f"{candidate.role} {candidate.name} at observed ref {candidate.ref}; current value {candidate.current_value!r}"
     if candidate.operation == "select":
         description += f"; select observed option {candidate.value}"
     return description

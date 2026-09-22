@@ -14,9 +14,13 @@ class BoundaryTests(unittest.TestCase):
     def setUp(self):
         self.elements = parse_snapshot(SNAPSHOT)
 
-    def test_parses_allowlisted_elements_and_options(self):
+    def test_parses_allowlisted_elements_options_and_current_state(self):
         self.assertEqual(self.elements["e16"].role, "searchbox")
         self.assertEqual(self.elements["e20"].options, ("All stays", "Design"))
+        self.assertEqual(self.elements["e20"].value, "All stays")
+        current = parse_snapshot('- searchbox "Destination" [active] [ref=e1]: Lisbon\n- checkbox "Free" [checked] [ref=e2]')
+        self.assertEqual(current["e1"].value, "Lisbon")
+        self.assertTrue(current["e2"].checked)
         self.assertEqual(allow(Action("fill", "e16", "Lisbon"), self.elements), ["fill", "e16", "Lisbon"])
         self.assertEqual(allow(Action("select", "e20", "Design"), self.elements), ["select", "e20", "Design"])
         self.assertEqual(allow(Action("wait", value="2"), self.elements), ["wait", "2"])

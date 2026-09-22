@@ -24,6 +24,7 @@ class Element:
     name: str
     options: tuple[str, ...] = ()
     checked: bool = False
+    value: str = ""
 
 @dataclass(frozen=True)
 class Action:
@@ -40,8 +41,12 @@ def parse_snapshot(snapshot: str) -> dict[str, Element]:
         if not match:
             continue
         role, name, ref = match.groups()
-        options = tuple(OPTION.findall("\n".join(lines[i : i + 8]))) if role == "combobox" else ()
-        elements[ref] = Element(ref, role, name or "", options, "[checked]" in line)
+        window = lines[i : i + 8]
+        options = tuple(OPTION.findall("\n".join(window))) if role == "combobox" else ()
+        selected = next((OPTION.search(option).group(1) for option in window if "[selected]" in option and OPTION.search(option)), "")
+        trailing = line[match.end() :].strip()
+        value = trailing[1:].strip() if trailing.startswith(":") else selected
+        elements[ref] = Element(ref, role, name or "", options, "[checked]" in line, value)
     return elements
 
 
@@ -75,7 +80,7 @@ class BrowserBoundary:
         self.elements: dict[str, Element] = {}
 
     def run(self, *args: str) -> str:
-        result = subprocess.run([self.executable, f"-s={self.session}", *args], text=True, capture_output=True, timeout=10)
+        result = subprocess.run([self.executable, f"-s={self.session}", *args], text=True, capture_output=True, timeout=30)
         if result.returncode:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "playwright-cli failed")
         return result.stdout
@@ -101,6 +106,9 @@ class BrowserBoundary:
             time.sleep(min(max(float(command[1]), 0.0), 5.0))
             return "waited"
         return self.run(*command)
+
+    def screenshot(self, filename: str) -> str:
+        return self.run("screenshot", f"--filename={filename}")
 
     def inspect(self) -> dict[str, str]:
         # Independent inspection does not trust a model action or snapshot text.
