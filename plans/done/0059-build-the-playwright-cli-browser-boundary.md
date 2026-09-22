@@ -1,7 +1,7 @@
 ---
 id: TASK-0059
 title: Build the Playwright CLI browser boundary
-status: doing
+status: done
 depends_on: []
 priority: high
 tags: [examples, playwright, browser, security, testing]
