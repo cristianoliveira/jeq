@@ -6,6 +6,7 @@ import argparse
 import re
 import subprocess
 import sys
+from urllib.parse import urlparse
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,7 +47,7 @@ def allow(action: Action, elements: dict[str, Element]) -> list[str]:
     if action.operation == "stop":
         return ["stop"]
     if action.operation == "wait":
-        return ["wait", str(min(max(int(action.value or "1"), 0), 5))]
+        return ["snapshot"]
     if action.operation == "scroll":
         return ["mousewheel", "0", str(min(max(int(action.value or "400"), -1000), 1000))]
     element = elements.get(action.ref)
@@ -78,8 +79,9 @@ class BrowserBoundary:
         return result.stdout
 
     def open(self, url: str) -> None:
-        if not (url.startswith("http://127.0.0.1:") or url.startswith("http://localhost:")):
-            raise ValueError("browser fixture URL must be loopback HTTP")
+        parsed = urlparse(url)
+        if parsed.scheme != "http" or parsed.username or parsed.password or parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or not parsed.port:
+            raise ValueError("browser fixture URL must be loopback HTTP without credentials")
         self.run("open", url)
 
     def observe(self) -> dict[str, Element]:
