@@ -1,44 +1,71 @@
 #!/usr/bin/env bash
 # Red acceptance test for TASK-0064 verification. It intentionally fails until
-# hn-browser.sh verifies the selected discussion after Jev chooses DONE.
+# hn-browser.sh verifies fresh post-DONE browser evidence.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")" && pwd)
 bin=$(mktemp -d)
-capture="$bin/requests"
-mkdir "$capture"
 trap 'rm -rf "$bin"' EXIT
+
+if date -u -v-1d +%F >/dev/null 2>&1; then
+  yesterday=$(date -u -v-1d +%F)
+else
+  yesterday=$(date -u -d 'yesterday' +%F)
+fi
+
+today=$(date -u +%F)
 
 cat >"$bin/playwright-cli" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-state_file=${TMP_STATE:?}
-state=$(cat "$state_file" 2>/dev/null || echo 0)
+state=$(cat "$TMP_STATE" 2>/dev/null || echo 0)
 case "$*" in
   *open*) printf 'open %s\n' "$*" >>"$EVENTS" ;;
   *snapshot*)
     printf 'snapshot state=%s\n' "$state" >>"$EVENTS"
     case "$state" in
       0) printf '%s\n' '- link "past" [ref=e1]:' '  - /url: "front"' ;;
-      1) printf '%s\n' '- link "yesterday" [ref=e2]:' '  - /url: "front?day=2026-01-01"' ;;
+      1) printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: \"front?day=$YESTERDAY\"" ;;
       2)
         printf '%s\n' \
           '- link "120 comments" [ref=e3]:' '  - /url: "item?id=10"' \
-          '- link "525 comments" [ref=e4]:' '  - /url: "item?id=42"' \
-          '- link "525 comments" [ref=e5]:' '  - /url: "item?id=43"'
+          '- link "525 comments" [ref=e4]:' '  - /url: "item?id=42"'
+        if [[ "$SCENARIO" == tie ]]; then
+          printf '%s\n' '- link "525 comments" [ref=e5]:' '  - /url: "item?id=43"'
+        else
+          printf '%s\n' '- link "500 comments" [ref=e5]:' '  - /url: "item?id=43"'
+        fi
         ;;
       3)
         printf '%s\n' \
           '- heading "Chosen story | Hacker News" [ref=e6]' \
-          '- text: "Stories from January 1, 2026 (UTC)"' \
+          "- text: \"Stories from $YESTERDAY (UTC)\"" \
           '- text: "alice: first bounded top-level comment"' \
           '- text: "bob: second bounded top-level comment"'
         ;;
     esac
     ;;
+  *eval*)
+    # Fixed, code-owned results for post-DONE independent inspection.
+    printf 'eval state=%s %s\n' "$state" "$*" >>"$EVENTS"
+    case "$*" in
+      *location.href*)
+        case "$SCENARIO" in
+          redirect) location='https://news.ycombinator.com/item?id=43' ;;
+          nonmax) location='https://news.ycombinator.com/item?id=10' ;;
+          *) location='https://news.ycombinator.com/item?id=42' ;;
+        esac
+        printf '%s\n' '### Result' "\"$location\""
+        ;;
+      *document.title*) printf '%s\n' '### Result' '"Chosen story | Hacker News"' ;;
+      *tr.comtr*) printf '%s\n' '### Result' '[{"user":"alice","text":"first bounded top-level comment","depth":0},{"user":"bob","text":"second bounded top-level comment","depth":0}]' ;;
+      *document.body.innerText*) printf '%s\n' '### Result' '"Stories and comments"' ;;
+      *) printf '%s\n' '### Result' '{}' ;;
+    esac
+    ;;
   *click*)
     printf 'click %s state=%s\n' "$*" "$state" >>"$EVENTS"
-    printf '%s\n' "$((state + 1))" >"$state_file"
+    printf '%s\n' "$((state + 1))" >"$TMP_STATE"
     ;;
   *close*) printf 'close\n' >>"$EVENTS"; touch "$TMP_CLOSED" ;;
   *) printf 'other %s\n' "$*" >>"$EVENTS" ;;
@@ -51,11 +78,15 @@ set -euo pipefail
 n=$(find "$CAPTURE" -type f -name 'request-*.json' | wc -l | tr -d ' ')
 input="$CAPTURE/request-$n.json"
 cat >"$input"
-case "$n" in
-  0) choice=c1;;
-  1) choice=c1;;
-  2) choice=c2;;
-  3) choice=DONE;;
+case "$SCENARIO:$n" in
+  tie:0|nonmax:0|redirect:0) choice=c1;;
+  tie:1|nonmax:1|redirect:1) choice=c1;;
+  tie:2|redirect:2) choice=c2;;
+  nonmax:2) choice=c1;;
+  tie:3|nonmax:3|redirect:3)
+    choice=DONE
+    printf 'decision DONE\n' >>"$EVENTS"
+    ;;
   *) choice=BLOCKED;;
 esac
 printf '%s\n' "$choice" >>"$DECISIONS"
@@ -63,67 +94,127 @@ printf '{"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
 SH
 
 chmod +x "$bin"/*
-printf '0\n' >"$bin/state"
-: >"$bin/events"
-: >"$bin/decisions"
-export PATH="$bin:$PATH"
-export TMP_STATE="$bin/state" TMP_CLOSED="$bin/closed" EVENTS="$bin/events"
-export CAPTURE="$capture" DECISIONS="$bin/decisions"
 
-set +e
-"$root/hn-browser.sh" >"$bin/stdout" 2>"$bin/stderr"
-status=$?
-set -e
+run_case() {
+  local scenario=$1
+  local case_dir="$bin/$scenario"
+  mkdir -p "$case_dir/requests"
+  printf '0\n' >"$case_dir/state"
+  : >"$case_dir/events"
+  : >"$case_dir/decisions"
+  export PATH="$bin:$PATH"
+  export SCENARIO="$scenario" YESTERDAY="$yesterday" TODAY="$today"
+  export TMP_STATE="$case_dir/state" TMP_CLOSED="$case_dir/closed" EVENTS="$case_dir/events"
+  export CAPTURE="$case_dir/requests" DECISIONS="$case_dir/decisions"
 
-count=$(find "$capture" -type f -name 'request-*.json' | wc -l | tr -d ' ')
-if [[ "$count" -ne 4 ]]; then
-  echo "FAIL: first unmet verifier criterion: expected 4 jeq requests, got $count" >&2
-  cat "$bin/stderr" >&2
-  exit 1
-fi
+  set +e
+  "$root/hn-browser.sh" >"$case_dir/stdout" 2>"$case_dir/stderr"
+  local status=$?
+  set -e
 
-expected_decisions=$'c1\nc1\nc2\nDONE'
-if [[ "$(cat "$bin/decisions")" != "$expected_decisions" ]]; then
-  echo "FAIL: Jev decisions changed" >&2
-  cat "$bin/decisions" >&2
-  exit 1
-fi
+  local count
+  count=$(find "$case_dir/requests" -type f -name 'request-*.json' | wc -l | tr -d ' ')
+  if [[ "$count" -ne 4 ]]; then
+    echo "FAIL [$scenario]: expected 4 jeq requests, got $count" >&2
+    cat "$case_dir/stderr" >&2
+    return 1
+  fi
 
-if ! jq -e '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == "525 comments"' "$capture/request-2.json" >/dev/null; then
-  echo "FAIL: tie-page candidates were not exposed as bounded Choice options" >&2
-  exit 1
-fi
+  local expected_decisions
+  case "$scenario" in
+    nonmax) expected_decisions=$'c1\nc1\nc1\nDONE' ;;
+    *) expected_decisions=$'c1\nc1\nc2\nDONE' ;;
+  esac
+  if [[ "$(cat "$case_dir/decisions")" != "$expected_decisions" ]]; then
+    echo "FAIL [$scenario]: Jev decisions changed" >&2
+    cat "$case_dir/decisions" >&2
+    return 1
+  fi
 
-for request in "$capture"/request-*.json; do
-  if ! jq -e '(.state | has("expected_item_id") or has("expected_max_comments") or has("verification") or has("top_level_comments") or has("selected_item_id")) | not' "$request" >/dev/null; then
-    echo "FAIL: verifier state leaked into Jev request: $request" >&2
-    exit 1
+  local expected_c3
+  if [[ "$scenario" == tie ]]; then expected_c3='525 comments'; else expected_c3='500 comments'; fi
+  if ! jq -e --arg expected_c3 "$expected_c3" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == $expected_c3' "$case_dir/requests/request-2.json" >/dev/null; then
+    echo "FAIL [$scenario]: discussion candidates were not exposed as Choice options" >&2
+    return 1
+  fi
+
+  for request in "$case_dir"/requests/request-*.json; do
+    if ! jq -e '(.state | has("expected_item_id") or has("expected_max_comments") or has("verification") or has("top_level_comments") or has("selected_item_id")) | not' "$request" >/dev/null; then
+      echo "FAIL [$scenario]: verifier state leaked into Jev request: $request" >&2
+      return 1
+    fi
+  done
+
+  if [[ ! -e "$TMP_CLOSED" ]]; then
+    echo "FAIL [$scenario]: browser cleanup did not run" >&2
+    return 1
+  fi
+
+  local done_line
+  done_line=$(awk '/^decision DONE$/{print NR; exit}' "$case_dir/events")
+  if [[ -z "$done_line" ]]; then
+    echo "FAIL [$scenario]: DONE was not observed by the fake provider" >&2
+    return 1
+  fi
+  if ! awk -v done="$done_line" 'NR > done && /^snapshot state=3$/{found=1} END{exit !found}' "$case_dir/events"; then
+    echo "FAIL [$scenario]: no fresh final snapshot occurred after DONE" >&2
+    cat "$case_dir/events" >&2
+    return 1
+  fi
+  if ! awk -v done="$done_line" 'NR > done && /^eval /{found=1} END{exit !found}' "$case_dir/events"; then
+    echo "FAIL [$scenario]: no independent eval occurred after DONE" >&2
+    cat "$case_dir/events" >&2
+    return 1
+  fi
+
+  case "$scenario" in
+    tie)
+      if [[ "$status" -ne 0 ]]; then
+        echo "FAIL [tie]: valid maximum-tie selection failed (status $status)" >&2
+        cat "$case_dir/stderr" >&2
+        return 1
+      fi
+      if ! jq -e --arg yesterday "$yesterday" '
+        .verification.previous_utc_date == $yesterday and
+        .verification.selected_url == "https://news.ycombinator.com/item?id=42" and
+        .verification.selected_ref == "e4" and
+        .verification.selected_item_id == "42" and
+        .verification.selected_comment_count == 525 and
+        .verification.maximum_comment_count == 525 and
+        .verification.selected_is_maximum == true and
+        (.verification.top_level_comments | length == 2) and
+        (.verification.top_level_comments | all(.depth == 0 and (.text | length <= 600)))
+      ' "$case_dir/stdout" >/dev/null; then
+        echo "FAIL [tie]: verification did not prove actual URL/ref, dynamic date, maximum, and comments" >&2
+        cat "$case_dir/stdout" >&2
+        return 1
+      fi
+      ;;
+    nonmax)
+      if [[ "$status" -eq 0 ]]; then
+        echo "FAIL [nonmax]: false verification success for selected non-maximum item" >&2
+        cat "$case_dir/stdout" >&2
+        return 1
+      fi
+      ;;
+    redirect)
+      if [[ "$status" -eq 0 ]]; then
+        echo "FAIL [redirect]: redirect mismatch was accepted" >&2
+        cat "$case_dir/stdout" >&2
+        return 1
+      fi
+      ;;
+  esac
+}
+
+failures=()
+for scenario in tie nonmax redirect; do
+  if ! run_case "$scenario"; then
+    failures+=("$scenario")
   fi
 done
-
-if [[ ! -e "$TMP_CLOSED" ]]; then
-  echo "FAIL: browser cleanup did not run" >&2
+if ((${#failures[@]})); then
+  echo "FAIL: first unmet verifier case: ${failures[0]} (all failures: ${failures[*]})" >&2
   exit 1
 fi
-
-if [[ -z "$(tr -d '[:space:]' <"$bin/stdout")" ]]; then
-  echo "FAIL: first production verifier failure: no post-DONE verification result (status $status)" >&2
-  cat "$bin/stderr" >&2
-  exit 1
-fi
-
-if ! jq -e '
-  .verification.previous_utc_date == "2026-01-01" and
-  (.verification.selected_item_id == "42" or .verification.selected_item_id == "43") and
-  .verification.selected_comment_count == 525 and
-  .verification.maximum_comment_count == 525 and
-  .verification.selected_is_maximum == true and
-  (.verification.top_level_comments | length <= 5) and
-  (.verification.top_level_comments | all(.text | length <= 600))
-' "$bin/stdout" >/dev/null; then
-  echo "FAIL: post-DONE verification did not prove the date, maximum tie, and bounded comments" >&2
-  cat "$bin/stdout" >&2
-  exit 1
-fi
-
-printf 'PASS verifier acceptance\n'
+printf 'PASS verifier acceptance cases\n'
