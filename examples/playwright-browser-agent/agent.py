@@ -97,7 +97,7 @@ class BrowserBoundary:
             return "stopped"
         self.used += 1
         if command[0] == "wait":
-            time.sleep(min(int(command[1]), 5) * 0.1)
+            time.sleep(min(max(float(command[1]), 0.0), 5.0))
             return "waited"
         return self.run(*command)
 

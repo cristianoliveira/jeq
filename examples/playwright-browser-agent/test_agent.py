@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from agent import Action, Element, allow, parse_snapshot
 
 SNAPSHOT = '''- searchbox "Destination" [ref=e16]
@@ -32,7 +33,9 @@ class BoundaryTests(unittest.TestCase):
         boundary = BrowserBoundary(budget=1)
         boundary.elements = self.elements
         boundary.run = lambda *args: "ok"
-        self.assertEqual(boundary.execute(Action("wait", value="0")), "waited")
+        with patch("agent.time.sleep") as sleep:
+            self.assertEqual(boundary.execute(Action("wait", value="9")), "waited")
+            sleep.assert_called_once_with(5.0)
         with self.assertRaises(RuntimeError): boundary.execute(Action("click", "e17"))
         with self.assertRaises(ValueError): allow(Action("eval", "e17", "document.cookie"), self.elements)
         with self.assertRaises(ValueError): allow(Action("select", "e20", "Unknown"), self.elements)
