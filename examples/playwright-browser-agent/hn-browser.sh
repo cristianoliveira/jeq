@@ -2,12 +2,7 @@
 set -euo pipefail
 : "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=10}"
 MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
-run_bounded() { python3 - "$JEQ_SUBPROCESS_TIMEOUT_SECONDS" "$@" <<'PY'
-import subprocess,sys
-try: subprocess.run(sys.argv[2:], check=True, timeout=float(sys.argv[1]))
-except subprocess.TimeoutExpired: raise SystemExit('subprocess timeout')
-PY
-}
+run_bounded() { python3 -c 'import subprocess,sys; subprocess.run(sys.argv[2:], check=True, timeout=float(sys.argv[1]))' "$JEQ_SUBPROCESS_TIMEOUT_SECONDS" "$@"; }
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
 cleanup() { run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
 trap cleanup EXIT HUP INT TERM
@@ -46,9 +41,11 @@ for i,line in enumerate(lines):
         if u: href=u.group(1); break
     if not href: continue
     parsed=urlparse(urljoin('https://news.ycombinator.com/', href)); path=parsed.path.lower()
-    if parsed.scheme != 'https' or parsed.hostname != 'news.ycombinator.com' or parsed.username or parsed.password: continue
+    if parsed.scheme != 'https' or parsed.hostname != 'news.ycombinator.com' or parsed.port not in (None,443) or parsed.username or parsed.password: continue
+    if any(key in parsed.query.lower() for key in ('submit','vote','hide','reply','delete','logout')): continue
     if any(word in path for word in ('login','logout','submit','vote','hide','reply')): continue
     if 'comment' in m.group(1).lower() and (parsed.path != '/item' or not re.fullmatch(r'[0-9]+', (parse_qs(parsed.query).get('id') or [''])[0])): continue
+    if len(m.group(1)) > 256 or n >= 64: continue
     n+=1; print(f'c{n}\t{m.group(2)}\t{m.group(1)}\t{urljoin("https://news.ycombinator.com/",href)}')
 PY
   [[ "$step" -eq 3 ]] && cp "$candidates" "$dated_candidates"
