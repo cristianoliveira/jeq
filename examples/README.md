@@ -1,49 +1,17 @@
-# Readable Unix pipelines
+# examples
 
-Jev supplies bounded typed semantic evidence; `jq` and the shell own projection,
-deterministic policy, and actions. Read the [Jev mental model](../docs/guides/jev.md)
-before choosing a primitive.
+## jeq browser example
 
-Start with `jeq examples` for installed, self-contained recipes. This repository
-contains expanded executable references for those workflows. A rank result can be composed explicitly, for example: `jeq rank ... | jq '.items[:3] | map(.candidate)'`. Choice probabilities are relative; include an explicit fallback candidate when needed.
+`examples/playwright-browser-agent/hn-browser.sh` demonstrates direct Unix composition: `playwright-cli` observes Hacker News, `jq` builds a finite Choice request, and `jeq ask --request -` predicts the next safe opaque link. The script starts at the HN homepage, keeps navigation read-only and same-host, bounds subprocesses and evidence, and verifies the final date, maximum discussion count, and comments independently.
 
-These examples use the composable primitives from ADR 0004. `jeq map` performs
-one named semantic judgment per record; `jq` projects, joins, and constructs
-native requests; `jeq rank` ranks candidates with Choice probabilities and `jeq gate` applies an explicit offline numeric policy.
-
-The same JSON record remains the transport envelope. Before logging or sharing
-it, project away sensitive state explicitly:
+Run the offline fake-CLI acceptance test:
 
 ```sh
-jq 'del(.customer_message, .details, ._jeq.route)'
+examples/playwright-browser-agent/test-hn.sh
 ```
 
-A live run needs the selected provider credential and spends account budget. Use a local fake endpoint for development. Model evidence is data: examples validate it as a catalog key or a numeric value, and never execute it. Composed commands resolve models as `--model`, `JEQ_DEFAULT_MODEL`, selected profile, legacy top-level/`TYPESAFE_DEFAULT_MODEL`, then the provider default; config stores only provider settings and credential environment names.
+For an explicitly authorized paid headed run, configure `jeq` and run:
 
-
-## Recommended pipelines
-
-- [`smart-grep`](smart-grep/README.md): retrieve and group log excerpts locally,
-  inspect a bounded shortlist, then rank it in one explicit live request.
-- [`readable-workflows/support`](readable-workflows/support/README.md): one
-  composed map followed by a confidence gate.
-- [`readable-workflows/release`](readable-workflows/release/README.md): one
-  release-risk map followed by an offline gate.
-- [`readable-workflows/incident`](readable-workflows/incident/README.md):
-  category map, `jq` catalog lookup into a native request field, second map,
-  then gate.
-- [`release-readiness`](release-readiness/review.sh): one bounded synthetic
-  release-findings reduce and optional offline gate.
-- [`code-smell-review`](code-smell-review/README.md): explicit bounded source
-  files, one aggregate judgment, and an optional offline cohesion gate.
-- [`todo-fulfillment`](todo-fulfillment/README.md): compare every prioritized
-  todo item with the same complete code diff and preserve an explicit
-  fulfilled/not-fulfilled/uncertain decision.
-- [`map-concurrency`](map-concurrency/README.md): local loopback stress run proving bounded overlapping map requests and ordered output.
-- [`playwright-browser-agent`](playwright-browser-agent/README.md): observe a local page with Playwright CLI, let Jev choose one finite current action per request, execute it through an allowlist, and verify the final page independently.
-- [`unix-review-pipeline`](unix-review-pipeline/README.md): visible emitter,
-  rank, map, jq, reduce, gate, and safe final projection pipeline.
-
-The existing `support-routing`, `change-risk-gate`, and `issue-ranking`
-directories remain low-level Bash references. They expose transport mechanics
-for portability and are intentionally not workflow interpreters.
+```sh
+JEQ_GOAL='navigate to yesterday then the most-discussed discussion' examples/playwright-browser-agent/hn-browser.sh
+```

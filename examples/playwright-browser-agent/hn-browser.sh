@@ -2,7 +2,7 @@
 set -euo pipefail
 : "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=10}"
 MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
-run_bounded() { python3 -c 'import subprocess,sys; subprocess.run(sys.argv[2:], check=True, timeout=float(sys.argv[1]))' "$JEQ_SUBPROCESS_TIMEOUT_SECONDS" "$@"; }
+run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; }
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
 cleanup() { run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
 trap cleanup EXIT HUP INT TERM
