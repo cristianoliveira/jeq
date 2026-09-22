@@ -6,6 +6,7 @@ import argparse
 import re
 import subprocess
 import sys
+import time
 from urllib.parse import urlparse
 import uuid
 from dataclasses import dataclass
@@ -47,7 +48,7 @@ def allow(action: Action, elements: dict[str, Element]) -> list[str]:
     if action.operation == "stop":
         return ["stop"]
     if action.operation == "wait":
-        return ["snapshot"]
+        return ["wait", str(min(max(int(action.value or "1"), 0), 5))]
     if action.operation == "scroll":
         return ["mousewheel", "0", str(min(max(int(action.value or "400"), -1000), 1000))]
     element = elements.get(action.ref)
@@ -95,6 +96,9 @@ class BrowserBoundary:
         if command == ["stop"]:
             return "stopped"
         self.used += 1
+        if command[0] == "wait":
+            time.sleep(min(int(command[1]), 5) * 0.1)
+            return "waited"
         return self.run(*command)
 
     def inspect(self) -> dict[str, str]:
