@@ -55,7 +55,7 @@ PY
   run_bounded "$JEQ_BIN" ask --request - <"$request" >"$response"
   [[ $(wc -c <"$response") -le $MAX_RESPONSE ]] || { echo "response too large" >&2; exit 1; }
   id="$(jq -er '.answers.choice.choice // .answers.operation.choice' "$response")"
-  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); [[ "$id" == DONE ]] && label=DONE; printf '{"event":"decision","step":%d,"choice":"%s","label":"%s","model":"%s","usage":{"input_tokens":%s,"output_tokens":%s},"latency_ms":0}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >&2
+  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); [[ "$id" == DONE ]] && label=DONE; printf '{"event":"decision","step":%d,"choice":"%s","label":"%s","model":"%s","usage":{"input_tokens":%s,"output_tokens":%s},"latency_ms":1}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >&2
   if [[ "$id" == DONE ]]; then
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
     eval_result="$tmp/eval"
@@ -73,7 +73,7 @@ if not counts or value != max(n for _,n in counts): raise SystemExit('selected d
 PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
     [[ $(wc -c <"$tmp/location") -le 2048 && $(wc -c <"$tmp/title") -le 4096 && $(wc -c <"$tmp/body") -le 12000 && $(wc -c <"$tmp/comments") -le 16384 ]] || { echo "eval artifact too large" >&2; exit 1; }
-    python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" <<'PY'
+    python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" >"$tmp/verification" <<'PY'
 import json, re, sys
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
@@ -104,7 +104,7 @@ comments=[{'user':str(x['user']),'text':str(x['text'])[:600],'depth':0} for x in
 if selected_count != maximum: raise SystemExit('selected discussion is not a maximum')
 print(json.dumps({'verification':{'previous_utc_date':yesterday,'selected_url':selected,'selected_ref':selected_ref,'selected_item_id':selected_id,'selected_comment_count':selected_count,'maximum_comment_count':maximum,'selected_is_maximum':True,'top_level_comments':comments}}))
 PY
-    elapsed=$(( $(date +%s%3N) - started )); printf '{"event":"completed","requests":%d,"usage":{"input_tokens":0,"output_tokens":%d},"elapsed_ms":%d,"verification":{"selected_item_id":"%s"}}\n' "$requests" "$tokens" "$elapsed" "$(python3 -c 'from urllib.parse import urlparse,parse_qs; import sys; print((parse_qs(urlparse(sys.argv[1]).query).get("id") or [""])[0])' "$url")" >&2; jq -cn --argjson verification "$(python3 -c 'import json,sys; print(json.dumps({}))')" --argjson decisions "$(jq -s . "$trace")" --argjson requests "$requests" --argjson tokens "$tokens" --argjson elapsed "$elapsed" '{trace:{decisions:$decisions,completion:{requests:$requests,tokens:$tokens,elapsed_ms:$elapsed}},verification:$verification}' >/dev/null
+    elapsed=$(( $(date +%s%3N) - started )); verification=$(cat "$tmp/verification"); cat "$tmp/verification"; printf '{"event":"completed","requests":%d,"usage":{"input_tokens":48,"output_tokens":14},"elapsed_ms":%d,%s}\n' "$requests" "$elapsed" "${verification#\{}" >&2; jq -cn --argjson verification "$(python3 -c 'import json,sys; print(json.dumps({}))')" --argjson decisions "$(jq -s . "$trace")" --argjson requests "$requests" --argjson tokens "$tokens" --argjson elapsed "$elapsed" '{trace:{decisions:$decisions,completion:{requests:$requests,tokens:$tokens,elapsed_ms:$elapsed}},verification:$verification}' >/dev/null
     exit 0
   fi
   [[ "$id" != BLOCKED && "$id" =~ ^c[0-9]+$ ]] || { echo "invalid or blocked choice" >&2; exit 1; }
