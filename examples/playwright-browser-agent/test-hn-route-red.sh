@@ -19,9 +19,9 @@ esac
 SH
 cat >"$bin/jeq" <<'SH'
 #!/usr/bin/env bash
-n=$(ls "$CAPTURE" | wc -l | tr -d ' '); input="$CAPTURE/request-$n"; cat >"$input"
+n=$(ls "$CAPTURE" | wc -l | tr -d ' '); input="$CAPTURE/request-$n"; cat >"$input"; echo "FAKE_REQUEST=$input" >&2
 case "$n" in
-  0|1|2) choice=$(jq -r '.questions.choice.criteria|keys[0]' "$input");; 3) choice=DONE;; *) choice=BLOCKED;;
+  0|1|2) choice=c1;; 3) choice=DONE;; *) choice=BLOCKED;;
 esac
 printf '{"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
 SH
@@ -29,5 +29,5 @@ chmod +x "$bin"/*; : >"$bin/state"; export PATH="$bin:$PATH" TMP_STATE="$bin/sta
 set +e; output="$($root/hn-browser.sh 2>&1)"; status=$?; set -e
 if [[ $status -eq 0 ]]; then echo "FAIL: one-cycle script unexpectedly passed route acceptance" >&2; exit 1; fi
 count=$(find "$capture" -type f | wc -l | tr -d ' ')
-if [[ "$count" -ne 4 ]]; then echo "FAIL: first unmet criterion: expected 4 jeq requests, got $count" >&2; exit 1; fi
+if [[ "$count" -ne 4 ]]; then echo "FAIL: first unmet criterion: expected 4 jeq requests, got $count output=$output" >&2; exit 1; fi
 echo "FAIL: route assertions not yet reached: $output" >&2; exit 1
