@@ -21,7 +21,7 @@ cat >"$bin/jeq" <<'SH'
 #!/usr/bin/env bash
 n=$(ls "$CAPTURE" | wc -l | tr -d ' '); input="$CAPTURE/request-$n"; cat >"$input"
 case "$n" in
-  0) choice=c1;; 1) choice=c1;; 2) choice=c1;; 3) choice=DONE;; *) choice=BLOCKED;;
+  0|1|2) choice=$(jq -r '.questions.choice.criteria|keys[0]' "$input");; 3) choice=DONE;; *) choice=BLOCKED;;
 esac
 printf '{"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
 SH
