@@ -1,5 +1,7 @@
 # CLI reference
 
+Provider setup and endpoint constraints are covered in the [provider guide](providers.md).
+
 Run `jeq --help` or `jeq <command> --help` for the current flags. The command
 surface is intentionally small:
 
@@ -19,7 +21,7 @@ surface is intentionally small:
 JSON is the default document format. `map`, `rate`, `reduce`, `rank`, and `gate`
 support NDJSON where their input is a stream; `ask` and `validate` use JSON
 requests. `--verbose` writes structured trace events to stderr and never changes
-stdout. For composed commands, precedence is `--model`, then `TYPESAFE_DEFAULT_MODEL`, then one config source: the file
+stdout. For composed commands, precedence is `--model`, then `JEQ_DEFAULT_MODEL`, then the selected provider profile, then legacy `TYPESAFE_DEFAULT_MODEL` or top-level config, then the provider default. The file
 named by non-empty `JEQ_CONFIG`, otherwise the default path
 (`$XDG_CONFIG_HOME/jeq/config.json` or `$HOME/.config/jeq/config.json`). If
 that optional default config is absent, use `jev-latest`. A native `ask` request's

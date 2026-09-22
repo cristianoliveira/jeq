@@ -27,6 +27,8 @@ brew tap cristianoliveira/tap
 brew install cristianoliveira/tap/jeq
 ```
 
+See the [provider guide](providers.md) before making a network request.
+
 Verify the installation:
 
 ```sh

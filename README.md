@@ -57,6 +57,7 @@ cover the rest:
 - [Composition](docs/guides/composition.md)
 - [Reduce a bounded collection](docs/guides/reduce.md)
 - [CLI reference](docs/guides/cli-reference.md)
+- [Providers](docs/guides/providers.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Examples](examples/README.md)
 
