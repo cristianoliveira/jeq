@@ -61,6 +61,7 @@ PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
+    [[ $(wc -c <"$tmp/location") -le 2048 && $(wc -c <"$tmp/title") -le 4096 && $(wc -c <"$tmp/body") -le 12000 && $(wc -c <"$tmp/comments") -le 16384 ]] || { echo "eval artifact too large" >&2; exit 1; }
     python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" <<'PY'
 import json, re, sys
 from datetime import datetime, timedelta, timezone
