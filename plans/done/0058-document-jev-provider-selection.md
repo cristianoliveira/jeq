@@ -1,7 +1,7 @@
 ---
 id: TASK-0058
 title: Document Jev provider selection
-status: doing
+status: done
 depends_on: []
 priority: normal
 tags: [documentation, providers, configuration, security, jev]
