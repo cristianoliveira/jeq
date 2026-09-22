@@ -55,7 +55,7 @@ PY
   run_bounded "$JEQ_BIN" ask --request - <"$request" >"$response"
   [[ $(wc -c <"$response") -le $MAX_RESPONSE ]] || { echo "response too large" >&2; exit 1; }
   id="$(jq -er '.answers.choice.choice // .answers.operation.choice' "$response")"
-  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); printf '{"event":"decision","step":%d,"choice":"%s","label":"%s","model":"%s","usage":{"input_tokens":%s,"output_tokens":%s},"latency_ms":0}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >&2
+  requests=$((requests+1)); model=$(jq -r '.model // "unknown"' "$response"); input_tokens=$(jq -r '.usage.input_tokens // .usage.prompt_tokens // 0' "$response"); output_tokens=$(jq -r '.usage.output_tokens // .usage.completion_tokens // 0' "$response"); tokens=$((tokens+input_tokens+output_tokens)); label=$(awk -F '\t' -v id="$id" '$1==id{print $3; exit}' "$candidates"); [[ "$id" == DONE ]] && label=DONE; printf '{"event":"decision","step":%d,"choice":"%s","label":"%s","model":"%s","usage":{"input_tokens":%s,"output_tokens":%s},"latency_ms":0}\n' "$step" "$id" "$label" "$model" "$input_tokens" "$output_tokens" >&2
   if [[ "$id" == DONE ]]; then
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
     eval_result="$tmp/eval"
@@ -63,6 +63,14 @@ PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
     grep -qi 'error page' "$tmp/body" && { echo "body verification failed" >&2; exit 1; }
+    python3 - "$dated_snapshot" "$dated_candidates" "$url" <<'PY'
+import re,sys
+from urllib.parse import urlparse,parse_qs
+snap=open(sys.argv[1]).read(); selected=sys.argv[3]; refs={line.split('\t')[1] for line in open(sys.argv[2]) if '/item?id=' in line}; sid=(parse_qs(urlparse(selected).query).get('id') or [''])[0]
+counts=[(m.group(2),int(m.group(1))) for l in snap.splitlines() if (m:=re.search(r'link "([0-9]+) comments".*ref=(e\d+)',l)) and m.group(2) in refs]
+ref=next((r for r in refs if r and sid and any(sid in l and l.split('\t')[1]==r for l in open(sys.argv[2]))),''); value=next((n for r,n in counts if r==ref),0)
+if not counts or value != max(n for _,n in counts): raise SystemExit('selected discussion is not a maximum')
+PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
     [[ $(wc -c <"$tmp/location") -le 2048 && $(wc -c <"$tmp/title") -le 4096 && $(wc -c <"$tmp/body") -le 12000 && $(wc -c <"$tmp/comments") -le 16384 ]] || { echo "eval artifact too large" >&2; exit 1; }
     python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" <<'PY'
