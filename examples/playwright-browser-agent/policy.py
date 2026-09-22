@@ -31,6 +31,10 @@ class Policy:
                     for option in tuple(element.options)[:16]:
                         oid = f"{cid}_{len(candidates)}"; candidates[oid] = Candidate(oid, operation, ident, value=str(option)[:512], role=element.role, name=element.name)
                 heads.setdefault(operation, {})[cid] = f"{element.role} {element.name} ref {ident}; assumed operation: {operation}"
+        for cid, candidate in candidates.items():
+            heads["operation"][cid] = candidate.operation
+            if candidate.operation in {"click", "fill", "select", "check", "uncheck"}:
+                heads.setdefault(candidate.operation, {})[cid] = f"{candidate.role} {candidate.name} ref {candidate.ref} value {candidate.value}; assumed operation: {candidate.operation}"
         if any(c.operation == "fill" for c in candidates.values()): heads["fill_value"] = {f"value_{i}": value for i, value in enumerate(self.fill_values)}
         state = {"goal": self.goal, "url": url[:512], "title": title[:256], "elements": {k: {"role": v.role, "name": v.name, "options": [str(x)[:512] for x in tuple(v.options)[:16]]} for k,v in list(elements.items())[:32]}, "recent_actions": self.history[-8:]}
         questions = {"operation": {"type":"choice", "instructions":"Choose the next operation.", "criteria":heads["operation"]}}
@@ -49,7 +53,7 @@ class Policy:
             return Decision(operation, model=str(response.get("model", "")), usage=response.get("usage"), latency_ms=int(response.get("_decision_latency_ms", 0)))
         head = answers.get(operation, {}); selected = head.get("choice") if isinstance(head, dict) else None
         target = candidates.get(selected or "")
-        if not target or target["operation"] != operation: raise ValueError("stale or incompatible target")
+        if not target or target["operation"] != operation or (operation == "select" and not target.get("value")): raise ValueError("stale or incompatible target")
         value = ""
         if operation == "fill":
             value_id = answers.get("fill_value", {}).get("choice") if isinstance(answers.get("fill_value"), dict) else None
