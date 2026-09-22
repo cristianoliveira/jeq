@@ -5,7 +5,7 @@ session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archiv
 cleanup() { "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 || true; rm -rf "$tmp"; }
 trap cleanup EXIT HUP INT TERM
 "$PLAYWRIGHT_BIN" -s="$session" open https://news.ycombinator.com/ >/dev/null
-url=https://news.ycombinator.com/; recent='[]'
+url=https://news.ycombinator.com/; recent='[]'; expected_url=""
 for step in 1 2 3 4; do
   "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
   "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/observe-location"
@@ -13,6 +13,7 @@ for step in 1 2 3 4; do
   observed_url=$(sed -n '/### Result/,$p' "$tmp/observe-location" | tail -1 | tr -d '"')
   observed_title=$(sed -n '/### Result/,$p' "$tmp/observe-title" | tail -1 | tr -d '"')
   [[ "$observed_url" =~ ^https://news\.ycombinator\.com/ ]] || { echo "unsafe observed location" >&2; exit 1; }
+  [[ -z "$expected_url" || "$observed_url" == "$expected_url" || ("$expected_url" == */front && "$observed_url" == "$expected_url"\?day=*) ]] || { echo "navigation redirect mismatch" >&2; exit 1; }
   [[ -n "$observed_title" && "$observed_title" != "Error page" ]] || { echo "invalid observed title" >&2; exit 1; }
   if [[ "$step" -eq 2 ]]; then
     expected_day=$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(days=1)).date())')
@@ -90,6 +91,7 @@ PY
   line="$(awk -F '\t' -v id="$id" '$1==id{print; exit}' "$candidates")"; [[ -n "$line" ]] || { echo "stale candidate" >&2; exit 1; }
   ref="$(cut -f2 <<<"$line")"; url="$(cut -f4 <<<"$line")"
   "$PLAYWRIGHT_BIN" -s="$session" click "$ref"
+  expected_url="$url"
   recent="$(jq -cn --argjson old "$recent" --arg id "$id" '$old+[$id]|.[-8:]')"
 done
 exit 1
