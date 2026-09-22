@@ -151,6 +151,13 @@ set -euo pipefail
 n=$(find "$CAPTURE" -type f -name 'request-*.json' | wc -l | tr -d ' ')
 input="$CAPTURE/request-$n.json"
 cat >"$input"
+input_tokens=11; output_tokens=2
+case "$SCENARIO:$n" in
+  trace:0) sleep 0.02; input_tokens=7; output_tokens=2;;
+  trace:1) sleep 0.03; input_tokens=11; output_tokens=3;;
+  trace:2) sleep 0.02; input_tokens=13; output_tokens=4;;
+  trace:3) sleep 0.04; input_tokens=17; output_tokens=5;;
+esac
 case "$SCENARIO:$n" in
   jeq-hang:*) sleep 2 ;;
   malformed-response:*) printf 'not-json\n'; exit 0 ;;
@@ -169,7 +176,7 @@ case "$SCENARIO:$n" in
   *) choice=BLOCKED;;
 esac
 printf '%s\n' "$choice" >>"$DECISIONS"
-printf '{"model":"jev-latest","usage":{"input_tokens":11,"output_tokens":2},"answers":{"choice":{"choice":"%s"}}}\n' "$choice"
+printf '{"model":"jev-latest","usage":{"input_tokens":%d,"output_tokens":%d},"answers":{"choice":{"choice":"%s"}}}\n' "$input_tokens" "$output_tokens" "$choice"
 SH
 
 chmod +x "$bin"/*
@@ -350,7 +357,7 @@ run_case() {
     return 1
   fi
   expected_evals=$'eval location.href\neval document.title\neval body bounded\neval comments structural'
-  [[ "$scenario" == badbody ]] && expected_evals=$'eval location.href\neval document.title\neval body bounded'
+  [[ "$scenario" == badbody || "$scenario" == nonmax ]] && expected_evals=$'eval location.href\neval document.title\neval body bounded'
   actual_evals=$(awk -v done="$done_line" 'NR > done && /^eval /{sub(/ state=.*/, ""); print}' "$case_dir/events")
   if [[ "$actual_evals" != "$expected_evals" ]]; then
     echo "FAIL [$scenario]: post-DONE eval sequence was not exact" >&2
@@ -405,16 +412,15 @@ run_case() {
       ;;
   esac
   if [[ "$scenario" == trace ]]; then
-    local trace_lines="$case_dir/trace.ndjson"
-    grep -E '^\{"event":' "$case_dir/stderr" >"$trace_lines" || true
-    if ! jq -s -e '
+    if ! jq -s -e --arg yesterday "$yesterday" '
       ([.[] | select(.event == "decision")] | length) == 4 and
-      ([.[] | select(.event == "decision")] | all(has("step") and has("choice") and has("label") and has("model") and (.usage.input_tokens | numbers) and (.usage.output_tokens | numbers) and (.latency_ms | numbers))) and
       ([.[] | select(.event == "decision") | .choice] == ["c1", "c1", "c2", "DONE"]) and
-      ([.[] | select(.event == "completed")] | length) == 1 and
-      ([.[] | select(.event == "completed") | select((.requests | numbers) and (.usage.input_tokens | numbers) and (.usage.output_tokens | numbers) and (.elapsed_ms | numbers) and (.verification.selected_item_id == "42"))] | length) == 1 and
+      ([.[] | select(.event == "decision") | .label] == ["past", ("yesterday " + $yesterday), "525 comments", "DONE"]) and
+      ([.[] | select(.event == "decision")] | all(has("step") and has("choice") and has("label") and has("model") and (.usage.input_tokens | numbers) and (.usage.output_tokens | numbers) and (.latency_ms | numbers) and .latency_ms > 0)) and
+      ([.[] | select(.event == "decision") | .model] | all(. == "jev-latest")) and
+      ([.[] | select(.event == "completed") | select(.requests == 4 and .usage.input_tokens == 48 and .usage.output_tokens == 14 and (.elapsed_ms | numbers) and .verification.previous_utc_date == $yesterday and .verification.selected_url == "https://news.ycombinator.com/item?id=42" and .verification.selected_ref == "e4" and .verification.selected_item_id == "42" and .verification.selected_comment_count == 525 and .verification.maximum_comment_count == 525 and .verification.selected_is_maximum == true and (.verification.top_level_comments | length <= 5) and (.verification.top_level_comments | all((.depth == 0) and (.user | length > 0) and (.text | length > 0) and (.text | length <= 600))))] | length) == 1 and
       ([.[] | select(.event == "cleanup" and .closed == true)] | length) == 1
-    ' "$trace_lines" >/dev/null; then
+    ' < <(grep -E '^\{"event":' "$case_dir/stderr") >/dev/null; then
       echo "FAIL [trace]: missing bounded decision, completion, verification, token, latency, or cleanup records" >&2
       cat "$case_dir/stderr" >&2
       return 1
