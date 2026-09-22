@@ -191,7 +191,7 @@ func TestMapSchedulerCommitsOutOfOrderSuccessInInputOrder(t *testing.T) {
 	}
 }
 
-func TestMapSchedulerLaterFailurePreservesPrefixAndStopsDispatch(t *testing.T) {
+func TestMapSchedulerLaterFailurePreservesPrefixWithinDispatchBound(t *testing.T) {
 	first, reader := schedulerRecords(5)
 	release := make(chan struct{})
 	evaluator := &schedulerEvaluator{
@@ -222,8 +222,11 @@ func TestMapSchedulerLaterFailurePreservesPrefixAndStopsDispatch(t *testing.T) {
 			t.Fatalf("calls=%v", calls)
 		}
 	}
-	if calls["4"] != 0 || reader.Reads() != 3 {
-		t.Fatalf("dispatch after failure: calls=%v reads=%d", calls, reader.Reads())
+	// Job 3 can complete before job 2's concurrent failure reaches the coordinator.
+	// One replacement can therefore be dispatched speculatively within the worker bound.
+	reads := reader.Reads()
+	if calls["4"] > 1 || reads < 3 || reads > 4 || calls["4"] != reads-3 {
+		t.Fatalf("dispatch outside failure bound: calls=%v reads=%d", calls, reads)
 	}
 }
 
