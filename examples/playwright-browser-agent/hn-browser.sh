@@ -8,6 +8,18 @@ trap cleanup EXIT HUP INT TERM
 url=https://news.ycombinator.com/; recent='[]'
 for step in 1 2 3 4; do
   "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
+  "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/observe-location"
+  "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/observe-title"
+  observed_url=$(sed -n '/### Result/,$p' "$tmp/observe-location" | tail -1 | tr -d '"')
+  observed_title=$(sed -n '/### Result/,$p' "$tmp/observe-title" | tail -1 | tr -d '"')
+  [[ "$observed_url" =~ ^https://news\.ycombinator\.com/ ]] || { echo "unsafe observed location" >&2; exit 1; }
+  [[ -n "$observed_title" && "$observed_title" != "Error page" ]] || { echo "invalid observed title" >&2; exit 1; }
+  if [[ "$step" -eq 2 ]]; then
+    expected_day=$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(days=1)).date())')
+    [[ "$observed_url" == https://news.ycombinator.com/front*"day=$expected_day"* ]] || { echo "wrong archive day" >&2; exit 1; }
+  fi
+  url="$observed_url"
+  export OBSERVED_URL="$observed_url" OBSERVED_TITLE="$observed_title"
   [[ "$step" -eq 2 ]] && cp "$snapshot" "$archive_snapshot"
   [[ "$step" -eq 3 ]] && cp "$snapshot" "$dated_snapshot"
   : >"$candidates"
@@ -31,7 +43,7 @@ for i,line in enumerate(lines):
     n+=1; print(f'c{n}\t{m.group(2)}\t{m.group(1)}\t{urljoin("https://news.ycombinator.com/",href)}')
 PY
   [[ "$step" -eq 3 ]] && cp "$candidates" "$dated_candidates"
-  jq -n --rawfile snap "$snapshot" --slurpfile rows <(jq -Rn '[inputs|split("\t")|{id:.[0],ref:.[1],label:.[2],url:.[3]}]' "$candidates") --arg url "$url" --arg recent "$recent" --argjson step "$step" '{model:"jev-latest",state:{goal:(env.JEQ_GOAL // "Navigate to yesterday then the most-discussed discussion"),current_date:(now|todate),current_url:$url,title:"HN",visible_text:($snap|.[0:12000]),recent_decisions:$recent,step:$step},questions:{choice:{type:"choice",instructions:"Choose one current safe link, DONE, or BLOCKED. Do not invent IDs.",criteria:(($rows[0]|map({key:.id,value:.label})|from_entries)+{DONE:"Finish only after independent verification",BLOCKED:"Stop safely"})}}}' >"$request"
+  jq -n --rawfile snap "$snapshot" --slurpfile rows <(jq -Rn '[inputs|split("\t")|{id:.[0],ref:.[1],label:.[2],url:.[3]}]' "$candidates") --arg url "$url" --arg recent "$recent" --argjson step "$step" '{model:"jev-latest",state:{goal:(env.JEQ_GOAL // "Navigate to yesterday then the most-discussed discussion"),current_date:(now|todate),current_url:$url,observed_url:(env.OBSERVED_URL // $url),title:(env.OBSERVED_TITLE // ""),visible_text:($snap|.[0:12000]),recent_decisions:$recent,step:$step},questions:{choice:{type:"choice",instructions:"Choose one current safe link, DONE, or BLOCKED. Do not invent IDs.",criteria:(($rows[0]|map({key:.id,value:.label})|from_entries)+{DONE:"Finish only after independent verification",BLOCKED:"Stop safely"})}}}' >"$request"
   "$JEQ_BIN" ask --request - <"$request" >"$response"
   id="$(jq -er '.answers.choice.choice // .answers.operation.choice' "$response")"
   if [[ "$id" == DONE ]]; then
@@ -40,7 +52,7 @@ PY
     "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/location"
     "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
     "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
-    "$PLAYWRIGHT_BIN" -s="$session" eval 'Array.from(document.querySelectorAll("tr.comtr")).slice(0,5).map(row => ({depth: row.querySelector("td.ind img")?.getAttribute("width"), user: row.querySelector("a.hnuser")?.textContent?.trim(), text: row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}))' >"$tmp/comments"
+    "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
     python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" <<'PY'
 import json, re, sys
 from datetime import datetime, timedelta, timezone
@@ -63,7 +75,7 @@ maximum=max((n for _,n in counts), default=0)
 yesterday=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
 archive_day=next(iter(re.findall(r'front\?day=([0-9]{4}-[0-9]{2}-[0-9]{2})', archive)), '')
 if archive_day != yesterday: raise SystemExit('archive day mismatch')
-if 'Chosen story' not in title or 'discussion body' not in body: raise SystemExit('discussion evidence mismatch')
+if not re.search(r'\S+ \| Hacker News$', title) or not body.strip() or 'error page' in body.lower(): raise SystemExit('discussion evidence mismatch')
 try: comments=json.loads(comments_raw)
 except Exception: raise SystemExit('malformed comments')
 if not comments: raise SystemExit('empty comments')
