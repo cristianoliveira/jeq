@@ -1,7 +1,7 @@
 ---
 id: TASK-0062
 title: Make browser completion evidence deterministic
-status: doing
+status: done
 depends_on: [TASK-0061]
 priority: high
 tags: [examples, jev, playwright, determinism, paid-test]
