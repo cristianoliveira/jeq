@@ -1,7 +1,7 @@
 ---
 id: TASK-0060
 title: Build a finite Jev browser policy
-status: doing
+status: done
 depends_on: [TASK-0059]
 priority: high
 tags: [examples, jev, playwright, browser-agent, composition, testing]
