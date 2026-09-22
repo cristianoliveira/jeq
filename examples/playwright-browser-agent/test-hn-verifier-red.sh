@@ -74,7 +74,7 @@ case "$*" in
         ;;
       *document.title*)
         printf 'eval document.title state=%s\n' "$state" >>"$EVENTS"
-        if [[ "$SCENARIO" == badtitle ]]; then
+        if [[ "$SCENARIO" == badtitle && "$state" == 3 ]]; then
           printf '%s\n' '### Result' '"Error page"'
         else
           case "$state" in
@@ -152,21 +152,25 @@ run_case() {
 
   local count
   count=$(find "$case_dir/requests" -type f -name 'request-*.json' | wc -l | tr -d ' ')
-  if [[ "$scenario" == wrongday || "$scenario" == redirect ]]; then
+  if [[ "$scenario" == wrongday || "$scenario" == redirect || "$scenario" == badtitle ]]; then
     local invalid_state=1
     [[ "$scenario" == redirect ]] && invalid_state=2
-    if [[ "$status" -ne 0 && "$count" -lt 4 ]]; then
-      if ! grep -q "^eval location.href state=$invalid_state$" "$case_dir/events" || ! grep -q "^eval document.title state=$invalid_state$" "$case_dir/events"; then
-        echo "FAIL [$scenario]: failure did not independently inspect the invalid observed page" >&2
-        cat "$case_dir/events" >&2
-        return 1
-      fi
-      if [[ ! -e "$TMP_CLOSED" ]]; then
-        echo "FAIL [$scenario]: browser cleanup did not run" >&2
-        return 1
-      fi
-      return 0
+    [[ "$scenario" == badtitle ]] && invalid_state=3
+    if [[ "$status" -eq 0 || "$count" -ne "$invalid_state" ]]; then
+      echo "FAIL [$scenario]: Jev request continued after invalid observed state (status=$status requests=$count expected=$invalid_state)" >&2
+      cat "$case_dir/events" >&2
+      return 1
     fi
+    if ! grep -q "^eval location.href state=$invalid_state$" "$case_dir/events" || ! grep -q "^eval document.title state=$invalid_state$" "$case_dir/events"; then
+      echo "FAIL [$scenario]: failure did not independently inspect the invalid observed page" >&2
+      cat "$case_dir/events" >&2
+      return 1
+    fi
+    if [[ ! -e "$TMP_CLOSED" ]]; then
+      echo "FAIL [$scenario]: browser cleanup did not run" >&2
+      return 1
+    fi
+    return 0
   fi
   if [[ "$count" -ne 4 ]]; then
     echo "FAIL [$scenario]: expected 4 jeq requests, got $count" >&2
@@ -188,7 +192,10 @@ run_case() {
     case "$request_number" in
       0) expected_url='https://news.ycombinator.com/'; expected_title='Hacker News' ;;
       1|2) expected_url="https://news.ycombinator.com/front?day=$yesterday"; [[ "$request_number" == 1 ]] && expected_title='Hacker News: past' || expected_title='Hacker News: yesterday' ;;
-      3) expected_url='https://news.ycombinator.com/item?id=42'; expected_title='What happened ... | Hacker News' ;;
+      3)
+        if [[ "$scenario" == nonmax ]]; then expected_url='https://news.ycombinator.com/item?id=10'; else expected_url='https://news.ycombinator.com/item?id=42'; fi
+        expected_title='What happened ... | Hacker News'
+        ;;
       *) echo "FAIL [$scenario]: unexpected request number $request_number" >&2; return 1 ;;
     esac
     if ! jq -e --arg url "$expected_url" --arg title "$expected_title" '.state.current_url == $url and .state.title == $title' "$request" >/dev/null; then
