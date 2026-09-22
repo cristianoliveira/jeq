@@ -1,7 +1,7 @@
 ---
 id: TASK-0063
 title: Navigate Hacker News with the Jev browser agent
-status: doing
+status: done
 depends_on: [TASK-0062]
 priority: high
 tags: [examples, jev, playwright, hacker-news, security, paid-test]
