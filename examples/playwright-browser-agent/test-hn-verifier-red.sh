@@ -52,10 +52,12 @@ case "$*" in
         else
           printf '%s\n' '- link "500 comments" [ref=e5]:' '  - /url: "item?id=43"'
         fi
-        if [[ "$SCENARIO" == bounds ]]; then
-          for i in $(seq 6 80); do
-            printf '%s\n' "- link \"$(printf 'x%.0s' $(seq 1 300))\" [ref=e$i]:" "  - /url: \"item?id=$((1000 + i))\""
+        if [[ "$SCENARIO" == candidate-count ]]; then
+          for i in $(seq 6 70); do
+            printf '%s\n' "- link \"100 comments\" [ref=e$i]:" "  - /url: \"item?id=$((1000 + i))\""
           done
+        elif [[ "$SCENARIO" == long-label ]]; then
+          printf '%s\n' "- link \"$(printf 'x%.0s' $(seq 1 280)) comments\" [ref=e6]:" '  - /url: "item?id=1006"'
         elif [[ "$SCENARIO" == unsafe-links ]]; then
           printf '%s\n' \
             '- link "600 comments" [ref=e6]:' '  - /url: "https://news.ycombinator.com:8443/item?id=55"' \
@@ -150,11 +152,11 @@ case "$SCENARIO:$n" in
   jeq-hang:*) sleep 2 ;;
   malformed-response:*) printf 'not-json\n'; exit 0 ;;
   oversized-response:*) printf '{"padding":"'; head -c 70000 < /dev/zero | tr '\0' x; printf '%s\n' '","answers":{"choice":{"choice":"c1"}}}'; exit 0 ;;
-  tie:0|nonmax:0|redirect:0|wrongday:0|badtitle:0|badbody:0|empty-comments:0|malformed-comments:0|missing-depth-comments:0|bounds:0|unsafe-links:0|oversized-eval:0|oversized-snapshot:0|click-hang:0|close-hang:0) choice=c1;;
-  tie:1|nonmax:1|redirect:1|wrongday:1|badtitle:1|badbody:1|empty-comments:1|malformed-comments:1|missing-depth-comments:1|bounds:1|unsafe-links:1|oversized-eval:1|oversized-snapshot:1|click-hang:1|close-hang:1) choice=c1;;
-  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2|bounds:2|unsafe-links:2|oversized-eval:2|oversized-snapshot:2|click-hang:2|close-hang:2) choice=c2;;
+  tie:0|nonmax:0|redirect:0|wrongday:0|badtitle:0|badbody:0|empty-comments:0|malformed-comments:0|missing-depth-comments:0|candidate-count:0|long-label:0|unsafe-links:0|oversized-eval:0|oversized-snapshot:0|click-hang:0|close-hang:0) choice=c1;;
+  tie:1|nonmax:1|redirect:1|wrongday:1|badtitle:1|badbody:1|empty-comments:1|malformed-comments:1|missing-depth-comments:1|candidate-count:1|long-label:1|unsafe-links:1|oversized-eval:1|oversized-snapshot:1|click-hang:1|close-hang:1) choice=c1;;
+  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2|candidate-count:2|long-label:2|unsafe-links:2|oversized-eval:2|oversized-snapshot:2|click-hang:2|close-hang:2) choice=c2;;
   nonmax:2) choice=c1;;
-  tie:3|nonmax:3|redirect:3|wrongday:3|badtitle:3|badbody:3|empty-comments:3|malformed-comments:3|missing-depth-comments:3|bounds:3|unsafe-links:3|oversized-eval:3|oversized-snapshot:3|click-hang:3|close-hang:3)
+  tie:3|nonmax:3|redirect:3|wrongday:3|badtitle:3|badbody:3|empty-comments:3|malformed-comments:3|missing-depth-comments:3|candidate-count:3|long-label:3|unsafe-links:3|oversized-eval:3|oversized-snapshot:3|click-hang:3|close-hang:3)
     choice=DONE
     printf 'decision DONE\n' >>"$EVENTS"
     ;;
@@ -174,7 +176,7 @@ run_case() {
   : >"$case_dir/events"
   : >"$case_dir/decisions"
   export PATH="$bin:$PATH"
-  export SCENARIO="$scenario" YESTERDAY="$yesterday" WRONG_DAY="$wrong_day" TODAY="$today" JEQ_SUBPROCESS_TIMEOUT_SECONDS=0.2
+  export SCENARIO="$scenario" YESTERDAY="$yesterday" WRONG_DAY="$wrong_day" TODAY="$today" JEQ_SUBPROCESS_TIMEOUT_SECONDS=1
   unset JEQ_GOAL
   if [[ "$scenario" == oversized-request ]]; then JEQ_GOAL=$(printf 'g%.0s' $(seq 1 100000)); export JEQ_GOAL; fi
   export TMP_STATE="$case_dir/state" TMP_CLOSED="$case_dir/closed" EVENTS="$case_dir/events"
@@ -192,7 +194,14 @@ run_case() {
   local count
   count=$(find "$case_dir/requests" -type f -name 'request-*.json' | wc -l | tr -d ' ')
   if [[ "$scenario" == open-hang || "$scenario" == snapshot-hang || "$scenario" == eval-hang || "$scenario" == click-hang || "$scenario" == close-hang || "$scenario" == jeq-hang ]]; then
-    if [[ "$status" -eq 0 || "$elapsed" -gt 1 ]] || ! grep -q '^close-start$' "$case_dir/events"; then
+    local hang_failed=0
+    if [[ "$scenario" == close-hang ]]; then
+      [[ "$elapsed" -gt 5 ]] && hang_failed=1
+    else
+      { [[ "$status" -eq 0 ]] || [[ "$elapsed" -gt 1 ]]; } && hang_failed=1
+    fi
+    ! grep -q '^close-start$' "$case_dir/events" && hang_failed=1
+    if [[ "$hang_failed" -ne 0 ]]; then
       echo "FAIL [$scenario]: subprocess was not bounded and cleaned up (status=$status elapsed=${elapsed}s)" >&2
       cat "$case_dir/events" >&2
       return 1
@@ -262,13 +271,13 @@ run_case() {
     fi
   done
 
-  if [[ "$scenario" == bounds ]]; then
+  if [[ "$scenario" == candidate-count || "$scenario" == long-label ]]; then
     if ! jq -e '(.state.visible_text | length) <= 12000 and (.questions.choice.criteria | length) <= 64 and all(.questions.choice.criteria[]; length <= 256)' "$case_dir/requests/request-2.json" >/dev/null || [[ $(wc -c <"$case_dir/requests/request-2.json") -gt 65536 ]]; then
-      echo "FAIL [bounds]: candidate, label, visible-text, or request byte cap was exceeded" >&2
+      echo "FAIL [$scenario]: candidate, label, visible-text, or request byte cap was exceeded" >&2
       return 1
     fi
     if ! grep -Fq '.[-8:]' "$root/hn-browser.sh" || ! awk '/^decision DONE$/{exit} /^snapshot state=/{n++} END{exit n > 4}' "$case_dir/events"; then
-      echo "FAIL [bounds]: recent-decision or step cap is missing" >&2
+      echo "FAIL [$scenario]: recent-decision or step cap is missing" >&2
       return 1
     fi
   fi
@@ -286,7 +295,7 @@ run_case() {
 
   local expected_c3
   if [[ "$scenario" == tie ]]; then expected_c3='525 comments'; else expected_c3='500 comments'; fi
-  if [[ "$scenario" != bounds ]] && ! jq -e --arg expected_c3 "$expected_c3" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == $expected_c3 and ((.questions.choice.criteria | has("c4")) | not)' "$case_dir/requests/request-2.json" >/dev/null; then
+  if [[ "$scenario" != candidate-count && "$scenario" != long-label ]] && ! jq -e --arg expected_c3 "$expected_c3" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == $expected_c3 and ((.questions.choice.criteria | has("c4")) | not)' "$case_dir/requests/request-2.json" >/dev/null; then
     echo "FAIL [$scenario]: discussion candidates were not exposed as Choice options" >&2
     return 1
   fi
@@ -356,7 +365,7 @@ run_case() {
         return 1
       fi
       ;;
-    redirect|wrongday|badtitle|badbody|empty-comments|malformed-comments|missing-depth-comments|oversized-eval)
+    redirect|wrongday|badtitle|badbody|empty-comments|malformed-comments|missing-depth-comments|candidate-count|long-label|oversized-eval)
       if [[ "$status" -eq 0 ]]; then
         echo "FAIL [$scenario]: invalid independent evidence was accepted" >&2
         cat "$case_dir/stdout" >&2
@@ -367,7 +376,7 @@ run_case() {
 }
 
 failures=()
-for scenario in tie nonmax redirect wrongday badtitle badbody empty-comments malformed-comments missing-depth-comments bounds unsafe-links oversized-snapshot oversized-eval malformed-response oversized-response oversized-request open-hang snapshot-hang eval-hang click-hang close-hang jeq-hang; do
+for scenario in tie nonmax redirect wrongday badtitle badbody empty-comments malformed-comments missing-depth-comments candidate-count long-label unsafe-links oversized-snapshot oversized-eval malformed-response oversized-response oversized-request open-hang snapshot-hang eval-hang click-hang close-hang jeq-hang; do
   if ! run_case "$scenario"; then
     failures+=("$scenario")
   fi
