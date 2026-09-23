@@ -39,7 +39,7 @@ case "$*" in
         [[ "$SCENARIO" == wrongday ]] && date_url="$WRONG_DAY"
         printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: front?day=$date_url"
         if [[ "$SCENARIO" == oversized-snapshot ]]; then
-          head -c 1100000 < /dev/zero | tr '\0' x
+          head -c 9000000 < /dev/zero | tr '\0' x
           printf '\n'
         fi
         ;;
