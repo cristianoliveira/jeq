@@ -65,6 +65,7 @@ PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/location"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
+    [[ $(wc -c <"$tmp/body") -le 12000 ]] || { echo "body evidence too large" >&2; exit 1; }
     grep -qi 'error page' "$tmp/body" && { echo "body verification failed" >&2; exit 1; }
     python3 - "$dated_snapshot" "$dated_candidates" "$url" <<'PY'
 import re,sys
