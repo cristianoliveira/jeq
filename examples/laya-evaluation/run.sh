@@ -46,23 +46,17 @@ while IFS= read -r case_doc; do
     continue
   fi
 
-  jq -cn --slurpfile case "$TMP_DIR/case.json" --slurpfile response "$TMP_DIR/response.json" --argjson latency_ms "$elapsed_ms" '
-    def square($x): $x * $x;
-    $case[0] as $c | $response[0] as $r | $c.expected as $e | $r.answers.answer as $a |
-    if $e.kind == "choice" then
-      ([($a.probabilities // {}) | to_entries[] | square(.value - (if .key == $e.value then 1 else 0 end))] | add // null) as $brier |
-      {actual:$a.choice,correct:($a.choice == $e.value),in_band:null,brier:$brier,absolute_error:null,expected:$e.value}
-    elif $e.kind == "noul" then
-      {actual:$a.noul,correct:(($a.noul >= 0.5) == ($e.target == 1)),in_band:($a.noul >= $e.min and $a.noul <= $e.max),brier:square($a.noul - $e.target),absolute_error:null,expected:$e.target}
-    elif $e.kind == "score" then
-      {actual:$a.score,correct:($a.score >= $e.min and $a.score <= $e.max),in_band:($a.score >= $e.min and $a.score <= $e.max),brier:null,absolute_error:((($a.score - $e.point) | fabs)),expected:$e.point}
-    else
-      ([$a.probabilities | to_entries | sort_by([-(.value), .key])[] | .key]) as $order |
-      ([($a.probabilities // {}) | to_entries[] | square(.value - (if .key == $e.order[0] then 1 else 0 end))] | add // null) as $brier |
-      {actual:$order,correct:($order == $e.order),top1_correct:($order[0] == $e.order[0]),in_band:null,brier:$brier,absolute_error:null,expected:$e.order}
-    end |
-    . + {id:$c.id,family:$c.family,primitive:$c.primitive,status:"ok",latency_ms:$latency_ms,model:$r.model,usage:$r.usage}
-  ' >>"$results"
+  set +e
+  jq -n --slurpfile case "$TMP_DIR/case.json" --slurpfile response "$TMP_DIR/response.json" \
+    --argjson latency_ms "$elapsed_ms" -f "$SCRIPT_DIR/score.jq" >"$TMP_DIR/scored.json"
+  score_status=$?
+  set -e
+  if (( score_status != 0 )); then
+    jq -cn --slurpfile case "$TMP_DIR/case.json" --argjson latency_ms "$elapsed_ms" \
+      '{id:$case[0].id,family:$case[0].family,primitive:$case[0].primitive,status:"invalid_response",correct:false,useful:false,latency_ms:$latency_ms}' >>"$results"
+    continue
+  fi
+  cat "$TMP_DIR/scored.json" >>"$results"
 done <"$CASES"
 
 jq -s --arg provider "$PROVIDER" --arg requested_model "$MODEL" '
@@ -73,13 +67,22 @@ jq -s --arg provider "$PROVIDER" --arg requested_model "$MODEL" '
   [$quality[] | select(.primitive == "noul")] as $noul |
   [$quality[] | select(.primitive == "score")] as $score |
   [$quality[] | select(.primitive == "rank")] as $rank |
+  [$items[] | select((.usage.input_tokens | type) == "number" and (.usage.output_tokens | type) == "number")] as $reported_usage |
+  ([$quality[] | if .useful then 1 else 0 end] | add // 0) as $useful_answers |
+  ([$reported_usage[].usage.input_tokens] | add // 0) as $input_tokens |
+  ($reported_usage | length == ($items | length)) as $usage_complete |
   {
     provider:$provider,
     requested_model:$requested_model,
     cases:($items | length),
     quality_cases:($quality | length),
-    transport_failures:([$items[] | select(.status != "ok")] | length),
-    exact_accuracy:average([$quality[] | if .correct then 1 else 0 end]),
+    transport_failures:([$items[] | select(.status == "transport_failed")] | length),
+    invalid_responses:([$items[] | select(.status == "invalid_response")] | length),
+    unscorable_responses:([$items[] | select(.status == "unscorable")] | length),
+    probability_metrics_unscorable:([$quality[] | select(.probability_metric_status == "unscorable")] | length),
+    overall_acceptance_rate:average([$quality[] | if .correct then 1 else 0 end]),
+    useful_answers:$useful_answers,
+    useful_answers_per_input_token:(if $usage_complete and $input_tokens > 0 then $useful_answers / $input_tokens else null end),
     choice_accuracy:average([$choice[] | if .correct then 1 else 0 end]),
     choice_brier:average([$choice[].brier | select(. != null)]),
     noul_sign_accuracy:average([$noul[] | if .correct then 1 else 0 end]),
@@ -89,8 +92,8 @@ jq -s --arg provider "$PROVIDER" --arg requested_model "$MODEL" '
     score_mae:average([$score[].absolute_error]),
     rank_top1_accuracy:average([$rank[] | if .top1_correct then 1 else 0 end]),
     rank_exact_order_accuracy:average([$rank[] | if .correct then 1 else 0 end]),
-    latency_ms:{total:([$quality[].latency_ms] | add // 0),mean:average([$quality[].latency_ms])},
-    usage:{input_tokens:([$quality[].usage.input_tokens] | add // 0),output_tokens:([$quality[].usage.output_tokens] | add // 0)},
+    latency_ms:{total:([$items[].latency_ms] | add // 0),mean:average([$items[].latency_ms])},
+    usage:{complete:$usage_complete,input_tokens:$input_tokens,output_tokens:([$reported_usage[].usage.output_tokens] | add // 0)},
     failures:[$items[] | select(.status != "ok" or .correct != true) | .id],
     items:$items
   }

@@ -33,13 +33,17 @@ Do not send real customer data. The corpus is synthetic.
 
 The JSON report includes every case and these aggregate signals:
 
-- Exact accuracy for all primitives
+- Overall acceptance rate: exact Choice label, Noul direction at 0.5, in-band Score, or exact ranking order
 - Choice accuracy and multiclass Brier score
 - Noul sign accuracy at 0.5, strict acceptance-band rate, and Brier score
 - Score acceptance-band rate and mean absolute error
 - Ranking top-1 and exact-order accuracy
+- Useful answers: accepted Choice, Noul, or Score results plus correct ranking top-1
+- Useful answers per provider-reported input token
 - Provider-reported token usage and observed latency
 
-Transport failures are reported separately and excluded from quality denominators. Latency and zero output tokens do not count as judgment quality.
+Transport failures, invalid responses, and unscorable responses are reported separately and excluded from quality denominators. A Choice Brier score requires complete criteria support, values in `[0,1]`, and probabilities that sum to 1 within 0.001. A rank result requires the same probability checks. Incomplete Choice probabilities leave the label scorable but mark its probability metric unscorable.
+
+Token efficiency uses all requests with reported usage, including invalid or unscorable answers. It is `null` unless every attempted request reports usage because a failed request can still incur unknown billed tokens. Latency and zero output tokens do not count as judgment quality.
 
 This corpus is deliberately small. It can find obvious incompatibility, inversion, and calibration problems. It cannot establish production accuracy. Add representative held-out cases for the actual domain before changing a provider default.

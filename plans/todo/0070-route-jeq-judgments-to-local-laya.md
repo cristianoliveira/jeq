@@ -54,8 +54,8 @@ Pin Laya and its checkpoint, warm the model once, then run the same labeled synt
 - Actual offline Laya HTTP run passed `ask`, `map`, `rate`, `rank`, and `reduce`; `validate` and `gate` passed with the server stopped.
 - Network monitoring showed only the loopback listener while Hugging Face and Transformers offline modes were set.
 - `jeq models` returns explicit HTTP 404 because Laya does not implement model discovery. The provider guide marks it unsupported.
-- The 19-case Laya result is 68.4% strict exact: classification 100%, Noul sign 100%, Score band 33.3%, and ranking top-1 33.3%.
-- The authorized 19-request Jev 1.13.0 baseline is also 68.4% strict exact, but Noul band and ranking top-1 are both 100%. Laya is 3.3 times faster and about 5.9 times more input-token efficient by the defined useful-answer metric. Both providers are weak at explicit arithmetic and exact numeric ordering.
+- The 19-case Laya result has 68.4% overall acceptance by the committed primitive-specific predicates: classification 100%, Noul sign 100%, Score band 33.3%, and ranking top-1 33.3%.
+- The authorized 19-request Jev 1.13.0 baseline also has 68.4% overall acceptance, but Noul band and ranking top-1 are both 100%. The committed evaluator reports the useful-answer metric and makes it `null` when usage is incomplete. Laya is 3.3 times faster and about 5.9 times more input-token efficient by that metric. Both providers are weak at explicit arithmetic and exact numeric ordering.
 - Local evidence report: `.tmp/reports/23-09-26/task-0070-laya-spike.md`.
 
 ## Non-goals
