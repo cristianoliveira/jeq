@@ -1,7 +1,7 @@
 ---
 id: TASK-0070
 title: Route jeq judgments to local Laya
-status: todo
+status: doing
 depends_on: [TASK-0069]
 priority: high
 tags: [laya, local-model, providers, privacy, cost, offline]
