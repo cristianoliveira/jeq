@@ -70,7 +70,7 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 		Long:  "Jev returns caller-defined typed semantic decisions and probabilities; it does not write replies, produce code, or return reasoning explanations.",
 		Args:  cobra.NoArgs,
 		Example: `  jeq ask --request request.json
-  jeq examples ask-native`,
+  jeq examples ask`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,

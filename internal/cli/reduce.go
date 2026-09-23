@@ -28,7 +28,7 @@ func NewReduceCmd(deps AskDeps) *cobra.Command {
 		Long:  "Jev supplies one typed semantic judgment over the bounded collection; the caller owns policy and actions.",
 		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"id":"a"}' '{"id":"b"}' | jeq reduce --as coherent --input ndjson --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this coherent?"}}}'
-  jeq examples reduce-gate`,
+  jeq examples reduce`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			source.fileSet = cmd.Flags().Changed("questions")
 			source.inlineSet = cmd.Flags().Changed("questions-json")

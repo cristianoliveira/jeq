@@ -110,7 +110,7 @@ func NewExamplesCmd(_ AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "examples",
 		Short: "Discover self-contained workflow recipes (Jev evidence, jq/shell policy)",
-		Long:  "Jev maps natural-language state to caller-defined typed decisions and probabilities; jq and the shell own deterministic policy and actions. Jev does not write replies, produce code, or return reasoning explanations.",
+		Long:  "Look up examples by workflow name or jeq command name (for example, jeq examples map). Jev maps natural-language state to caller-defined typed decisions and probabilities; jq and the shell own deterministic policy and actions. Jev does not write replies, produce code, or return reasoning explanations.",
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
@@ -124,6 +124,29 @@ func NewExamplesCmd(_ AskDeps) *cobra.Command {
 			Args:    cobra.NoArgs,
 			RunE:    func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 		})
+	}
+	covered := map[string][]exampleRecipe{}
+	for _, recipe := range exampleRecipes {
+		for _, command := range recipe.Covers {
+			covered[command] = append(covered[command], recipe)
+		}
+	}
+	for _, command := range []string{"ask", "map", "rate", "rank", "reduce", "gate", "validate"} {
+		recipes := covered[command]
+		if len(recipes) == 0 {
+			continue
+		}
+		cmdName := command
+		primary := recipes[0]
+		related := make([]string, 0, len(recipes)-1)
+		for _, recipe := range recipes[1:] {
+			related = append(related, recipe.ID)
+		}
+		long := fmt.Sprintf("Canonical offline recipe for jeq %s: %s", command, primary.ID)
+		if len(related) > 0 {
+			long += "\nRelated recipes: " + strings.Join(related, ", ")
+		}
+		cmd.AddCommand(&cobra.Command{Use: cmdName, Short: "Find the canonical " + cmdName + " example", Long: long, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() }, Example: "jeq examples " + primary.ID})
 	}
 	return cmd
 }

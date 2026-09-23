@@ -25,7 +25,9 @@ func NewRankCmd(deps AskDeps) *cobra.Command {
 	var maxRetries int
 	cmd := &cobra.Command{
 		Use: "rank", Short: "Rank candidates with a TypeSafe Choice", Long: "Jev supplies relative typed semantic Choice evidence; the caller owns jq selection, deterministic policy, and actions. Ranks every original candidate and attaches complete Choice evidence under _jeq.<as>. Choice probabilities are relative: include an explicit fallback candidate when nothing may fit. Pick or threshold explicitly with jq or another jeq stage.", Args: cobra.NoArgs,
-		Example: `  cat handlers.ndjson | jeq rank --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
+		Example: `  jeq examples rank
+
+  cat handlers.ndjson | jeq rank --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runRank(cmd, deps, rankFlags{
 				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, timeout: timeoutText, maxRetries: maxRetries,

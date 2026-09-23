@@ -67,6 +67,15 @@ func TestJudgmentHelpStatesJevRole(t *testing.T) {
 	}
 }
 
+func TestExamplesResolveCommandNamesOffline(t *testing.T) {
+	for _, name := range []string{"ask", "map", "rate", "rank", "reduce", "gate", "validate"} {
+		var out, errOut bytes.Buffer
+		if code := cli.RunWithDeps([]string{"examples", name}, &out, &errOut, nil, cli.AskDeps{}); code != 0 || !strings.Contains(out.String(), "Canonical offline recipe") {
+			t.Fatalf("%s code=%d out=%q err=%q", name, code, out.String(), errOut.String())
+		}
+	}
+}
+
 func TestExamplesUnknownAndExtraArgsUseNativeCobraErrors(t *testing.T) {
 	for _, args := range [][]string{{"examples", "missing"}, {"examples", "ask-native", "extra"}} {
 		r := &valueRenderer{}

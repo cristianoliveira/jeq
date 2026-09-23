@@ -19,7 +19,9 @@ func NewRateCmd(deps AskDeps) *cobra.Command {
 	var maxRetries int
 	cmd := &cobra.Command{
 		Use: "rate", Short: "Rate each JSON record with a TypeSafe Score rubric", Long: "Jev supplies typed semantic evidence per record; the caller owns deterministic policy and actions. Sends one Score question per record through the same map pipeline. Score is an independent semantic rating against the ordered levels; it is not an exact measurement.", Args: cobra.NoArgs,
-		Example: `  cat issues.ndjson | jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' --level 'Cosmetic: no impact' --level 'Critical: service at risk'`,
+		Example: `  jeq examples rate
+
+  cat issues.ndjson | jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' --level 'Cosmetic: no impact' --level 'Critical: service at risk'`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runRate(cmd, deps, rateFlags{name: name, input: input, statePointer: statePointer, instruction: instruction, levels: levels, model: model, timeout: timeoutText, maxRetries: maxRetries, nameSet: cmd.Flags().Changed("as"), instructionSet: cmd.Flags().Changed("instruction"), statePointerSet: cmd.Flags().Changed("state-pointer"), modelSet: cmd.Flags().Changed("model")})
 		}),

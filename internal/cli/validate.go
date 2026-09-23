@@ -22,7 +22,7 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "validate", Short: "Validate one request without network access", Args: cobra.NoArgs,
 		Example: `  jeq validate --questions questions.json --state-json state.json
-  jeq examples ask-native`,
+  jeq examples validate`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			flags := askFlags{
 				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON, model: model,

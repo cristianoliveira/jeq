@@ -39,7 +39,7 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 		Long:  "Jev supplies typed semantic evidence per record; the caller owns state, deterministic policy, and actions.",
 		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
-  jeq examples map-gate`,
+  jeq examples map`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
 				name: name, input: input, source: source, statePointer: statePointer,
