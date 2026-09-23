@@ -60,8 +60,10 @@ for i,line in enumerate(lines):
     if any(key in parsed.query.lower() for key in ('submit','vote','hide','reply','delete','logout','upvote','downvote','action=','do=','op=')): continue
     if any(word in path for word in ('login','logout','submit','vote','hide','reply','delete','upvote','downvote')): continue
     if 'comment' in m.group(1).lower() and (parsed.path != '/item' or not re.fullmatch(r'[0-9]+', (parse_qs(parsed.query).get('id') or [''])[0])): continue
-    if len(m.group(1)) > 256 or n >= 64: continue
-    n+=1; print(f'c{n}\t{m.group(2)}\t{m.group(1)}\t{urljoin("https://news.ycombinator.com/",href)}')
+    label=m.group(1); day=(parse_qs(parsed.query).get('day') or [''])[0]
+    if label in ('day','month','year') and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', day): label=f'{label} {day}'
+    if len(label) > 256 or n >= 64: continue
+    n+=1; print(f'c{n}\t{m.group(2)}\t{label}\t{urljoin("https://news.ycombinator.com/",href)}')
 PY
   [[ "$is_archive" == true ]] && cp "$candidates" "$dated_candidates"
   jq -n --rawfile snap "$snapshot" --slurpfile rows <(jq -Rn '[inputs|split("\t")|{id:.[0],ref:.[1],label:.[2],url:.[3]}]' "$candidates") --arg url "$url" --arg recent "$recent" --argjson step "$step" '{model:"jev-latest",state:{goal:(env.JEQ_GOAL // "Navigate to yesterday then the most-discussed discussion"),current_date:(now|todate),current_url:$url,observed_url:(env.OBSERVED_URL // $url),title:(env.OBSERVED_TITLE // ""),visible_text:($snap|.[0:12000]),recent_decisions:$recent,step:$step},questions:{choice:{type:"choice",instructions:"Choose one current safe link, DONE, or BLOCKED. Do not invent IDs.",criteria:(($rows[0]|map({key:.id,value:.label})|from_entries)+{DONE:"Finish only after independent verification",BLOCKED:"Stop safely"})}}}' >"$request"

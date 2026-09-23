@@ -37,7 +37,8 @@ case "$*" in
       1)
         date_url="$YESTERDAY"
         [[ "$SCENARIO" == wrongday ]] && date_url="$WRONG_DAY"
-        printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: front?day=$date_url"
+        printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: front?day=$date_url" \
+          '- link "day" [ref=e20]:' "  - /url: front?day=$WRONG_DAY"
         if [[ "$SCENARIO" == oversized-snapshot ]]; then
           head -c 9000000 < /dev/zero | tr '\0' x
           printf '\n'
@@ -323,6 +324,10 @@ run_case() {
   if [[ "$(cat "$case_dir/decisions")" != "$expected_decisions" ]]; then
     echo "FAIL [$scenario]: Jev decisions changed" >&2
     cat "$case_dir/decisions" >&2
+    return 1
+  fi
+  if ! jq -e --arg wrong_day "$wrong_day" '.questions.choice.criteria.c2 == ("day " + $wrong_day)' "$case_dir/requests/request-1.json" >/dev/null; then
+    echo "FAIL [$scenario]: ambiguous archive link omitted its observed target date" >&2
     return 1
   fi
 
