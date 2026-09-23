@@ -1,7 +1,7 @@
 ---
 id: TASK-0070
 title: Route jeq judgments to local Laya
-status: doing
+status: done
 depends_on: [TASK-0069]
 priority: high
 tags: [laya, local-model, providers, privacy, cost, offline]
@@ -46,7 +46,7 @@ Pin Laya and its checkpoint, warm the model once, then run the same labeled synt
 - [x] Compare Laya with the current Jev baseline on a committed labeled corpus using accuracy, calibration/threshold decisions, latency, useful answers per input token, and failure rate. Do not choose Laya from latency or zero marginal API cost alone.
 - [x] Add a practical provider guide and an offline fake-server integration test. Do not require Laya, Python, Torch, model downloads, or a GPU in the normal jeq test gate.
 - [x] Keep routing explicit. A Laya error never falls back to a hosted provider or repeats private state elsewhere.
-- [ ] Fresh watcher and independent QA pass at clean committed HEAD.
+- [x] Fresh watcher and independent QA pass at clean committed HEAD.
 
 ## Progress evidence
 - Laya code `1addbb9ab8ffcd5b72a82d5158875f981384b7b8` and the English model are Apache-2.0. The local run used Python 3.12.12, PyTorch 2.7.0, Apple M4 Pro CPU, 51.5 GB RAM, no NVIDIA GPU, and 19 GB free disk before the checkpoint download. Laya's CPU guide requires 8 GB RAM and 10 GB disk; upstream states CUDA VRAM depends on checkpoint, batch size, and input length.
@@ -56,6 +56,7 @@ Pin Laya and its checkpoint, warm the model once, then run the same labeled synt
 - `jeq models` returns explicit HTTP 404 because Laya does not implement model discovery. The provider guide marks it unsupported.
 - The 19-case Laya result has 68.4% overall acceptance by the committed primitive-specific predicates: classification 100%, Noul sign 100%, Score band 33.3%, and ranking top-1 33.3%.
 - The authorized 19-request Jev 1.13.0 baseline also has 68.4% overall acceptance, but Noul band and ranking top-1 are both 100%. The committed evaluator reports the useful-answer metric and makes it `null` when usage is incomplete. Laya is 3.3 times faster and about 5.9 times more input-token efficient by that metric. Both providers are weak at explicit arithmetic and exact numeric ordering.
+- Independent QA passed at `cd6611e`; fresh watcher generation 798 passed the full project gate with current worktree freshness.
 - Local evidence report: `.tmp/reports/23-09-26/task-0070-laya-spike.md`.
 
 ## Non-goals
