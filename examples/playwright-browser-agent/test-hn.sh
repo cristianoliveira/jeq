@@ -330,6 +330,10 @@ run_case() {
     echo "FAIL [$scenario]: ambiguous archive link omitted its observed target date" >&2
     return 1
   fi
+  if ! jq -e --arg yesterday "$yesterday" '.state.previous_utc_date == $yesterday and .state.recent_decisions == [{id:"c1",label:"past",url:"https://news.ycombinator.com/front"}]' "$case_dir/requests/request-1.json" >/dev/null; then
+    echo "FAIL [$scenario]: previous date or useful recent decision context is missing" >&2
+    return 1
+  fi
 
   local expected_c3
   if [[ "$scenario" == tie ]]; then expected_c3='525 comments'; else expected_c3='500 comments'; fi
