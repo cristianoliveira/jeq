@@ -131,8 +131,17 @@ func NewExamplesCmd(_ AskDeps) *cobra.Command {
 			covered[command] = append(covered[command], recipe)
 		}
 	}
+	canonical := map[string]string{"map": "map-gate", "reduce": "reduce-gate"}
 	for _, command := range []string{"ask", "map", "rate", "rank", "reduce", "gate", "validate"} {
 		recipes := covered[command]
+		if id := canonical[command]; id != "" {
+			for i, recipe := range recipes {
+				if recipe.ID == id {
+					recipes[0], recipes[i] = recipes[i], recipes[0]
+					break
+				}
+			}
+		}
 		if len(recipes) == 0 {
 			continue
 		}

@@ -73,6 +73,12 @@ func TestExamplesResolveCommandNamesOffline(t *testing.T) {
 		if code := cli.RunWithDeps([]string{"examples", name}, &out, &errOut, nil, cli.AskDeps{}); code != 0 || !strings.Contains(out.String(), "Canonical offline recipe") {
 			t.Fatalf("%s code=%d out=%q err=%q", name, code, out.String(), errOut.String())
 		}
+		if name == "map" && !strings.Contains(out.String(), "map-gate") {
+			t.Fatalf("map canonical=%q", out.String())
+		}
+		if name == "reduce" && !strings.Contains(out.String(), "reduce-gate") {
+			t.Fatalf("reduce canonical=%q", out.String())
+		}
 	}
 }
 
