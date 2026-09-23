@@ -1,7 +1,7 @@
 ---
 id: TASK-0068
 title: Find examples by jeq command name
-status: todo
+status: done
 depends_on: []
 priority: high
 tags: [cli, discovery, examples, agents, usability]
