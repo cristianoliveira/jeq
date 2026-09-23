@@ -44,8 +44,8 @@ jeq version
 If you use Nix, pin the release:
 
 ```sh
-nix run github:cristianoliveira/jeq/v0.1.0-rc.1 -- version
-nix profile install github:cristianoliveira/jeq/v0.1.0-rc.1
+nix run github:cristianoliveira/jeq/v0.1.0-rc.2 -- version
+nix profile install github:cristianoliveira/jeq/v0.1.0-rc.2
 ```
 
 Set `TYPESAFE_API_KEY` when you are ready to make an API call. These guides
@@ -87,5 +87,5 @@ agent to use it.
 ## More documentation
 
 - [Development](docs/DEVELOPMENT.md)
-- [Release candidate notes](docs/releases/v0.1.0-rc.1.md)
+- [Release candidate notes](docs/releases/v0.1.0-rc.2.md)
 - [MIT License](LICENSE)

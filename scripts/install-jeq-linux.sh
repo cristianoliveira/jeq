@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version="${1:-${JEQ_VERSION:-v0.1.0-rc.1}}"
+version="${1:-${JEQ_VERSION:-v0.1.0-rc.2}}"
 install_dir="${2:-${INSTALL_DIR:-$HOME/.local/bin}}"
 
 case "$(uname -s)" in

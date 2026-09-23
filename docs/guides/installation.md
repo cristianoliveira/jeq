@@ -15,7 +15,7 @@ bash /tmp/install-jeq-linux.sh
 Pass a release and destination directory when needed:
 
 ```sh
-bash /tmp/install-jeq-linux.sh v0.1.0-rc.1 /usr/local/bin
+bash /tmp/install-jeq-linux.sh v0.1.0-rc.2 /usr/local/bin
 ```
 
 ## Homebrew
@@ -40,8 +40,8 @@ jeq version
 Use the verified remote flake first:
 
 ```sh
-nix run github:cristianoliveira/jeq/v0.1.0-rc.1 -- version
-nix profile install github:cristianoliveira/jeq/v0.1.0-rc.1
+nix run github:cristianoliveira/jeq/v0.1.0-rc.2 -- version
+nix profile install github:cristianoliveira/jeq/v0.1.0-rc.2
 ```
 
 This uses the tagged release candidate. Replace the tag only after reviewing a
@@ -52,7 +52,7 @@ new release.
 - Moving main: `nix run github:cristianoliveira/jeq -- version` follows the
   repository default branch and can change.
 - Source checkout: `nix run . -- version` or `nix build .#jeq` from a checkout.
-- Go install: `go install github.com/cristianoliveira/jeq/cmd/jeq@v0.1.0-rc.1`.
+- Go install: `go install github.com/cristianoliveira/jeq/cmd/jeq@v0.1.0-rc.2`.
 - Archives: download the matching Linux or macOS amd64/arm64 archive from the
   [GitHub release](https://github.com/cristianoliveira/jeq/releases) and verify
   `checksums.txt` before extracting.
@@ -64,7 +64,7 @@ Verify a tagged Go install without changing your normal binary:
 
 ```sh
 tmp_gobin=$(mktemp -d)
-GOBIN="$tmp_gobin" go install github.com/cristianoliveira/jeq/cmd/jeq@v0.1.0-rc.1
+GOBIN="$tmp_gobin" go install github.com/cristianoliveira/jeq/cmd/jeq@v0.1.0-rc.2
 "$tmp_gobin/jeq" version
 rm -rf "$tmp_gobin"
 ```
