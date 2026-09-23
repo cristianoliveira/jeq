@@ -33,11 +33,11 @@ case "$*" in
     if [[ "$SCENARIO" == snapshot-hang ]]; then sleep 2; fi
     printf 'snapshot state=%s\n' "$state" >>"$EVENTS"
     case "$state" in
-      0) printf '%s\n' '- link "past" [ref=e1]:' '  - /url: "front"' ;;
+      0) printf '%s\n' '- link "past" [ref=e1]:' '  - /url: front' ;;
       1)
         date_url="$YESTERDAY"
         [[ "$SCENARIO" == wrongday ]] && date_url="$WRONG_DAY"
-        printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: \"front?day=$date_url\""
+        printf '%s\n' "- link \"yesterday $YESTERDAY\" [ref=e2]:" "  - /url: front?day=$date_url"
         if [[ "$SCENARIO" == oversized-snapshot ]]; then
           head -c 1100000 < /dev/zero | tr '\0' x
           printf '\n'
@@ -45,8 +45,8 @@ case "$*" in
         ;;
       2)
         printf '%s\n' \
-          '- link "120 comments" [ref=e3]:' '  - /url: "item?id=10"' \
-          '- link "525 comments" [ref=e4]:' '  - /url: "item?id=42"'
+          '- link "120 comments" [ref=e3]:' '  - /url: item?id=10' \
+          '- link "525 comments" [ref=e4]:' '  - /url: item?id=42'
         if [[ "$SCENARIO" == tie ]]; then
           printf '%s\n' '- link "525 comments" [ref=e5]:' '  - /url: "item?id=43"'
         else

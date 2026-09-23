@@ -49,7 +49,7 @@ for i,line in enumerate(lines):
     href=None
     for child in lines[i+1:i+8]:
         if len(child)-len(child.lstrip()) <= len(line)-len(line.lstrip()): break
-        u=re.search(r'/url: "([^"]+)"', child)
+        u=re.search(r'/url:\s*"?([^"\s]+)"?', child)
         if u: href=u.group(1); break
     if not href: continue
     parsed=urlparse(urljoin('https://news.ycombinator.com/', href)); path=parsed.path.lower()
