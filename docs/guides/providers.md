@@ -82,7 +82,7 @@ The server must return a Jev-compatible response envelope (`model`, `answers`, a
 
 ## Verify and troubleshoot
 
-Run `jeq models` after selecting a provider. It verifies the endpoint, authentication, and model listing without changing config. Common errors:
+Run `jeq models` after selecting a provider that implements `GET /v1/models`. It verifies the endpoint, authentication, and model listing without changing config. For a local provider that implements only `POST /v1/systemone`, use its health check and one bounded synthetic `jeq ask` instead. Common errors:
 
 - `JEQ_AUTH_MISSING`: export the environment variable named by `api_key_env`.
 - invalid provider or scheme: use an explicit provider and HTTPS for remote endpoints.
