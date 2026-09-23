@@ -3,6 +3,16 @@ set -euo pipefail
 : "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=30}"
 MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_SNAPSHOT=1048576; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
 run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; }
+read_eval_string() {
+  python3 - "$1" <<'PY'
+import json, sys
+lines=open(sys.argv[1], encoding='utf-8').read().splitlines()
+try: value=json.loads(lines[lines.index('### Result')+1])
+except (ValueError, IndexError, json.JSONDecodeError): raise SystemExit('malformed Playwright eval result')
+if not isinstance(value, str): raise SystemExit('Playwright eval result is not a string')
+print(value)
+PY
+}
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
 cleanup() { local closed=false; run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 && closed=true || true; [[ "${TRACE_EMITTED:-}" != 1 ]] && printf '{"event":"cleanup","closed":%s}\n' "$closed" >&2; TRACE_EMITTED=1; rm -rf "$tmp"; }
 trap cleanup EXIT
@@ -15,8 +25,8 @@ for step in 1 2 3 4; do
   [[ $(wc -c <"$snapshot") -le $MAX_SNAPSHOT ]] || { echo "snapshot too large" >&2; exit 1; }
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/observe-location"
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/observe-title"
-  observed_url=$(sed -n '/### Result/,$p' "$tmp/observe-location" | tail -1 | tr -d '"')
-  observed_title=$(sed -n '/### Result/,$p' "$tmp/observe-title" | tail -1 | tr -d '"')
+  observed_url=$(read_eval_string "$tmp/observe-location")
+  observed_title=$(read_eval_string "$tmp/observe-title")
   [[ "$observed_url" =~ ^https://news\.ycombinator\.com/ ]] || { echo "unsafe observed location" >&2; exit 1; }
   [[ -z "$expected_url" || "$observed_url" == "$expected_url" || ("$expected_url" == */front && "$observed_url" == "$expected_url"\?day=*) ]] || { echo "navigation redirect mismatch" >&2; exit 1; }
   [[ -n "$observed_title" && "$observed_title" != "Error page" ]] || { echo "invalid observed title" >&2; exit 1; }
@@ -82,10 +92,11 @@ import json, re, sys
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 archive=open(sys.argv[1]).read(); old=open(sys.argv[2]).read(); candidate_file=sys.argv[3]; final=open(sys.argv[4]).read(); selected=sys.argv[5]
-location = open(sys.argv[6]).read().split('### Result',1)[-1].strip().strip('"')
-title = open(sys.argv[7]).read().split('### Result',1)[-1].strip().strip('"')
-body = open(sys.argv[8]).read().split('### Result',1)[-1].strip().strip('"')
-comments_raw = open(sys.argv[9]).read().split('### Result',1)[-1].strip()
+def result(path):
+    lines=open(path, encoding='utf-8').read().splitlines()
+    try: return json.loads(lines[lines.index('### Result')+1])
+    except (ValueError, IndexError, json.JSONDecodeError): raise SystemExit('malformed Playwright eval result')
+location=result(sys.argv[6]); title=result(sys.argv[7]); body=result(sys.argv[8]); comments_raw=result(sys.argv[9])
 item_refs={line.split('\t')[1] for line in open(candidate_file) if '/item?id=' in line}
 counts=[]
 for line in old.splitlines():
@@ -100,7 +111,7 @@ yesterday=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
 archive_day=next(iter(re.findall(r'front\?day=([0-9]{4}-[0-9]{2}-[0-9]{2})', archive)), '')
 if archive_day != yesterday: raise SystemExit('archive day mismatch')
 if not re.search(r'\S+ \| Hacker News$', title) or not body.strip() or 'error page' in body.lower(): raise SystemExit('discussion evidence mismatch')
-try: comments=json.loads(comments_raw)
+try: comments=json.loads(comments_raw) if isinstance(comments_raw, str) else comments_raw
 except Exception: raise SystemExit('malformed comments')
 if not comments: raise SystemExit('empty comments')
 if any(not isinstance(x,dict) or not isinstance(x.get('depth'),(int,float)) or x.get('depth') != 0 or not str(x.get('user','')).strip() or not str(x.get('text','')).strip() for x in comments): raise SystemExit('invalid comments')

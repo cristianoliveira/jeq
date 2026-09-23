@@ -130,6 +130,7 @@ case "$*" in
         ;;
       *) printf 'eval unknown state=%s\n' "$state" >>"$EVENTS"; printf '%s\n' '### Result' '{}' ;;
     esac
+    printf '%s\n' '### Ran Playwright code' '```js' 'await page.evaluate("fake")' '```'
     ;;
   *click*)
     printf 'click %s state=%s\n' "$*" "$state" >>"$EVENTS"
