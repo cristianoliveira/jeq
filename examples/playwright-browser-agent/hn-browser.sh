@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-: "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=10}"
-MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
+: "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=30}"
+MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_SNAPSHOT=1048576; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
 run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; }
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
 cleanup() { local closed=false; run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 && closed=true || true; [[ "${TRACE_EMITTED:-}" != 1 ]] && printf '{"event":"cleanup","closed":%s}\n' "$closed" >&2; TRACE_EMITTED=1; rm -rf "$tmp"; }
@@ -12,7 +12,7 @@ run_bounded "$PLAYWRIGHT_BIN" -s="$session" "${open_args[@]}" >/dev/null
 url=https://news.ycombinator.com/; recent='[]'; expected_url=""; trace="$tmp/trace"; started=$(date +%s%3N); requests=0; input_total=0; output_total=0
 for step in 1 2 3 4; do
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" snapshot >"$snapshot"
-  [[ $(wc -c <"$snapshot") -le $MAX_VISIBLE ]] || { echo "snapshot too large" >&2; exit 1; }
+  [[ $(wc -c <"$snapshot") -le $MAX_SNAPSHOT ]] || { echo "snapshot too large" >&2; exit 1; }
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/observe-location"
   run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/observe-title"
   observed_url=$(sed -n '/### Result/,$p' "$tmp/observe-location" | tail -1 | tr -d '"')
