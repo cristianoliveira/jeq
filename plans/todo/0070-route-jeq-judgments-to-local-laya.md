@@ -35,18 +35,27 @@ jeq ask ...
 Pin Laya and its checkpoint, warm the model once, then run the same labeled synthetic corpus through Laya and the current hosted baseline. Promote a dedicated `laya` provider profile only if the experiment proves a repeated usability problem that configuration cannot solve.
 
 ## Acceptance criteria
-- [ ] Pin a reviewed Laya release or commit and checkpoint identity; record Apache-2.0 compatibility, model license, hashes where available, Python/PyTorch versions, disk, RAM/VRAM, and supported hardware.
-- [ ] Provide one reproducible loopback-only start command for CPU and, when available, NVIDIA GPU; never bind an unauthenticated server to a non-loopback interface.
-- [ ] Verify `/health` readiness before invoking jeq and document cold-start, warm latency, resident memory, and checkpoint download size.
-- [ ] Prove `ask`, `map`, `rate`, `rank`, and `reduce` against Laya's `/v1/systemone` contract; keep `gate` and `validate` offline as they are now.
-- [ ] Cover `choice`, `score`, and `noul`, multiple questions per request, JSON state, malformed input, timeout, cancellation, and an unavailable local server.
-- [ ] Confirm that Laya's unknown-model behavior and jeq's model precedence cannot silently select an unintended checkpoint; document `english`, `multilingual`, `typed-decisions`, and auto-routing behavior.
-- [ ] Document that Laya currently does not expose jeq's `GET /v1/models` discovery contract; decide whether to add that endpoint upstream, teach jeq a capability-aware local check, or explicitly mark `jeq models` unsupported for this profile.
-- [ ] After checkpoints are cached, run with Hugging Face offline mode and network monitoring; prove evaluation makes no request to TypeSafe, impossibl, Hugging Face, or another upstream service.
+- [x] Pin a reviewed Laya release or commit and checkpoint identity; record Apache-2.0 compatibility, model license, hashes where available, Python/PyTorch versions, disk, RAM/VRAM, and supported hardware.
+- [x] Provide one reproducible loopback-only start command for CPU and, when available, NVIDIA GPU; never bind an unauthenticated server to a non-loopback interface.
+- [x] Verify `/health` readiness before invoking jeq and document cold-start, warm latency, resident memory, and checkpoint download size.
+- [x] Prove `ask`, `map`, `rate`, `rank`, and `reduce` against Laya's `/v1/systemone` contract; keep `gate` and `validate` offline as they are now.
+- [x] Cover `choice`, `score`, and `noul`, multiple questions per request, JSON state, malformed input, timeout, cancellation, and an unavailable local server.
+- [x] Confirm that Laya's unknown-model behavior and jeq's model precedence cannot silently select an unintended checkpoint; document `english`, `multilingual`, `typed-decisions`, and auto-routing behavior.
+- [x] Document that Laya currently does not expose jeq's `GET /v1/models` discovery contract; decide whether to add that endpoint upstream, teach jeq a capability-aware local check, or explicitly mark `jeq models` unsupported for this profile.
+- [x] After checkpoints are cached, run with Hugging Face offline mode and network monitoring; prove evaluation makes no request to TypeSafe, impossibl, Hugging Face, or another upstream service.
 - [ ] Compare Laya with the current Jev baseline on a committed labeled corpus using accuracy, calibration/threshold decisions, latency, useful answers per input token, and failure rate. Do not choose Laya from latency or zero marginal API cost alone.
-- [ ] Add a practical provider guide and an offline fake-server integration test. Do not require Laya, Python, Torch, model downloads, or a GPU in the normal jeq test gate.
-- [ ] Keep routing explicit. A Laya error never falls back to a hosted provider or repeats private state elsewhere.
+- [x] Add a practical provider guide and an offline fake-server integration test. Do not require Laya, Python, Torch, model downloads, or a GPU in the normal jeq test gate.
+- [x] Keep routing explicit. A Laya error never falls back to a hosted provider or repeats private state elsewhere.
 - [ ] Fresh watcher and independent QA pass at clean committed HEAD.
+
+## Progress evidence
+- Laya code `1addbb9ab8ffcd5b72a82d5158875f981384b7b8` and the English model are Apache-2.0. The local run used Python 3.12.12, PyTorch 2.7.0, Apple M4 Pro CPU, 51.5 GB RAM, no NVIDIA GPU, and 19 GB free disk before the checkpoint download. Laya's CPU guide requires 8 GB RAM and 10 GB disk; upstream states CUDA VRAM depends on checkpoint, batch size, and input length.
+- Pinned English checkpoint `5e7b2b1b8ca2ecdd3f2322d94069c9b6ce7e844b`: 846 MB logical download, 2.72 GB maximum RSS, 5.1–8.4 s load, 153–175 ms warm direct inference on four CPU threads.
+- Actual offline Laya HTTP run passed `ask`, `map`, `rate`, `rank`, and `reduce`; `validate` and `gate` passed with the server stopped.
+- Network monitoring showed only the loopback listener while Hugging Face and Transformers offline modes were set.
+- `jeq models` returns explicit HTTP 404 because Laya does not implement model discovery. The provider guide marks it unsupported.
+- The 19-case Laya result is 68.4% exact: classification 100%, Noul sign 100%, Score band 33.3%, and ranking top-1 33.3%. Jev baseline is still required.
+- Local evidence report: `.tmp/reports/23-09-26/task-0070-laya-spike.md`.
 
 ## Non-goals
 - Vendoring Laya or model weights into jeq.
