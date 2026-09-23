@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${JEQ_BIN:=jeq}"; : "${PLAYWRIGHT_BIN:=playwright-cli}"; : "${JEQ_SUBPROCESS_TIMEOUT_SECONDS:=30}"
-MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_SNAPSHOT=8388608; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
+MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_BODY_RESULT=16384; MAX_SNAPSHOT=8388608; MAX_REQUEST=65536; MAX_RESPONSE=65536; MAX_STEPS=4
 run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; }
 read_eval_string() {
   python3 - "$1" <<'PY'
@@ -80,18 +80,19 @@ PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'location.href' >"$tmp/location"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.title' >"$tmp/title"
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'document.body.innerText.slice(0,12000)' >"$tmp/body"
-    [[ $(wc -c <"$tmp/body") -le 12000 ]] || { echo "body evidence too large" >&2; exit 1; }
+    [[ $(wc -c <"$tmp/body") -le $MAX_BODY_RESULT ]] || { echo "body evidence too large" >&2; exit 1; }
     grep -qi 'error page' "$tmp/body" && { echo "body verification failed" >&2; exit 1; }
     python3 - "$dated_snapshot" "$dated_candidates" "$url" <<'PY'
 import re,sys
 from urllib.parse import urlparse,parse_qs
 snap=open(sys.argv[1]).read(); selected=sys.argv[3]; refs={line.split('\t')[1] for line in open(sys.argv[2]) if '/item?id=' in line}; sid=(parse_qs(urlparse(selected).query).get('id') or [''])[0]
 counts=[(m.group(2),int(m.group(1))) for l in snap.splitlines() if (m:=re.search(r'link "([0-9]+) comments".*ref=(e\d+)',l)) and m.group(2) in refs]
-ref=next((line.split('\t')[1] for line in open(sys.argv[2]) if (parse_qs(urlparse(line.rstrip().split('\t')[-1]).query).get('id') or [''])[0] == sid),''); value=next((n for r,n in counts if r==ref),0)
+selected_refs={line.split('\t')[1] for line in open(sys.argv[2]) if (parse_qs(urlparse(line.rstrip().split('\t')[-1]).query).get('id') or [''])[0] == sid}
+value=max((n for r,n in counts if r in selected_refs),default=0)
 if not counts or value != max(n for _,n in counts): raise SystemExit('selected discussion is not a maximum')
 PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"
-    [[ $(wc -c <"$tmp/location") -le 2048 && $(wc -c <"$tmp/title") -le 4096 && $(wc -c <"$tmp/body") -le 12000 && $(wc -c <"$tmp/comments") -le 16384 ]] || { echo "eval artifact too large" >&2; exit 1; }
+    [[ $(wc -c <"$tmp/location") -le 2048 && $(wc -c <"$tmp/title") -le 4096 && $(wc -c <"$tmp/body") -le $MAX_BODY_RESULT && $(wc -c <"$tmp/comments") -le 16384 ]] || { echo "eval artifact too large" >&2; exit 1; }
     python3 - "$archive_snapshot" "$dated_snapshot" "$dated_candidates" "$snapshot" "$url" "$tmp/location" "$tmp/title" "$tmp/body" "$tmp/comments" >"$tmp/verification" <<'PY'
 import json, re, sys
 from datetime import datetime, timedelta, timezone
@@ -109,7 +110,8 @@ for line in old.splitlines():
     if m and m.group(2) in item_refs: counts.append((m.group(2), int(m.group(1))))
 if location != selected or 'Hacker News' not in title: raise SystemExit('independent URL/title verification failed')
 selected_id=(parse_qs(urlparse(selected).query).get('id') or [''])[0]
-selected_ref=next((line.split('\t')[1] for line in open(candidate_file) if (parse_qs(urlparse(line.rstrip().split('\t')[-1]).query).get('id') or [''])[0] == selected_id), '')
+selected_refs={line.split('\t')[1] for line in open(candidate_file) if (parse_qs(urlparse(line.rstrip().split('\t')[-1]).query).get('id') or [''])[0] == selected_id}
+selected_ref=next((ref for ref,n in counts if ref in selected_refs), '')
 selected_count=next((n for ref,n in counts if ref == selected_ref), 0)
 maximum=max((n for _,n in counts), default=0)
 yesterday=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
@@ -131,7 +133,7 @@ PY
   [[ "$id" != BLOCKED && "$id" =~ ^c[0-9]+$ ]] || { echo "invalid or blocked choice" >&2; exit 1; }
   line="$(awk -F '\t' -v id="$id" '$1==id{print; exit}' "$candidates")"; [[ -n "$line" ]] || { echo "stale candidate" >&2; exit 1; }
   ref="$(cut -f2 <<<"$line")"; url="$(cut -f4 <<<"$line")"
-  run_bounded "$PLAYWRIGHT_BIN" -s="$session" click "$ref"
+  run_bounded "$PLAYWRIGHT_BIN" -s="$session" click "$ref" >/dev/null
   expected_url="$url"
   recent="$(jq -cn --argjson old "$recent" --arg id "$id" --arg label "$label" --arg url "$url" '$old+[{id:$id,label:$label,url:$url}]|.[-8:]')"
 done

@@ -47,6 +47,7 @@ case "$*" in
       2)
         printf '%s\n' \
           '- link "120 comments" [ref=e3]:' '  - /url: item?id=10' \
+          '- link "14 hours ago" [ref=e30]:' '  - /url: item?id=42' \
           '- link "525 comments" [ref=e4]:' '  - /url: item?id=42'
         if [[ "$SCENARIO" == tie ]]; then
           printf '%s\n' '- link "525 comments" [ref=e5]:' '  - /url: "item?id=43"'
@@ -133,6 +134,7 @@ case "$*" in
     printf '%s\n' '### Ran Playwright code' '```js' 'await page.evaluate("fake")' '```'
     ;;
   *click*)
+    printf 'click result that must not reach jeq stdout\n'
     printf 'click %s state=%s\n' "$*" "$state" >>"$EVENTS"
     if [[ "$SCENARIO" == click-hang ]]; then sleep 2; fi
     printf '%s\n' "$((state + 1))" >"$TMP_STATE"
@@ -168,7 +170,7 @@ case "$SCENARIO:$n" in
   blocked-choice:0) choice=BLOCKED;;
   tie:0|nonmax:0|redirect:0|wrongday:0|badtitle:0|badbody:0|empty-comments:0|malformed-comments:0|missing-depth-comments:0|candidate-count:0|long-label:0|unsafe-links:0|headed:0|trace:0|oversized-eval:0|oversized-snapshot:0|click-hang:0|close-hang:0) choice=c1;;
   tie:1|nonmax:1|redirect:1|wrongday:1|badtitle:1|badbody:1|empty-comments:1|malformed-comments:1|missing-depth-comments:1|candidate-count:1|long-label:1|unsafe-links:1|headed:1|trace:1|oversized-eval:1|oversized-snapshot:1|click-hang:1|close-hang:1) choice=c1;;
-  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2|candidate-count:2|long-label:2|unsafe-links:2|headed:2|trace:2|oversized-eval:2|oversized-snapshot:2|click-hang:2|close-hang:2) choice=c2;;
+  tie:2|redirect:2|wrongday:2|badtitle:2|badbody:2|empty-comments:2|malformed-comments:2|missing-depth-comments:2|candidate-count:2|long-label:2|unsafe-links:2|headed:2|trace:2|oversized-eval:2|oversized-snapshot:2|click-hang:2|close-hang:2) choice=c3;;
   nonmax:2) choice=c1;;
   tie:3|nonmax:3|redirect:3|wrongday:3|badtitle:3|badbody:3|empty-comments:3|malformed-comments:3|missing-depth-comments:3|candidate-count:3|long-label:3|unsafe-links:3|headed:3|trace:3|oversized-eval:3|oversized-snapshot:3|click-hang:3|close-hang:3)
     choice=DONE
@@ -306,7 +308,7 @@ run_case() {
       echo "FAIL [$scenario]: candidate, label, visible-text, or request byte cap was exceeded" >&2
       return 1
     fi
-    if [[ "$scenario" == long-label ]] && jq -e '.questions.choice.criteria | has("c4")' "$case_dir/requests/request-2.json" >/dev/null; then
+    if [[ "$scenario" == long-label ]] && jq -e '.questions.choice.criteria | has("c5")' "$case_dir/requests/request-2.json" >/dev/null; then
       echo "FAIL [$scenario]: oversized candidate was not filtered" >&2
       return 1
     fi
@@ -319,7 +321,7 @@ run_case() {
   local expected_decisions
   case "$scenario" in
     nonmax) expected_decisions=$'c1\nc1\nc1\nDONE' ;;
-    *) expected_decisions=$'c1\nc1\nc2\nDONE' ;;
+    *) expected_decisions=$'c1\nc1\nc3\nDONE' ;;
   esac
   if [[ "$(cat "$case_dir/decisions")" != "$expected_decisions" ]]; then
     echo "FAIL [$scenario]: Jev decisions changed" >&2
@@ -335,9 +337,9 @@ run_case() {
     return 1
   fi
 
-  local expected_c3
-  if [[ "$scenario" == tie ]]; then expected_c3='525 comments'; else expected_c3='500 comments'; fi
-  if [[ "$scenario" != candidate-count && "$scenario" != long-label ]] && ! jq -e --arg expected_c3 "$expected_c3" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "525 comments" and .questions.choice.criteria.c3 == $expected_c3 and ((.questions.choice.criteria | has("c4")) | not)' "$case_dir/requests/request-2.json" >/dev/null; then
+  local expected_c4
+  if [[ "$scenario" == tie ]]; then expected_c4='525 comments'; else expected_c4='500 comments'; fi
+  if [[ "$scenario" != candidate-count && "$scenario" != long-label ]] && ! jq -e --arg expected_c4 "$expected_c4" '.questions.choice.criteria.c1 == "120 comments" and .questions.choice.criteria.c2 == "14 hours ago" and .questions.choice.criteria.c3 == "525 comments" and .questions.choice.criteria.c4 == $expected_c4 and ((.questions.choice.criteria | has("c5")) | not)' "$case_dir/requests/request-2.json" >/dev/null; then
     echo "FAIL [$scenario]: discussion candidates were not exposed as Choice options" >&2
     return 1
   fi
@@ -423,7 +425,7 @@ run_case() {
   if [[ "$scenario" == trace ]]; then
     if ! jq -s -e --arg yesterday "$yesterday" '
       ([.[] | select(.event == "decision")] | length) == 4 and
-      ([.[] | select(.event == "decision") | .choice] == ["c1", "c1", "c2", "DONE"]) and
+      ([.[] | select(.event == "decision") | .choice] == ["c1", "c1", "c3", "DONE"]) and
       ([.[] | select(.event == "decision") | .label] == ["past", ("yesterday " + $yesterday), "525 comments", "DONE"]) and
       ([.[] | select(.event == "decision")] | all(has("step") and has("choice") and has("label") and has("model") and (.usage.input_tokens | numbers) and (.usage.output_tokens | numbers) and (.latency_ms | numbers) and .latency_ms > 0)) and
       ([.[] | select(.event == "decision") | .model] | all(. == "jev-latest")) and
