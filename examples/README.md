@@ -15,3 +15,15 @@ For an explicitly authorized paid headed run, configure `jeq` and run:
 ```sh
 JEQ_GOAL='navigate to yesterday then the most-discussed discussion' examples/playwright-browser-agent/hn-browser.sh --headed
 ```
+
+## Laya provider evaluation
+
+`examples/laya-evaluation/` contains a bounded synthetic corpus for comparing local Laya with another System One provider. It reports transport failures separately from Choice, Noul, Score, ranking, and reduction quality.
+
+Test the evaluation harness without network or provider calls:
+
+```sh
+examples/laya-evaluation/test.sh
+```
+
+Read `examples/laya-evaluation/README.md` before authorizing the 19 provider requests.
