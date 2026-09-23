@@ -5,7 +5,8 @@ MAX_CANDIDATES=64; MAX_LABEL=256; MAX_VISIBLE=12000; MAX_REQUEST=65536; MAX_RESP
 run_bounded() { timeout --foreground "${JEQ_SUBPROCESS_TIMEOUT_SECONDS}s" "$@"; }
 session="jeq-hn-$RANDOM$$"; tmp="$(mktemp -d)"; snapshot="$tmp/snapshot"; archive_snapshot="$tmp/archive"; dated_snapshot="$tmp/dated"; dated_candidates="$tmp/dated-candidates"; candidates="$tmp/candidates"; request="$tmp/request"; response="$tmp/response"
 cleanup() { local closed=false; run_bounded "$PLAYWRIGHT_BIN" -s="$session" close >/dev/null 2>&1 && closed=true || true; [[ "${TRACE_EMITTED:-}" != 1 ]] && printf '{"event":"cleanup","closed":%s}\n' "$closed" >&2; TRACE_EMITTED=1; rm -rf "$tmp"; }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 143' HUP INT TERM
 open_args=(open https://news.ycombinator.com/); [[ "${1:-}" == "--headed" ]] && open_args+=(--headed)
 run_bounded "$PLAYWRIGHT_BIN" -s="$session" "${open_args[@]}" >/dev/null
 url=https://news.ycombinator.com/; recent='[]'; expected_url=""; trace="$tmp/trace"; started=$(date +%s%3N); requests=0; input_total=0; output_total=0
@@ -70,7 +71,7 @@ import re,sys
 from urllib.parse import urlparse,parse_qs
 snap=open(sys.argv[1]).read(); selected=sys.argv[3]; refs={line.split('\t')[1] for line in open(sys.argv[2]) if '/item?id=' in line}; sid=(parse_qs(urlparse(selected).query).get('id') or [''])[0]
 counts=[(m.group(2),int(m.group(1))) for l in snap.splitlines() if (m:=re.search(r'link "([0-9]+) comments".*ref=(e\d+)',l)) and m.group(2) in refs]
-ref=next((r for r in refs if r and sid and any(sid in l and l.split('\t')[1]==r for l in open(sys.argv[2]))),''); value=next((n for r,n in counts if r==ref),0)
+ref=next((line.split('\t')[1] for line in open(sys.argv[2]) if (parse_qs(urlparse(line.rstrip().split('\t')[-1]).query).get('id') or [''])[0] == sid),''); value=next((n for r,n in counts if r==ref),0)
 if not counts or value != max(n for _,n in counts): raise SystemExit('selected discussion is not a maximum')
 PY
     run_bounded "$PLAYWRIGHT_BIN" -s="$session" eval 'JSON.stringify(Array.from(document.querySelectorAll("tr.comtr")).filter(function(row){var indent=row.querySelector("td.ind img");return indent && Number(indent.getAttribute("width"))===0;}).slice(0,5).map(function(row){return {depth:0,user:row.querySelector("a.hnuser")?.textContent?.trim(),text:row.querySelector("div.commtext")?.textContent?.trim()?.slice(0,600)}}))' >"$tmp/comments"

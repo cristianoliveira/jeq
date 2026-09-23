@@ -11,5 +11,5 @@ Run the offline acceptance test:
 A paid headed run requires explicit authorization and configured credentials:
 
 ```sh
-JEQ_GOAL='navigate to yesterday then the most-discussed discussion' ./hn-browser.sh
+JEQ_GOAL='navigate to yesterday then the most-discussed discussion' ./hn-browser.sh --headed
 ```
