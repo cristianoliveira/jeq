@@ -88,14 +88,14 @@ The server must return a Jev-compatible response envelope (`model`, `answers`, a
 LAYA_HOST=127.0.0.1 LAYA_DEVICE=cpu LAYA_MODELS=english laya-serve
 ```
 
-The first start downloads the public checkpoint from Hugging Face. Review its license, disk, and memory requirements before running it. Then point jeq at the local endpoint explicitly:
+The first start downloads the public checkpoint from Hugging Face. Review its license, disk, and memory requirements before running it. Create a Laya request with the explicit checkpoint name, then point jeq at the local endpoint:
 
 ```sh
+jq '.model = "english"' request.json > request.laya.json
 JEQ_PROVIDER=custom \
 JEQ_BASE_URL=http://127.0.0.1:8000 \
 JEQ_AUTH=none \
-JEQ_DEFAULT_MODEL=english \
-jeq ask --request request.json
+jeq ask --request request.laya.json
 ```
 
 Use `curl -fsS http://127.0.0.1:8000/health` for readiness. Laya currently does not implement `GET /v1/models`, so `jeq models` returns an error for this provider. A Laya error does not fall back to TypeSafe.
@@ -123,7 +123,7 @@ JEQ_PROVIDER=typesafe jeq ask --model jev-latest --state 'A customer was charged
 JEQ_PROVIDER=laya jeq ask --model english --state 'A customer was charged twice' --questions questions.json
 ```
 
-This changes no persistent state and never falls back between providers. For native `jeq ask --request` documents, the embedded `model` is authoritative and neither `--model` nor `JEQ_DEFAULT_MODEL` replaces it. Use separate request documents with `"model":"jev-latest"` for Jev and `"model":"english"` for Laya.
+This changes no persistent state and never falls back between providers. For native `jeq ask --request` documents, the embedded `model` is authoritative and neither `--model` nor `JEQ_DEFAULT_MODEL` replaces it. Use separate request documents with `"model":"jev-latest"` for Jev and `"model":"english"` for Laya, as shown above.
 
 ## Verify and troubleshoot
 

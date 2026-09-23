@@ -27,7 +27,7 @@ The first server start downloads model weights. Pin and review the Laya code and
 
 The normal Go gate uses a controlled HTTP server because CI must not download a checkpoint. The opt-in acceptance test is different: it starts the real pinned Laya `Agent`, `Router`, and FastAPI server, then sends all 19 judgments through the real `jeq` binary. It enables Hugging Face offline mode and accepts only a loopback listener.
 
-Install Nix, `jq`, `curl`, `lsof`, and `shasum`. Clone Laya at the pinned source revision, keep that checkout clean, and download the pinned English checkpoint once. Then run:
+Install Nix, `jq`, `curl`, `lsof`, `pgrep`, and `shasum`. Clone Laya at the pinned source revision, keep that checkout clean, and download the pinned English checkpoint once. Then run:
 
 ```sh
 JEQ_REAL_LAYA_CONFIRM=1 \

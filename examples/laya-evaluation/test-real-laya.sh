@@ -34,9 +34,18 @@ is_descendant() {
   return 1
 }
 
+kill_tree() {
+  local parent=$1
+  local child
+  for child in $(pgrep -P "$parent" 2>/dev/null || true); do
+    kill_tree "$child"
+  done
+  kill "$parent" 2>/dev/null || true
+}
+
 stop_server() {
+  [[ -n "$launcher_pid" ]] && kill_tree "$launcher_pid"
   [[ -n "$server_pid" ]] && kill "$server_pid" 2>/dev/null || true
-  [[ -n "$launcher_pid" ]] && kill "$launcher_pid" 2>/dev/null || true
 
   for _ in $(seq 1 50); do
     if ! lsof -t -iTCP:"$LAYA_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
@@ -54,8 +63,14 @@ stop_server() {
 }
 
 cleanup() {
-  stop_server >/dev/null 2>&1 || true
+  local status=$?
+  trap - EXIT
+  if ! stop_server >/dev/null 2>&1; then
+    printf 'real Laya listener remained after cleanup\n' >&2
+    status=1
+  fi
   rm -rf "$TMP_DIR"
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -121,13 +136,15 @@ launcher_pid=$!
 
 for _ in $(seq 1 180); do
   candidate=$(lsof -t -iTCP:"$LAYA_PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true)
-  if [[ -n "$candidate" ]] && curl --connect-timeout 1 --max-time 2 -fsS "http://127.0.0.1:$LAYA_PORT/health" >"$TMP_DIR/health.json"; then
-    if kill -0 "$launcher_pid" 2>/dev/null && is_descendant "$candidate" "$launcher_pid"; then
-      server_pid=$candidate
+  if [[ -n "$candidate" ]]; then
+    if ! kill -0 "$launcher_pid" 2>/dev/null || ! is_descendant "$candidate" "$launcher_pid"; then
+      printf 'loopback listener does not belong to the spawned Laya process\n' >&2
+      exit 1
+    fi
+    server_pid=$candidate
+    if curl --connect-timeout 1 --max-time 2 -fsS "http://127.0.0.1:$LAYA_PORT/health" >"$TMP_DIR/health.json"; then
       break
     fi
-    printf 'loopback listener does not belong to the spawned Laya process\n' >&2
-    exit 1
   fi
   if ! kill -0 "$launcher_pid" 2>/dev/null; then
     cat "$TMP_DIR/server.log" >&2
