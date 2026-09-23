@@ -100,6 +100,31 @@ jeq ask --request request.json
 
 Use `curl -fsS http://127.0.0.1:8000/health` for readiness. Laya currently does not implement `GET /v1/models`, so `jeq models` returns an error for this provider. A Laya error does not fall back to TypeSafe.
 
+### Switch between Jev and Laya
+
+Give Laya a named profile in `$HOME/.config/jeq/config.json`:
+
+```json
+{
+  "providers": {
+    "laya": {
+      "base_url": "http://127.0.0.1:8000",
+      "default_model": "english",
+      "auth": "none"
+    }
+  }
+}
+```
+
+Provider selection is then explicit and scoped to one command:
+
+```sh
+JEQ_PROVIDER=typesafe JEQ_DEFAULT_MODEL=jev-latest jeq map --input records.ndjson --request request.json
+JEQ_PROVIDER=laya JEQ_DEFAULT_MODEL=english jeq map --input records.ndjson --request request.json
+```
+
+This changes no persistent state and never falls back between providers. For native `jeq ask --request` documents, the embedded `model` is authoritative. Use `jev-latest` in the Jev request and `english` in the Laya request.
+
 ## Verify and troubleshoot
 
 Run `jeq models` after selecting a provider that implements `GET /v1/models`. It verifies the endpoint, authentication, and model listing without changing config. For a local provider that implements only `POST /v1/systemone`, use its health check and one bounded synthetic `jeq ask` instead. Common errors:

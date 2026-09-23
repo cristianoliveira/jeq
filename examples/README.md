@@ -26,4 +26,4 @@ Test the evaluation harness without network or provider calls:
 examples/laya-evaluation/test.sh
 ```
 
-Read `examples/laya-evaluation/README.md` before authorizing the 19 provider requests.
+For the opt-in test that starts a pinned real Laya checkpoint and sends 19 actual local judgments, follow `examples/laya-evaluation/README.md`. The real test is not part of the normal CI gate because it requires Laya, Torch, and model weights.
