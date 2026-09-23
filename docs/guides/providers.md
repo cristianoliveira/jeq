@@ -67,6 +67,19 @@ For composed commands, model selection is:
 
 A native `ask` request's embedded model is authoritative. Provider selection and model selection are separate decisions.
 
+## Loopback Jev-compatible servers
+
+A local server that implements `POST /v1/systemone` can serve judgment commands through the custom provider. `jeq` sends the request directly to that endpoint; judgment commands do not require `GET /v1/models` first. A model-listing endpoint is only needed by `jeq models`.
+
+For example, with a loopback server exposing the System One wire contract:
+
+```sh
+JEQ_PROVIDER=custom JEQ_BASE_URL=http://127.0.0.1:8000 JEQ_AUTH=none \\
+  jeq ask --request request.json
+```
+
+The server must return a Jev-compatible response envelope (`model`, `answers`, and `usage`). This path is offline from TypeSafe and does not add a hidden fallback.
+
 ## Verify and troubleshoot
 
 Run `jeq models` after selecting a provider. It verifies the endpoint, authentication, and model listing without changing config. Common errors:
