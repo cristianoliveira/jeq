@@ -43,7 +43,7 @@ Pin Laya and its checkpoint, warm the model once, then run the same labeled synt
 - [x] Confirm that Laya's unknown-model behavior and jeq's model precedence cannot silently select an unintended checkpoint; document `english`, `multilingual`, `typed-decisions`, and auto-routing behavior.
 - [x] Document that Laya currently does not expose jeq's `GET /v1/models` discovery contract; decide whether to add that endpoint upstream, teach jeq a capability-aware local check, or explicitly mark `jeq models` unsupported for this profile.
 - [x] After checkpoints are cached, run with Hugging Face offline mode and network monitoring; prove evaluation makes no request to TypeSafe, impossibl, Hugging Face, or another upstream service.
-- [ ] Compare Laya with the current Jev baseline on a committed labeled corpus using accuracy, calibration/threshold decisions, latency, useful answers per input token, and failure rate. Do not choose Laya from latency or zero marginal API cost alone.
+- [x] Compare Laya with the current Jev baseline on a committed labeled corpus using accuracy, calibration/threshold decisions, latency, useful answers per input token, and failure rate. Do not choose Laya from latency or zero marginal API cost alone.
 - [x] Add a practical provider guide and an offline fake-server integration test. Do not require Laya, Python, Torch, model downloads, or a GPU in the normal jeq test gate.
 - [x] Keep routing explicit. A Laya error never falls back to a hosted provider or repeats private state elsewhere.
 - [ ] Fresh watcher and independent QA pass at clean committed HEAD.
@@ -54,7 +54,8 @@ Pin Laya and its checkpoint, warm the model once, then run the same labeled synt
 - Actual offline Laya HTTP run passed `ask`, `map`, `rate`, `rank`, and `reduce`; `validate` and `gate` passed with the server stopped.
 - Network monitoring showed only the loopback listener while Hugging Face and Transformers offline modes were set.
 - `jeq models` returns explicit HTTP 404 because Laya does not implement model discovery. The provider guide marks it unsupported.
-- The 19-case Laya result is 68.4% exact: classification 100%, Noul sign 100%, Score band 33.3%, and ranking top-1 33.3%. Jev baseline is still required.
+- The 19-case Laya result is 68.4% strict exact: classification 100%, Noul sign 100%, Score band 33.3%, and ranking top-1 33.3%.
+- The authorized 19-request Jev 1.13.0 baseline is also 68.4% strict exact, but Noul band and ranking top-1 are both 100%. Laya is 3.3 times faster and about 5.9 times more input-token efficient by the defined useful-answer metric. Both providers are weak at explicit arithmetic and exact numeric ordering.
 - Local evidence report: `.tmp/reports/23-09-26/task-0070-laya-spike.md`.
 
 ## Non-goals
