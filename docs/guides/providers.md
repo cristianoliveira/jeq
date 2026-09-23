@@ -116,14 +116,14 @@ Give Laya a named profile in `$HOME/.config/jeq/config.json`:
 }
 ```
 
-Provider selection is then explicit and scoped to one command:
+Provider and model selection are explicit and scoped to one command. In composed mode, change the two flags and keep the same state and questions:
 
 ```sh
-JEQ_PROVIDER=typesafe JEQ_DEFAULT_MODEL=jev-latest jeq map --input records.ndjson --request request.json
-JEQ_PROVIDER=laya JEQ_DEFAULT_MODEL=english jeq map --input records.ndjson --request request.json
+JEQ_PROVIDER=typesafe jeq ask --model jev-latest --state 'A customer was charged twice' --questions questions.json
+JEQ_PROVIDER=laya jeq ask --model english --state 'A customer was charged twice' --questions questions.json
 ```
 
-This changes no persistent state and never falls back between providers. For native `jeq ask --request` documents, the embedded `model` is authoritative. Use `jev-latest` in the Jev request and `english` in the Laya request.
+This changes no persistent state and never falls back between providers. For native `jeq ask --request` documents, the embedded `model` is authoritative and neither `--model` nor `JEQ_DEFAULT_MODEL` replaces it. Use separate request documents with `"model":"jev-latest"` for Jev and `"model":"english"` for Laya.
 
 ## Verify and troubleshoot
 
