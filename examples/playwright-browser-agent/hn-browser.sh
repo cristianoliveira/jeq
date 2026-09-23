@@ -30,14 +30,17 @@ for step in 1 2 3 4; do
   [[ "$observed_url" =~ ^https://news\.ycombinator\.com/ ]] || { echo "unsafe observed location" >&2; exit 1; }
   [[ -z "$expected_url" || "$observed_url" == "$expected_url" || ("$expected_url" == */front && "$observed_url" == "$expected_url"\?day=*) ]] || { echo "navigation redirect mismatch" >&2; exit 1; }
   [[ -n "$observed_title" && "$observed_title" != "Error page" ]] || { echo "invalid observed title" >&2; exit 1; }
-  if [[ "$step" -eq 2 ]]; then
-    expected_day=$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(days=1)).date())')
-    [[ "$observed_url" == https://news.ycombinator.com/front*"day=$expected_day"* ]] || { echo "wrong archive day" >&2; exit 1; }
+  expected_day=$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(days=1)).date())')
+  is_archive=false
+  if [[ "$observed_url" == https://news.ycombinator.com/front* ]]; then
+    [[ "$observed_url" == "https://news.ycombinator.com/front" || "$observed_url" == https://news.ycombinator.com/front*"day=$expected_day"* ]] || { echo "wrong archive day" >&2; exit 1; }
+    [[ "$observed_title" == "$expected_day front | Hacker News" ]] || { echo "archive title date mismatch" >&2; exit 1; }
+    is_archive=true
+    [[ -s "$archive_snapshot" ]] || cp "$snapshot" "$archive_snapshot"
+    cp "$snapshot" "$dated_snapshot"
   fi
   url="$observed_url"
   export OBSERVED_URL="$observed_url" OBSERVED_TITLE="$observed_title"
-  [[ "$step" -eq 2 ]] && cp "$snapshot" "$archive_snapshot"
-  [[ "$step" -eq 3 ]] && cp "$snapshot" "$dated_snapshot"
   : >"$candidates"
   python3 - "$snapshot" >"$candidates" <<'PY'
 import re, sys
@@ -60,7 +63,7 @@ for i,line in enumerate(lines):
     if len(m.group(1)) > 256 or n >= 64: continue
     n+=1; print(f'c{n}\t{m.group(2)}\t{m.group(1)}\t{urljoin("https://news.ycombinator.com/",href)}')
 PY
-  [[ "$step" -eq 3 ]] && cp "$candidates" "$dated_candidates"
+  [[ "$is_archive" == true ]] && cp "$candidates" "$dated_candidates"
   jq -n --rawfile snap "$snapshot" --slurpfile rows <(jq -Rn '[inputs|split("\t")|{id:.[0],ref:.[1],label:.[2],url:.[3]}]' "$candidates") --arg url "$url" --arg recent "$recent" --argjson step "$step" '{model:"jev-latest",state:{goal:(env.JEQ_GOAL // "Navigate to yesterday then the most-discussed discussion"),current_date:(now|todate),current_url:$url,observed_url:(env.OBSERVED_URL // $url),title:(env.OBSERVED_TITLE // ""),visible_text:($snap|.[0:12000]),recent_decisions:$recent,step:$step},questions:{choice:{type:"choice",instructions:"Choose one current safe link, DONE, or BLOCKED. Do not invent IDs.",criteria:(($rows[0]|map({key:.id,value:.label})|from_entries)+{DONE:"Finish only after independent verification",BLOCKED:"Stop safely"})}}}' >"$request"
   [[ $(wc -c <"$request") -le $MAX_REQUEST ]] || { echo "request too large" >&2; exit 1; }
   ask_started=$(date +%s%3N)
@@ -108,7 +111,8 @@ selected_ref=next((line.split('\t')[1] for line in open(candidate_file) if (pars
 selected_count=next((n for ref,n in counts if ref == selected_ref), 0)
 maximum=max((n for _,n in counts), default=0)
 yesterday=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
-archive_day=next(iter(re.findall(r'front\?day=([0-9]{4}-[0-9]{2}-[0-9]{2})', archive)), '')
+archive_days=re.findall(r'front\?day=([0-9]{4}-[0-9]{2}-[0-9]{2})', archive)
+archive_day=next((day for day in archive_days if day == yesterday), '') or next(iter(re.findall(r'Page Title: ([0-9]{4}-[0-9]{2}-[0-9]{2}) front', archive)), '')
 if archive_day != yesterday: raise SystemExit('archive day mismatch')
 if not re.search(r'\S+ \| Hacker News$', title) or not body.strip() or 'error page' in body.lower(): raise SystemExit('discussion evidence mismatch')
 try: comments=json.loads(comments_raw) if isinstance(comments_raw, str) else comments_raw

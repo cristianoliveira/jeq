@@ -105,8 +105,7 @@ case "$*" in
         else
           case "$state" in
             0) printf '%s\n' '### Result' '"Hacker News"' ;;
-            1) printf '%s\n' '### Result' '"Hacker News: past"' ;;
-            2) printf '%s\n' '### Result' '"Hacker News: yesterday"' ;;
+            1|2) printf '%s\n' '### Result' "\"$YESTERDAY front | Hacker News\"" ;;
             *) printf '%s\n' '### Result' '"What happened ... | Hacker News"' ;;
           esac
         fi
@@ -287,7 +286,7 @@ run_case() {
     request_number=${request##*-}; request_number=${request_number%.json}
     case "$request_number" in
       0) expected_url='https://news.ycombinator.com/'; expected_title='Hacker News' ;;
-      1|2) expected_url="https://news.ycombinator.com/front?day=$yesterday"; [[ "$request_number" == 1 ]] && expected_title='Hacker News: past' || expected_title='Hacker News: yesterday' ;;
+      1|2) expected_url="https://news.ycombinator.com/front?day=$yesterday"; expected_title="$yesterday front | Hacker News" ;;
       3)
         if [[ "$scenario" == nonmax ]]; then expected_url='https://news.ycombinator.com/item?id=10'; else expected_url='https://news.ycombinator.com/item?id=42'; fi
         expected_title='What happened ... | Hacker News'
