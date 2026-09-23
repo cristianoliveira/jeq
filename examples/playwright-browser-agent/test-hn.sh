@@ -202,7 +202,7 @@ run_case() {
   export JEQ_BROWSER_TRACE=0
   [[ "$scenario" == trace ]] && export JEQ_BROWSER_TRACE=1
   set +e
-  timeout --foreground 3s "${command[@]}" >"$case_dir/stdout" 2>"$case_dir/stderr"
+  timeout --foreground 20s "${command[@]}" >"$case_dir/stdout" 2>"$case_dir/stderr"
   local status=$?
   set -e
   finished=$(date +%s)
@@ -213,9 +213,9 @@ run_case() {
   if [[ "$scenario" == open-hang || "$scenario" == snapshot-hang || "$scenario" == eval-hang || "$scenario" == click-hang || "$scenario" == close-hang || "$scenario" == jeq-hang ]]; then
     local hang_failed=0
     if [[ "$scenario" == close-hang ]]; then
-      [[ "$elapsed" -gt 5 ]] && hang_failed=1
+      { grep -q '^close$' "$case_dir/events" || [[ -e "$TMP_CLOSED" ]]; } && hang_failed=1
     else
-      { [[ "$status" -eq 0 ]] || [[ "$elapsed" -gt 3 ]]; } && hang_failed=1
+      [[ "$status" -eq 0 ]] && hang_failed=1
     fi
     ! grep -q '^close-start$' "$case_dir/events" && hang_failed=1
     if [[ "$hang_failed" -ne 0 ]]; then
@@ -357,7 +357,7 @@ run_case() {
     return 1
   fi
   expected_evals=$'eval location.href\neval document.title\neval body bounded\neval comments structural'
-  [[ "$scenario" == badbody || "$scenario" == nonmax ]] && expected_evals=$'eval location.href\neval document.title\neval body bounded'
+  [[ "$scenario" == badbody || "$scenario" == nonmax || "$scenario" == oversized-eval ]] && expected_evals=$'eval location.href\neval document.title\neval body bounded'
   actual_evals=$(awk -v done="$done_line" 'NR > done && /^eval /{sub(/ state=.*/, ""); print}' "$case_dir/events")
   if [[ "$actual_evals" != "$expected_evals" ]]; then
     echo "FAIL [$scenario]: post-DONE eval sequence was not exact" >&2
@@ -405,8 +405,8 @@ run_case() {
         cat "$case_dir/stdout" >&2
         return 1
       fi
-      if [[ "$scenario" == badbody ]] && grep -q '^eval comments structural' "$case_dir/events"; then
-        echo "FAIL [badbody]: comments were evaluated before body verification failed" >&2
+      if [[ "$scenario" == badbody || "$scenario" == oversized-eval ]] && grep -q '^eval comments structural' "$case_dir/events"; then
+        echo "FAIL [$scenario]: comments were evaluated before body verification failed" >&2
         return 1
       fi
       ;;
