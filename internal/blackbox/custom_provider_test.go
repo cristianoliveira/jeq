@@ -11,9 +11,11 @@ import (
 func TestCustomProviderRoutesAskWithoutModelsOrAuth(t *testing.T) {
 	var paths []string
 	var auth string
+	var body string
 	api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request, _ int) {
 		paths = append(paths, r.Method+" "+r.URL.Path)
 		auth = r.Header.Get("Authorization")
+
 		if r.URL.Path != "/v1/systemone" {
 			http.NotFound(w, r)
 			return
@@ -24,7 +26,8 @@ func TestCustomProviderRoutesAskWithoutModelsOrAuth(t *testing.T) {
 	if result.exit != 0 {
 		t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
 	}
-	if strings.Join(paths, ",") != "POST /v1/systemone" || auth != "" {
+	body = string(api.body())
+	if strings.Join(paths, ",") != "POST /v1/systemone" || auth != "" || !strings.Contains(body, `"model":"jev-loopback"`) {
 		t.Fatalf("paths=%v auth=%q", paths, auth)
 	}
 }
