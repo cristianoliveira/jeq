@@ -80,6 +80,26 @@ JEQ_PROVIDER=custom JEQ_BASE_URL=http://127.0.0.1:8000 JEQ_AUTH=none \\
 
 The server must return a Jev-compatible response envelope (`model`, `answers`, and `usage`). This path is offline from TypeSafe and does not add a hidden fallback.
 
+### Laya
+
+[Laya](https://github.com/NandhaKishorM/laya) provides a compatible local server. Start with one checkpoint on loopback:
+
+```sh
+LAYA_HOST=127.0.0.1 LAYA_DEVICE=cpu LAYA_MODELS=english laya-serve
+```
+
+The first start downloads the public checkpoint from Hugging Face. Review its license, disk, and memory requirements before running it. Then point jeq at the local endpoint explicitly:
+
+```sh
+JEQ_PROVIDER=custom \
+JEQ_BASE_URL=http://127.0.0.1:8000 \
+JEQ_AUTH=none \
+JEQ_DEFAULT_MODEL=english \
+jeq ask --request request.json
+```
+
+Use `curl -fsS http://127.0.0.1:8000/health` for readiness. Laya currently does not implement `GET /v1/models`, so `jeq models` returns an error for this provider. A Laya error does not fall back to TypeSafe.
+
 ## Verify and troubleshoot
 
 Run `jeq models` after selecting a provider that implements `GET /v1/models`. It verifies the endpoint, authentication, and model listing without changing config. For a local provider that implements only `POST /v1/systemone`, use its health check and one bounded synthetic `jeq ask` instead. Common errors:
