@@ -253,7 +253,7 @@ func TestBlackBoxValidateSourcesAndNoStateEcho(t *testing.T) {
 	}{
 		{name: "native file", args: []string{"validate", "--request", requestPath}},
 		{name: "native stdin", args: []string{"validate", "--request", "-"}, input: string(fixture(t, "request_full.json"))},
-		{name: "composed files", args: []string{"validate", "--questions", questionsPath, "--state-json", statePath}},
+		{name: "composed files", args: []string{"validate", "--questions", questionsPath, "--state-json-file", statePath}},
 		{name: "composed stdin", args: []string{"validate", "--questions", "-", "--state", "literal state"}, input: `{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`},
 	}
 	for _, tc := range cases {

@@ -59,33 +59,36 @@ func (d AskDeps) valid() bool {
 // NewAskCmd creates the ask command with native and composed source flags.
 func NewAskCmd(deps AskDeps) *cobra.Command {
 	var (
-		request, questions, state, stateFile, stateJSON string
-		model, timeoutText                              string
-		maxRetries                                      int
+		request, questions, questionsJSON, state, stateFile, stateJSON, stateJSONFile string
+		model, timeoutText                                                            string
+		maxRetries                                                                    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "ask",
 		Short: "Send one System One request",
-		Long:  "Jev returns caller-defined typed semantic decisions and probabilities; it does not write replies, produce code, or return reasoning explanations.",
+		Long:  "Jev returns caller-defined typed semantic decisions and probabilities; it does not write replies, produce code, or return reasoning explanations. Use --state-json for inline JSON and --state-json-file for a JSON file. Inline values may be saved in shell history; use files or stdin when that matters.",
 		Args:  cobra.NoArgs,
 		Example: `  jeq ask --request request.json
+  jeq ask --questions-json '{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}' --state-json '{"ticket":"abc"}' --model jev-latest
   jeq examples ask`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
-				request: request, questions: questions, state: state, stateFile: stateFile, stateJSON: stateJSON,
+				request: request, questions: questions, questionsJSON: questionsJSON, state: state, stateFile: stateFile, stateJSON: stateJSON, stateJSONFile: stateJSONFile,
 				model: model, timeout: timeoutText, maxRetries: maxRetries,
-				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"),
-				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"),
+				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"), questionsJSONSet: cmd.Flags().Changed("questions-json"),
+				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), stateJSONFileSet: cmd.Flags().Changed("state-json-file"),
 			})
 		}),
 	}
 	flags := cmd.Flags()
 	flags.StringVar(&request, "request", "", "complete native request JSON file or -")
-	flags.StringVar(&questions, "questions", "", "questions JSON file or -")
+	flags.StringVar(&questions, "questions", "", "questions document file or -")
+	flags.StringVar(&questionsJSON, "questions-json", "", "inline questions document JSON")
 	flags.StringVar(&state, "state", "", "literal state text")
 	flags.StringVar(&stateFile, "state-file", "", "state text file or -")
-	flags.StringVar(&stateJSON, "state-json", "", "state JSON file or -")
+	flags.StringVar(&stateJSON, "state-json", "", "inline state JSON")
+	flags.StringVar(&stateJSONFile, "state-json-file", "", "state JSON file or -")
 	flags.StringVar(&model, "model", "", "composed-mode model")
 	flags.StringVar(&timeoutText, "timeout", DefaultTimeout.String(), "request timeout")
 	flags.IntVar(&maxRetries, "max-retries", DefaultMaxRetries, "maximum retries (0-5)")
@@ -93,16 +96,19 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 }
 
 type askFlags struct {
-	request, questions, state, stateFile, stateJSON                string
-	model, timeout                                                 string
-	maxRetries                                                     int
-	requestSet, questionsSet, stateSet, stateFileSet, stateJSONSet bool
+	request, questions, questionsJSON, state, stateFile, stateJSON, stateJSONFile                      string
+	model, timeout                                                                                     string
+	maxRetries                                                                                         int
+	requestSet, questionsSet, questionsJSONSet, stateSet, stateFileSet, stateJSONSet, stateJSONFileSet bool
 }
 
 func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
+	if f.questionsSet && f.questionsJSONSet {
+		return askError(jeq.NewError(jeq.CodeSourceConflict, "choose exactly one of --questions or --questions-json"))
+	}
 	sources := jeq.Sources{
-		Request: f.requestSet, Questions: f.questionsSet, StateText: f.stateSet,
-		StateFile: f.stateFileSet, StateJSON: f.stateJSONSet,
+		Request: f.requestSet, Questions: f.questionsSet || f.questionsJSONSet, StateText: f.stateSet,
+		StateFile: f.stateFileSet, StateJSON: f.stateJSONSet, StateJSONFile: f.stateJSONFileSet,
 	}
 	// These checks are deliberately before readers and before every env lookup.
 	if err := jeq.CheckSources(sources); err != nil {
@@ -110,8 +116,21 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	}
 	if err := jeq.CheckStdin(
 		f.requestSet && f.request == "-", f.questionsSet && f.questions == "-",
-		(f.stateFileSet && f.stateFile == "-") || (f.stateJSONSet && f.stateJSON == "-")); err != nil {
+		(f.stateFileSet && f.stateFile == "-") || (f.stateJSONFileSet && f.stateJSONFile == "-")); err != nil {
 		return askError(err)
+	}
+	if f.questionsJSONSet {
+		if len([]byte(f.questionsJSON)) > SourceLimit {
+			return askError(jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("--questions-json exceeds the %d byte limit", SourceLimit)))
+		}
+		if err := validateInlineQuestionsDocument([]byte(f.questionsJSON)); err != nil {
+			return askError(err)
+		}
+	}
+	if f.stateJSONSet {
+		if err := validateInlineStateJSON([]byte(f.stateJSON), "--state-json"); err != nil {
+			return askError(err)
+		}
 	}
 
 	read := func(path string, forbidEmpty bool) ([]byte, *jeq.Error) {
@@ -130,7 +149,17 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if f.requestSet {
 		requestDoc, err = read(f.request, true)
 	} else {
-		questionsDoc, err = read(f.questions, true)
+		if f.questionsSet {
+			questionsDoc, err = read(f.questions, true)
+		} else {
+			questionsDoc = []byte(f.questionsJSON)
+			if len(questionsDoc) > SourceLimit {
+				err = jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("--questions-json exceeds the %d byte limit", SourceLimit))
+			}
+		}
+		if err == nil && f.questionsSet {
+			err = validateQuestionsDocument(questionsDoc)
+		}
 		if err == nil {
 			switch {
 			case f.stateSet:
@@ -140,8 +169,15 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 				data, err = read(f.stateFile, true)
 				stateInput = jeq.StateInput{Kind: jeq.SourceStateText, Text: string(data)}
 			case f.stateJSONSet:
+				if err = validateInlineStateJSON([]byte(f.stateJSON), "--state-json"); err == nil {
+					stateInput = jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: []byte(f.stateJSON)}
+				}
+			case f.stateJSONFileSet:
 				var data []byte
-				data, err = read(f.stateJSON, true)
+				data, err = read(f.stateJSONFile, true)
+				if err == nil {
+					err = validateInlineStateJSON(data, "--state-json-file")
+				}
 				stateInput = jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: data}
 			}
 		}

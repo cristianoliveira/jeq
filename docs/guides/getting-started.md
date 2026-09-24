@@ -29,6 +29,8 @@ for example:
 {"model":"jev-latest","answers":{"urgent":{"type":"noul","noul":0.9}},"usage":{"input_tokens":42,"output_tokens":8}}
 ```
 
+For composed inputs, `--state` takes literal text, `--state-file` takes text from a file, `--state-json` takes inline JSON, and `--state-json-file` takes a JSON file. Use `--questions` for a questions file or `--questions-json` for inline question JSON. See the [CLI input reference](cli-reference.md#input-flags) for stdin rules and examples. If you previously passed a file to `--state-json`, change it to `--state-json-file`; jeq does not infer paths from argument contents.
+
 `ask`, `map`, `rate`, `reduce`, and `rank` evaluate through TypeSafe and need
 network access. Each primitive request costs usage. Review state and prompts,
 keep them small and redacted, and never put credentials in requests, logs, or

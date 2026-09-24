@@ -7,7 +7,7 @@ JEQ_MODEL=${JEQ_MODEL:-jev-latest}
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/jeq-rank.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json - --model "$JEQ_MODEL")
+JEQ_ARGS=(ask --questions "$SCRIPT_DIR/questions.json" --state-json-file - --model "$JEQ_MODEL")
 
 run_jeq() {
   local state_json=$1

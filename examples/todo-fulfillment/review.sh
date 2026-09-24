@@ -30,7 +30,7 @@ while IFS= read -r todo; do
   state=$(jq -cn --argjson todo "$todo" --rawfile diff "$DIFF_FILE" '{todo:$todo,diff:$diff}')
   if response=$(printf '%s\n' "$state" | jeq ask \
       --questions "$SCRIPT_DIR/questions.json" \
-      --state-json - \
+      --state-json-file - \
       --model "$JEQ_MODEL"); then
     value=$(jq -er '.answers.fulfilled.noul | select(type == "number" and . >= 0 and . <= 1)' <<< "$response") || value=
   else
