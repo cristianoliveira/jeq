@@ -103,6 +103,23 @@ func TestValidateQuestionTypesOffline(t *testing.T) {
 	}
 }
 
+func TestOfflineQuestionExamplesMatchTheirRequirements(t *testing.T) {
+	for _, id := range []string{"noul", "score"} {
+		var out, errOut bytes.Buffer
+		if code := cli.RunWithDeps([]string{"examples", id}, &out, &errOut, nil, cli.AskDeps{}); code != 0 {
+			t.Fatalf("%s code=%d stderr=%q", id, code, errOut.String())
+		}
+		for _, expected := range []string{"Commands: validate", "Requirements: installed jeq, bash", "Network calls: 0 API requests"} {
+			if !strings.Contains(out.String(), expected) {
+				t.Errorf("%s missing %q in %q", id, expected, out.String())
+			}
+		}
+		if strings.Contains(out.String(), "TYPESAFE_API_KEY") || strings.Contains(out.String(), "map:") {
+			t.Errorf("%s advertises an unused map/API requirement: %q", id, out.String())
+		}
+	}
+}
+
 func TestMapHelpDiscoversEveryQuestionType(t *testing.T) {
 	var out bytes.Buffer
 	cmd := cli.NewMapCmd(cli.AskDeps{})

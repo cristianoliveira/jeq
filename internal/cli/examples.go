@@ -22,7 +22,7 @@ type exampleRecipe struct {
 
 var exampleRecipes = []exampleRecipe{
 	{
-		ID: "noul", Purpose: "Ask a yes/no question and optionally describe what true and false mean.", Covers: []string{"map", "validate"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY for map"}, Cost: "map: 1 API request; validate: 0 API requests",
+		ID: "noul", Purpose: "Ask a yes/no question and optionally describe what true and false mean.", Covers: []string{"validate"}, Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests",
 		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"urgent":{"type":"noul","instructions":"Is this file urgent?","criteria":{"true":"Needs immediate attention","false":"Can wait"}}}}' |
   jeq validate --request -`,
 		InputShape: "native request JSON with a questions object", OutputShape: "offline validation receipt; Noul answer is a yes/no probability", Privacy: "validation is local and sends no state to TypeSafe.",
@@ -39,7 +39,7 @@ printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{
 		Privacy: "map sends selected file state to TypeSafe; validation is local and sends no state.",
 	},
 	{
-		ID: "score", Purpose: "Rate state against ordered levels with a Score question.", Covers: []string{"map", "validate"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY for map"}, Cost: "map: 1 API request; validate: 0 API requests",
+		ID: "score", Purpose: "Rate state against ordered levels with a Score question.", Covers: []string{"validate"}, Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests",
 		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"issue":"service outage"},"questions":{"severity":{"type":"score","instructions":"How severe is this issue?","criteria":["Cosmetic: no functional impact","Degraded: important workflow impaired","Critical: service or data at risk"]}}}' |
   jeq validate --request -`,
 		InputShape: "native request JSON with a questions object", OutputShape: "offline validation receipt; Score answer rates against ordered levels", Privacy: "validation is local and sends no state to TypeSafe.",
