@@ -22,6 +22,29 @@ type exampleRecipe struct {
 
 var exampleRecipes = []exampleRecipe{
 	{
+		ID: "noul", Purpose: "Ask a yes/no question and optionally describe what true and false mean.", Covers: []string{"validate"}, Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests",
+		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"urgent":{"type":"noul","instructions":"Is this file urgent?","criteria":{"true":"Needs immediate attention","false":"Can wait"}}}}' |
+  jeq validate --request -`,
+		InputShape: "native request JSON with a questions object", OutputShape: "offline validation receipt; Noul answer is a yes/no probability", Privacy: "validation is local and sends no state to TypeSafe.",
+	},
+	{
+		ID: "choice", Purpose: "Categorize a file with a typed Choice question and validate the native request offline.", Covers: []string{"map", "validate"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY for map"}, Cost: "map: 1 API request; validate: 0 API requests",
+		Shell: `printf '%s\n' '{"file":"report.pdf"}' |
+  jeq map --as category --input ndjson --state-pointer /file \
+    --questions-json '{"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}'
+
+printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}' |
+  jeq validate --request -`,
+		InputShape: "JSON records with a file path; native validation request uses {model,state,questions}", OutputShape: "map adds typed Choice evidence under _jeq/category; validate prints an offline receipt",
+		Privacy: "map sends selected file state to TypeSafe; validation is local and sends no state.",
+	},
+	{
+		ID: "score", Purpose: "Rate state against ordered levels with a Score question.", Covers: []string{"validate"}, Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests",
+		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"issue":"service outage"},"questions":{"severity":{"type":"score","instructions":"How severe is this issue?","criteria":["Cosmetic: no functional impact","Degraded: important workflow impaired","Critical: service or data at risk"]}}}' |
+  jeq validate --request -`,
+		InputShape: "native request JSON with a questions object", OutputShape: "offline validation receipt; Score answer rates against ordered levels", Privacy: "validation is local and sends no state to TypeSafe.",
+	},
+	{
 		ID: "rate-sort", Purpose: "Rate records with one Score rubric, then select the highest-scoring record with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
 		Shell: `printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
 jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \
