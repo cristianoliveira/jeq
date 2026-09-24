@@ -12,7 +12,7 @@ import (
 )
 
 func TestExamplesUseNativeCobraHelp(t *testing.T) {
-	ids := []string{"choice", "rate-sort", "rank-top-k", "validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
+	ids := []string{"noul", "choice", "score", "rate-sort", "rank-top-k", "validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
 	var parent, parentHelp, stderr bytes.Buffer
 	if code := cli.RunWithDeps([]string{"examples"}, &parent, &stderr, nil, cli.AskDeps{}); code != 0 {
 		t.Fatalf("parent code=%d stderr=%q", code, stderr.String())
@@ -39,9 +39,9 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 				t.Fatalf("%s missing %q", id, field)
 			}
 		}
-		if id == "choice" {
-			if !strings.Contains(out.String(), `"type":"choice"`) || !strings.Contains(out.String(), "jeq validate --request -") || !strings.Contains(out.String(), `"criteria"`) {
-				t.Fatalf("%s missing discoverable Choice shape and offline validation: %q", id, out.String())
+		if id == "noul" || id == "choice" || id == "score" {
+			if !strings.Contains(out.String(), `"type":"`+id+`"`) || !strings.Contains(out.String(), "jeq validate --request -") || !strings.Contains(out.String(), `"questions"`) {
+				t.Fatalf("%s missing discoverable request shape and offline validation: %q", id, out.String())
 			}
 		} else if id == "validate-native" {
 			if !strings.Contains(out.String(), "does not call Jev") || !strings.Contains(out.String(), "validates the caller-defined request shape") {
@@ -59,37 +59,62 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 	}
 }
 
-func TestValidateChoiceRequestOffline(t *testing.T) {
-	valid := `{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}`
-	invalid := `{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{}}}}`
-	for _, tc := range []struct {
-		name       string
-		input      string
-		wantCode   int
-		wantOutput string
+func TestValidateQuestionTypesOffline(t *testing.T) {
+	cases := []struct {
+		name      string
+		valid     string
+		invalid   string
+		wantError string
 	}{
-		{name: "valid choice", input: valid, wantCode: 0, wantOutput: "valid: true"},
-		{name: "empty choice criteria", input: invalid, wantCode: 2, wantOutput: "questions.category.criteria: choice needs a non-empty map of options"},
-	} {
+		{name: "noul", valid: `{"model":"jev-latest","state":"file","questions":{"q":{"type":"noul","instructions":"Is this urgent?","criteria":{"true":"Act now","false":"Can wait"}}}}`, invalid: `{"model":"jev-latest","state":"file","questions":{"q":{"type":"noul","instructions":"Is this urgent?","criteria":{"true":1}}}}`, wantError: "questions.q.criteria: noul criteria must be an object"},
+		{name: "choice", valid: `{"model":"jev-latest","state":"file","questions":{"q":{"type":"choice","instructions":"Which category?","criteria":{"invoice":"Financial","report":"Analysis"}}}}`, invalid: `{"model":"jev-latest","state":"file","questions":{"q":{"type":"choice","instructions":"Which category?","criteria":{}}}}`, wantError: "questions.q.criteria: choice needs a non-empty map of options"},
+		{name: "score", valid: `{"model":"jev-latest","state":"file","questions":{"q":{"type":"score","instructions":"How severe?","criteria":["Low","Medium","High"]}}}`, invalid: `{"model":"jev-latest","state":"file","questions":{"q":{"type":"score","instructions":"How severe?","criteria":["Low"]}}}`, wantError: "questions.q.criteria: score needs at least two level descriptions"},
+	}
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			deps := cli.AskDeps{
-				ReadFile: func(string, int64) ([]byte, *jeq.Error) { return nil, nil },
-				Stdin:    strings.NewReader(tc.input),
-				ReadStdin: func(stdin io.Reader, limit int64, _ bool) ([]byte, *jeq.Error) {
-					data, err := io.ReadAll(io.LimitReader(stdin, limit))
-					if err != nil {
-						return nil, jeq.WrapError(jeq.CodeInputInvalid, err, "reading test stdin")
+			for _, input := range []struct {
+				name, raw, want string
+				code            int
+			}{
+				{name: "valid", raw: tc.valid, want: "valid: true", code: 0},
+				{name: "invalid criteria", raw: tc.invalid, want: tc.wantError, code: 2},
+			} {
+				t.Run(input.name, func(t *testing.T) {
+					deps := cli.AskDeps{
+						ReadFile: func(string, int64) ([]byte, *jeq.Error) { return nil, nil },
+						Stdin:    strings.NewReader(input.raw),
+						ReadStdin: func(stdin io.Reader, limit int64, _ bool) ([]byte, *jeq.Error) {
+							data, err := io.ReadAll(io.LimitReader(stdin, limit))
+							if err != nil {
+								return nil, jeq.WrapError(jeq.CodeInputInvalid, err, "reading test stdin")
+							}
+							return data, nil
+						},
+						Getenv: func(string) string { t.Fatal("offline validation must not read environment"); return "" },
 					}
-					return data, nil
-				},
-				Getenv: func(string) string { t.Fatal("offline validation must not read environment"); return "" },
-			}
-			var out, errOut bytes.Buffer
-			code := cli.RunWithDeps([]string{"validate", "--request", "-"}, &out, &errOut, nil, deps)
-			if code != tc.wantCode || !strings.Contains(out.String()+errOut.String(), tc.wantOutput) {
-				t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), errOut.String())
+					var out, errOut bytes.Buffer
+					code := cli.RunWithDeps([]string{"validate", "--request", "-"}, &out, &errOut, nil, deps)
+					if code != input.code || !strings.Contains(out.String()+errOut.String(), input.want) {
+						t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), errOut.String())
+					}
+				})
 			}
 		})
+	}
+}
+
+func TestMapHelpDiscoversEveryQuestionType(t *testing.T) {
+	var out bytes.Buffer
+	cmd := cli.NewMapCmd(cli.AskDeps{})
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Help(); err != nil {
+		t.Fatal(err)
+	}
+	for _, phrase := range []string{"Noul estimates yes/no", "Choice selects among named options", "Score rates against ordered levels", "non-empty `instructions`", "Noul is optional with true/false string descriptions", "Choice requires a non-empty options object", "Score requires an ordered array of at least two levels", "jeq examples noul", "jeq examples choice", "jeq examples score"} {
+		if !strings.Contains(out.String(), phrase) {
+			t.Errorf("map help missing %q", phrase)
+		}
 	}
 }
 
