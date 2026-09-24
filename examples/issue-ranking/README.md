@@ -5,9 +5,10 @@ request per valid line. It emits one correlated NDJSON line in input order:
 `id`, `order`, the two score values, both score confidences, usage, and a
 deterministic `rank_score`. Keeping this judgment evidence makes cost and
 confidence auditable without copying raw issue state. Downstream tools can sort
-explicitly, for example:
+explicitly, for example, in Bash with `jeq`, `jq`, and the configured API key:
 
-```sh
+```bash
+set -o pipefail
 ./rank.sh < fixtures/issues.ndjson | jq -s 'sort_by(-.rank_score)'
 ```
 

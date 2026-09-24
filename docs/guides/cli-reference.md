@@ -53,6 +53,15 @@ process-local unless the caller correlates them. Check exit codes in scripts:
 | 11 | Gate uncertain decision |
 | 130 | Interrupted |
 
+`gate` requires both thresholds and enforces `0 <= reject-max < pass-min <= 1`.
+Comparisons are inclusive: `value >= pass-min` passes and `value <= reject-max`
+rejects. It emits every processed record, including rejects and uncertain
+records. Its aggregate status is 10 if any record rejects; otherwise it is 11 if
+any record is uncertain; reject takes precedence. Filtering and actions remain
+the caller's job. In Bash pipelines, use `set -o pipefail`; it returns the
+rightmost failing stage's status, not every stage's exact error. Read
+`PIPESTATUS` immediately only when a workflow needs each stage's status.
+
 Provider selection is explicit: `JEQ_PROVIDER=typesafe|vercel|custom`, or
 `default_provider` in `JEQ_CONFIG`; there is no credential inference or fallback.
 Named profiles use `base_url`, `default_model`, `auth`, and `api_key_env`.

@@ -1,8 +1,10 @@
 # Composition
 
 jeq commands compose through JSON or NDJSON. Keep one record per line for streams.
-Use `set -o pipefail` so a failed producer or policy cannot be hidden by a later
-successful command. `jq` owns deterministic selection and reshaping; jeq owns
+In Bash, use `set -o pipefail` so a failed producer or policy cannot be hidden by a later
+successful command. It returns the rightmost failing stage's status, not every
+stage's exact error. Inspect `PIPESTATUS` immediately only when you need each
+stage's status. `jq` owns deterministic selection and reshaping; jeq owns
 judgment and typed evidence; the shell owns sequencing and final actions.
 
 Native `ask` sends one complete request. Composed commands construct requests
@@ -17,13 +19,26 @@ consumes stdin only when its selected request/state/questions file is `-`.
 Make sources explicit and see the [worked examples](../../examples/README.md).
 
 
-```sh
+```bash
+# Requires Bash, jeq, and TYPESAFE_API_KEY; this sends synthetic input to TypeSafe.
 set -o pipefail
-printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
+policy_status=0
+if printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
   | jeq map --as urgency --input ndjson --questions-json \
     '{"questions":{"urgency":{"type":"noul","instructions":"Is this urgent?"}}}' \
   | jeq gate --as policy --input ndjson --value-pointer /_jeq/urgency/answers/urgency/noul \
-    --pass-min 0.8 --reject-max 0.2
+    --pass-min 0.8 --reject-max 0.2; then
+  policy_status=0
+else
+  policy_status=$?
+fi
+case "$policy_status" in
+  0) printf '%s\n' 'policy passed' ;;
+  10) printf '%s\n' 'policy rejected' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain' >&2 ;;
+  *) exit "$policy_status" ;;
+esac
+exit "$policy_status"
 ```
 
 Use `map` for independent records, `rate` for a score, `reduce` for one

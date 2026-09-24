@@ -58,7 +58,9 @@ Before logging or sharing, remove source items and render only the dimensions an
 floor. The projection sorts dimensions from lowest to highest and computes the
 top-level `quality_floor` as their minimum:
 
-```sh
+```bash
+# Bash; requires jeq, jq, and TYPESAFE_API_KEY.
+set -o pipefail
 ./examples/code-smell-review/review.sh examples/code-smell-review/fixtures/cohesive.go.txt |
 jq 'del(.items)
   | ._jeq.code_smells.answers as $answers
@@ -71,16 +73,36 @@ jq 'del(.items)
 The base review remains advisory. Callers can explicitly gate the projected
 quality floor with offline thresholds:
 
-```sh
-review=$(./examples/code-smell-review/review.sh examples/code-smell-review/fixtures/cohesive.go.txt)
-printf '%s\n' "$review" |
-jq 'del(.items)
+```bash
+# Bash; requires jeq, jq, mktemp, and TYPESAFE_API_KEY.
+set -o pipefail
+review_file=$(mktemp) || exit $?
+trap 'rm -f "$review_file"' EXIT
+if ./examples/code-smell-review/review.sh examples/code-smell-review/fixtures/cohesive.go.txt >"$review_file"; then
+  :
+else
+  review_status=$?
+  exit "$review_status"
+fi
+policy_status=0
+if jq 'del(.items)
   | ._jeq.code_smells.answers as $answers
   | ($answers | to_entries | map({id: .key, noul: .value.noul}) | sort_by(.noul)) as $dimensions
-  | {dimensions: $dimensions, quality_floor: ($dimensions | map(.noul) | min)}' |
+  | {dimensions: $dimensions, quality_floor: ($dimensions | map(.noul) | min)}' <"$review_file" |
   jeq gate --as code_smell_quality \
     --value-pointer /quality_floor \
-    --pass-min 0.80 --reject-max 0.40
+    --pass-min 0.80 --reject-max 0.40; then
+  policy_status=0
+else
+  policy_status=$?
+fi
+case "$policy_status" in
+  0) printf '%s\n' 'policy passed' ;;
+  10) printf '%s\n' 'policy rejected' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain' >&2 ;;
+  *) exit "$policy_status" ;;
+esac
+exit "$policy_status"
 ```
 
 `gate` is offline and does not make another API request. The gate is a caller

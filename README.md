@@ -14,12 +14,26 @@
 
 `jeq` lets scripts and agents ask Jev typed questions within the terminal, no boilerplate.
 
-```sh
-printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
+```bash
+# Bash; requires jeq and TYPESAFE_API_KEY. This sends synthetic input to TypeSafe.
+set -o pipefail
+policy_status=0
+if printf '%s\n' '{"id":"a","text":"billing is urgent"}' \
   | jeq map --as urgency --input ndjson --questions-json \
     '{"questions":{"urgency":{"type":"noul","instructions":"Is this urgent?"}}}' \
   | jeq gate --as policy --input ndjson --value-pointer /_jeq/urgency/answers/urgency/noul \
-    --pass-min 0.8 --reject-max 0.2
+    --pass-min 0.8 --reject-max 0.2; then
+  policy_status=0
+else
+  policy_status=$?
+fi
+case "$policy_status" in
+  0) printf '%s\n' 'policy passed' ;;
+  10) printf '%s\n' 'policy rejected' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain' >&2 ;;
+  *) exit "$policy_status" ;;
+esac
+exit "$policy_status"
 ```
 
 ## Install it
@@ -78,8 +92,11 @@ agent to use it.
   state, or log.
 - API calls cost money. Retries, the number of records, and model choice change
   that cost.
-- Check exit codes in scripts. A rejected or uncertain gate returns a nonzero
-  code. `--verbose` writes traces to stderr.
+- `gate` writes every processed decision, then exits `0` when all pass, `10`
+  when any reject, or `11` when uncertain and none reject. Threshold comparisons
+  are inclusive. In Bash pipelines, `set -o pipefail` reports the rightmost
+  failing stage; inspect `PIPESTATUS` only when each stage's status matters.
+  `--verbose` writes traces to stderr.
 - jeq does not run actions or keep memory between commands. Your script keeps
   the state and credentials, decides when to retry, and decides what happens
   next.

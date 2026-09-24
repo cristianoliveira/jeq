@@ -17,8 +17,20 @@ func NewGateCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gate",
 		Short: "Apply an offline probability policy to each JSON record",
-		Args:  cobra.NoArgs,
-		Example: `  jeq gate --as policy --value-pointer /_jeq/risk/answers/risk/noul --pass-min 0.80 --reject-max 0.40
+		Long: `Apply required pass and reject thresholds to every valid input record. Thresholds must satisfy
+0 <= reject-max < pass-min <= 1. Comparisons are inclusive: values at or above
+pass-min pass; values at or below reject-max reject; values between them are
+uncertain. Gate writes every processed decision, including rejects and
+uncertain results, before returning an aggregate status. Filtering and actions
+remain the caller's job.
+
+Exit status is 0 when all records pass, 10 when any record rejects, and 11 when
+there are uncertain records but no rejects. Reject takes precedence over
+uncertain. In Bash pipelines, set -o pipefail returns the rightmost failing
+stage's status, not an exact status from every stage. Inspect PIPESTATUS
+immediately only when the workflow needs each stage's status.`,
+		Args: cobra.NoArgs,
+		Example: `  jeq gate --as policy --input ndjson --value-pointer /_jeq/risk/answers/risk/noul --pass-min 0.80 --reject-max 0.40
   jeq examples gate`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runGate(cmd, deps, gateFlags{
