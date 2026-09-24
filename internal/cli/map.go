@@ -247,7 +247,12 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 	if _, worker := ctx.Value(mapWorkerContextKey{}).(bool); worker {
 		tr = nil
 	}
+	tracker := newUsageEvaluator(ctx, evaluator)
+	evaluator = tracker
 	for index, record := range records {
+		if tracker.summary != nil {
+			tracker.summary.addProcessedRecords(1)
+		}
 		if tr != nil {
 			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1+offset, len(records)+offset)
 		}
@@ -290,6 +295,7 @@ func processMapInput(ctx context.Context, cmd *cobra.Command, renderer Renderer,
 			}
 			return renderStreamError(renderer, cmd.OutOrStdout(), err, f.input == "ndjson")
 		}
+		tracker.recordAttachedAnswers()
 		if writeErr := renderRaw(renderer, cmd.OutOrStdout(), output); writeErr != nil {
 			if tr != nil {
 				tr.EmitOperation(cmd.CommandPath(), "run.failed", "output", "failed", string(jeq.CodeResponseInvalid), index+1+offset, len(records)+offset)

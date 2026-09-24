@@ -231,10 +231,15 @@ func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), line)
 	})
 	attachTrace(cmd, client)
-	resp, evalErr := client.Evaluate(cmd.Context(), req)
+	tracker := newUsageEvaluator(cmd.Context(), client)
+	if tracker.summary != nil {
+		tracker.summary.addProcessedRecords(1)
+	}
+	resp, evalErr := tracker.Evaluate(cmd.Context(), req)
 	if evalErr != nil {
 		return askError(evalErr)
 	}
+	tracker.recordAttachedAnswers()
 	if deps.Renderer != nil {
 		if err := deps.Renderer.RenderSuccess(cmd.OutOrStdout(), resp); err != nil {
 			return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, err, "rendering success document").WithRecovery("retry the request; if it persists, report the renderer failure"), "output_write")
