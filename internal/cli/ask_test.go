@@ -142,7 +142,7 @@ func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 func TestAskRejectsDualStdinBeforeRead(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
-	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "-", "--state-json", "-"}, deps)
+	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "-", "--state-json-file", "-"}, deps)
 	if code != 2 || renderer.err != nil || !strings.Contains(stderr, "JEQ_SOURCE_CONFLICT") || *reads != 0 {
 		t.Fatalf("code=%d err=%v reads=%d", code, renderer.err, *reads)
 	}

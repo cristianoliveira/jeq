@@ -16,7 +16,7 @@ func TestRankAcceptanceInputFailures(t *testing.T) {
 		args        []string
 	}{
 		{"missing state", `[{"id":"a","criteria":"x"}]`, []string{"--instruction", "Which?", "--criteria-pointer", "/criteria"}},
-		{"multiple state", `[{"id":"a","criteria":"x"}]`, []string{"--state", "one", "--state-json", "state.json", "--instruction", "Which?", "--criteria-pointer", "/criteria"}},
+		{"multiple state", `[{"id":"a","criteria":"x"}]`, []string{"--state", "one", "--state-json-file", "state.json", "--instruction", "Which?", "--criteria-pointer", "/criteria"}},
 		{"missing criteria pointer", `[{"id":"a"}]`, []string{"--state", "one", "--instruction", "Which?"}},
 		{"invalid criteria pointer", `[{"id":"a","criteria":"x"}]`, []string{"--state", "one", "--instruction", "Which?", "--criteria-pointer", "not-a-pointer"}},
 		{"empty input", "", []string{"--state", "one", "--instruction", "Which?", "--criteria-pointer", "/criteria"}},
@@ -36,6 +36,18 @@ func TestRankAcceptanceInputFailures(t *testing.T) {
 				t.Fatalf("code=%d out=%q stderr=%q calls=%d", code, out.String(), stderr.String(), client.call)
 			}
 		})
+	}
+}
+
+func TestRankAcceptsInlineJSONState(t *testing.T) {
+	choice := "a"
+	client := &fakeClient{resp: contract.Response{Model: "m", Answers: map[string]contract.Answer{"route": {Type: contract.TypeChoice, Choice: &choice, Probs: map[string]float64{"a": 1}}}}}
+	var out, stderr bytes.Buffer
+	deps := RankDeps(client, &out)
+	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"A"}]`)
+	args := []string{"rank", "--as", "route", "--state-json", `{"query":"route"}`, "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}
+	if code := cli.RunWithDeps(args, &out, &stderr, RankRenderer{}, deps); code != 0 || !strings.Contains(out.String(), `"id":"a"`) || string(client.request.State) != `{"query":"route"}` {
+		t.Fatalf("code=%d output=%q stderr=%q request-state=%q", code, out.String(), stderr.String(), client.request.State)
 	}
 }
 

@@ -53,6 +53,9 @@ func DecodeRequest(data []byte) (Request, *codes.Error) {
 
 // checkStateJSON accepts exactly string, object, or array.
 func checkStateJSON(raw json.RawMessage) *codes.Error {
+	if err := scanDoc(append(append([]byte{'['}, raw...), ']')); err != nil {
+		return codes.NewError(codes.CodeRequestInvalid, "state: must be one strict JSON value")
+	}
 	trimmed := trimSpace(raw)
 	if len(trimmed) == 0 {
 		return codes.NewError(codes.CodeRequestInvalid, "state: field is missing or null; provide non-empty state")

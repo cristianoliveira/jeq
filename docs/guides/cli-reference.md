@@ -20,7 +20,23 @@ surface is intentionally small:
 
 JSON is the default document format. `map`, `rate`, `reduce`, `rank`, and `gate`
 support NDJSON where their input is a stream; `ask` and `validate` use JSON
-requests. `--verbose` writes structured trace events to stderr and never changes
+requests.
+
+## Input flags
+
+Input flags keep one meaning across commands:
+
+| Flag | Meaning |
+| --- | --- |
+| `--state TEXT` | Literal text state |
+| `--state-file PATH` | Text file, or `-` for stdin |
+| `--state-json JSON` | Inline JSON state value |
+| `--state-json-file PATH` | JSON file, or `-` for stdin |
+| `--questions PATH` | Questions document file, or `-` for stdin |
+| `--questions-json JSON` | Inline questions document for `ask`, `validate`, `map`, and `reduce` |
+| `--request PATH` | Complete native request file, or `-` for stdin |
+
+`rate` and `rank` build their own question shapes and do not accept question-document flags. Each command reads stdin at most once; use a file for the other sources. Inline values can appear in shell history, so use file flags or stdin when that exposure matters. `--state-json` now means inline JSON. Migrate previous `--state-json FILE` invocations to `--state-json-file FILE`; jeq does not guess whether an argument is a path. `--verbose` writes structured trace events to stderr and never changes
 stdout. For composed commands, precedence is `--model`, then `JEQ_DEFAULT_MODEL`, then the selected provider profile, then legacy `TYPESAFE_DEFAULT_MODEL` or top-level config, then the provider default. The file
 named by non-empty `JEQ_CONFIG`, otherwise the default path
 (`$XDG_CONFIG_HOME/jeq/config.json` or `$HOME/.config/jeq/config.json`). If

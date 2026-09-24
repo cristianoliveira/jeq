@@ -21,7 +21,7 @@ const RankProbabilityTolerance = 1e-6
 
 // NewRankCmd creates the one-request candidate ranking primitive.
 func NewRankCmd(deps AskDeps) *cobra.Command {
-	var name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, timeoutText string
+	var name, input, state, stateFile, stateJSON, stateJSONFile, instruction, idPointer, criteriaPointer, model, timeoutText string
 	var maxRetries int
 	cmd := &cobra.Command{
 		Use: "rank", Short: "Rank candidates with a TypeSafe Choice", Long: "Jev supplies relative typed semantic Choice evidence; the caller owns jq selection, deterministic policy, and actions. Ranks every original candidate and attaches complete Choice evidence under _jeq.<as>. Choice probabilities are relative: include an explicit fallback candidate when nothing may fit. Pick or threshold explicitly with jq or another jeq stage.", Args: cobra.NoArgs,
@@ -30,8 +30,8 @@ func NewRankCmd(deps AskDeps) *cobra.Command {
   cat handlers.ndjson | jeq rank --as route --state-file request.txt --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runRank(cmd, deps, rankFlags{
-				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, timeout: timeoutText, maxRetries: maxRetries,
-				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"),
+				name: name, input: input, state: state, stateFile: stateFile, stateJSON: stateJSON, stateJSONFile: stateJSONFile, instruction: instruction, idPointer: idPointer, criteriaPointer: criteriaPointer, model: model, timeout: timeoutText, maxRetries: maxRetries,
+				nameSet: cmd.Flags().Changed("as"), inputSet: cmd.Flags().Changed("input"), stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), stateJSONFileSet: cmd.Flags().Changed("state-json-file"), instructionSet: cmd.Flags().Changed("instruction"), idPointerSet: cmd.Flags().Changed("id-pointer"), criteriaPointerSet: cmd.Flags().Changed("criteria-pointer"), modelSet: cmd.Flags().Changed("model"),
 			})
 		}),
 	}
@@ -40,7 +40,8 @@ func NewRankCmd(deps AskDeps) *cobra.Command {
 	flags.StringVar(&input, "input", "json", "input framing: json or ndjson")
 	flags.StringVar(&state, "state", "", "literal state text")
 	flags.StringVar(&stateFile, "state-file", "", "state text file or -")
-	flags.StringVar(&stateJSON, "state-json", "", "state JSON file or -")
+	flags.StringVar(&stateJSON, "state-json", "", "inline state JSON")
+	flags.StringVar(&stateJSONFile, "state-json-file", "", "state JSON file or -")
 	flags.StringVar(&instruction, "instruction", "", "single Choice question instruction")
 	flags.StringVar(&idPointer, "id-pointer", "", "pointer to each candidate's unique string id")
 	flags.StringVar(&criteriaPointer, "criteria-pointer", "", "pointer to each candidate's Choice criteria")
@@ -51,9 +52,9 @@ func NewRankCmd(deps AskDeps) *cobra.Command {
 }
 
 type rankFlags struct {
-	name, input, state, stateFile, stateJSON, instruction, idPointer, criteriaPointer, model, timeout                   string
-	maxRetries                                                                                                          int
-	nameSet, inputSet, stateSet, stateFileSet, stateJSONSet, instructionSet, idPointerSet, criteriaPointerSet, modelSet bool
+	name, input, state, stateFile, stateJSON, stateJSONFile, instruction, idPointer, criteriaPointer, model, timeout                      string
+	maxRetries                                                                                                                            int
+	nameSet, inputSet, stateSet, stateFileSet, stateJSONSet, stateJSONFileSet, instructionSet, idPointerSet, criteriaPointerSet, modelSet bool
 }
 
 func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
@@ -82,13 +83,16 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if f.stateJSONSet {
 		stateSources++
 	}
+	if f.stateJSONFileSet {
+		stateSources++
+	}
 	if stateSources > 1 {
-		return jeq.NewError(jeq.CodeSourceConflict, "choose exactly one of --state, --state-file, or --state-json")
+		return jeq.NewError(jeq.CodeSourceConflict, "choose exactly one of --state, --state-file, --state-json, or --state-json-file")
 	}
 	if stateSources == 0 {
-		return jeq.NewError(jeq.CodeInputInvalid, "one of --state, --state-file, or --state-json is required")
+		return jeq.NewError(jeq.CodeInputInvalid, "one of --state, --state-file, --state-json, or --state-json-file is required")
 	}
-	if (f.stateFileSet && f.stateFile == "-") || (f.stateJSONSet && f.stateJSON == "-") {
+	if (f.stateFileSet && f.stateFile == "-") || (f.stateJSONFileSet && f.stateJSONFile == "-") {
 		return jeq.NewError(jeq.CodeSourceConflict, "candidate input stdin cannot also be used as state stdin")
 	}
 	if f.maxRetries < 0 || f.maxRetries > MaxRetriesLimit {
@@ -140,10 +144,8 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if f.stateFileSet {
 		stateValue = json.RawMessage(stateBytes)
 	}
-	if f.stateJSONSet {
-		if err := json.Unmarshal(stateBytes, &stateValue); err != nil {
-			return jeq.NewError(jeq.CodeInputInvalid, "state JSON is invalid")
-		}
+	if f.stateJSONSet || f.stateJSONFileSet {
+		stateValue = json.RawMessage(stateBytes)
 	}
 	if err := contract.CheckStateValue(stateValue); err != nil {
 		return err
@@ -212,9 +214,15 @@ func rankState(deps AskDeps, f rankFlags) ([]byte, *jeq.Error) {
 	if f.stateSet {
 		return []byte(strconvQuote(f.state)), nil
 	}
-	path := f.stateFile
 	if f.stateJSONSet {
-		path = f.stateJSON
+		if err := validateStateJSON([]byte(f.stateJSON), "--state-json", 64<<20); err != nil {
+			return nil, err
+		}
+		return []byte(f.stateJSON), nil
+	}
+	path := f.stateFile
+	if f.stateJSONFileSet {
+		path = f.stateJSONFile
 	}
 	if path == "-" {
 		b, err := deps.ReadStdin(deps.Stdin, 64<<20, true)
@@ -224,6 +232,9 @@ func rankState(deps AskDeps, f rankFlags) ([]byte, *jeq.Error) {
 		if f.stateFileSet {
 			return []byte(strconvQuote(string(b))), nil
 		}
+		if err := validateStateJSON(b, "--state-json-file", 64<<20); err != nil {
+			return nil, err
+		}
 		return b, nil
 	}
 	b, err := deps.ReadFile(path, 64<<20)
@@ -232,6 +243,9 @@ func rankState(deps AskDeps, f rankFlags) ([]byte, *jeq.Error) {
 	}
 	if f.stateFileSet {
 		return []byte(strconvQuote(string(b))), nil
+	}
+	if err := validateStateJSON(b, "--state-json-file", 64<<20); err != nil {
+		return nil, err
 	}
 	return b, nil
 }

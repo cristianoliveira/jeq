@@ -18,16 +18,17 @@ const (
 
 // Sources records which ask input sources are present on the command line.
 type Sources struct {
-	Request   bool
-	Questions bool
-	StateText bool
-	StateFile bool
-	StateJSON bool
+	Request       bool
+	Questions     bool
+	StateText     bool
+	StateFile     bool
+	StateJSON     bool
+	StateJSONFile bool
 }
 
 func (s Sources) stateCount() int {
 	n := 0
-	for _, b := range []bool{s.StateText, s.StateFile, s.StateJSON} {
+	for _, b := range []bool{s.StateText, s.StateFile, s.StateJSON, s.StateJSONFile} {
 		if b {
 			n++
 		}
@@ -55,13 +56,13 @@ func CheckSources(s Sources) *Error {
 	}
 	if s.Questions && stateCount == 0 {
 		return NewError(CodeInputInvalid,
-			"--questions needs exactly one state source: --state, --state-file, or --state-json")
+			"--questions needs exactly one state source: --state, --state-file, --state-json, or --state-json-file")
 	}
 	return nil
 }
 
 // CheckStdin rejects configurations that would need stdin twice (for
-// example --questions - --state-json -) before any read happens. It is pure
+// example --questions - --state-json-file -) before any read happens. It is pure
 // and must run before source readers are invoked.
 func CheckStdin(forRequest, forQuestions, forState bool) *Error {
 	uses := 0
