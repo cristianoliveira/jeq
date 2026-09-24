@@ -40,8 +40,7 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
   printf '%s\n' '{"file":"report.pdf"}' | jeq map --as category --state-pointer /file --questions-json '{"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}'
-  jeq examples choice
-  jeq validate --request - < choice-request.json`,
+  jeq examples choice`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
 				name: name, input: input, source: source, statePointer: statePointer,

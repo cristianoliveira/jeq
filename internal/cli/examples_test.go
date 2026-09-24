@@ -2,10 +2,12 @@ package cli_test
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/cristianoliveira/jeq/internal/cli"
+	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/spf13/cobra"
 )
 
@@ -54,6 +56,40 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 		if id == "debug-chain" && !strings.Contains(out.String(), "reduce --as aggregate --input ndjson") {
 			t.Fatalf("%s shell/navigation output invalid: %q", id, out.String())
 		}
+	}
+}
+
+func TestValidateChoiceRequestOffline(t *testing.T) {
+	valid := `{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}`
+	invalid := `{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{}}}}`
+	for _, tc := range []struct {
+		name       string
+		input      string
+		wantCode   int
+		wantOutput string
+	}{
+		{name: "valid choice", input: valid, wantCode: 0, wantOutput: "valid: true"},
+		{name: "empty choice criteria", input: invalid, wantCode: 2, wantOutput: "questions.category.criteria: choice needs a non-empty map of options"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			deps := cli.AskDeps{
+				ReadFile: func(string, int64) ([]byte, *jeq.Error) { return nil, nil },
+				Stdin:    strings.NewReader(tc.input),
+				ReadStdin: func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *jeq.Error) {
+					data, err := io.ReadAll(io.LimitReader(stdin, limit))
+					if err != nil {
+						return nil, jeq.WrapError(jeq.CodeInputInvalid, err, "reading test stdin")
+					}
+					return data, nil
+				},
+				Getenv: func(string) string { t.Fatal("offline validation must not read environment"); return "" },
+			}
+			var out, errOut bytes.Buffer
+			code := cli.RunWithDeps([]string{"validate", "--request", "-"}, &out, &errOut, nil, deps)
+			if code != tc.wantCode || !strings.Contains(out.String()+errOut.String(), tc.wantOutput) {
+				t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), errOut.String())
+			}
+		})
 	}
 }
 
