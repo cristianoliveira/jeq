@@ -22,6 +22,17 @@ type exampleRecipe struct {
 
 var exampleRecipes = []exampleRecipe{
 	{
+		ID: "choice", Purpose: "Categorize a file with a typed Choice question and validate the native request offline.", Covers: []string{"map", "validate"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY for map"}, Cost: "map: 1 API request; validate: 0 API requests",
+		Shell: `printf '%s\n' '{"file":"report.pdf"}' |
+  jeq map --as category --input ndjson --state-pointer /file \
+    --questions-json '{"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}'
+
+printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}' |
+  jeq validate --request -`,
+		InputShape: "JSON records with a file path; native validation request uses {model,state,questions}", OutputShape: "map adds typed Choice evidence under _jeq/category; validate prints an offline receipt",
+		Privacy: "map sends selected file state to TypeSafe; validation is local and sends no state.",
+	},
+	{
 		ID: "rate-sort", Purpose: "Rate records with one Score rubric, then select the highest-scoring record with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
 		Shell: `printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
 jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \

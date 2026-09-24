@@ -36,10 +36,12 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "map",
 		Short: "Enrich each JSON record with one named judgment",
-		Long:  "Jev supplies typed semantic evidence per record; the caller owns state, deterministic policy, and actions.",
+		Long:  "Jev supplies typed semantic evidence per record; the caller owns state, deterministic policy, and actions. Questions use type, non-empty instructions, and type-specific criteria. Locally supported shapes: Noul criteria are optional true/false descriptions, Choice criteria are a non-empty options object, and Score criteria are an ordered array of at least two levels; the API may support additional shapes. See `jeq examples choice` for a complete Choice request and offline validation example.",
 		Args:  cobra.NoArgs,
 		Example: `  printf '%s\n' '{"change":"small"}' | jeq map --as risk --state-pointer /change --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}'
-  jeq examples map`,
+  printf '%s\n' '{"file":"report.pdf"}' | jeq map --as category --state-pointer /file --questions-json '{"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}'
+  jeq examples choice
+  jeq validate --request - < choice-request.json`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			if err := runMap(cmd, deps, mapFlags{
 				name: name, input: input, source: source, statePointer: statePointer,

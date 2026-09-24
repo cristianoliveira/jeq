@@ -10,7 +10,7 @@ import (
 )
 
 func TestExamplesUseNativeCobraHelp(t *testing.T) {
-	ids := []string{"rate-sort", "rank-top-k", "validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
+	ids := []string{"choice", "rate-sort", "rank-top-k", "validate-native", "ask-native", "map-gate", "reduce-gate", "map-reduce-gate", "debug-chain"}
 	var parent, parentHelp, stderr bytes.Buffer
 	if code := cli.RunWithDeps([]string{"examples"}, &parent, &stderr, nil, cli.AskDeps{}); code != 0 {
 		t.Fatalf("parent code=%d stderr=%q", code, stderr.String())
@@ -37,7 +37,11 @@ func TestExamplesUseNativeCobraHelp(t *testing.T) {
 				t.Fatalf("%s missing %q", id, field)
 			}
 		}
-		if id == "validate-native" {
+		if id == "choice" {
+			if !strings.Contains(out.String(), `"type":"choice"`) || !strings.Contains(out.String(), "jeq validate --request -") || !strings.Contains(out.String(), `"criteria"`) {
+				t.Fatalf("%s missing discoverable Choice shape and offline validation: %q", id, out.String())
+			}
+		} else if id == "validate-native" {
 			if !strings.Contains(out.String(), "does not call Jev") || !strings.Contains(out.String(), "validates the caller-defined request shape") {
 				t.Fatalf("%s missing offline role note: %q", id, out.String())
 			}
