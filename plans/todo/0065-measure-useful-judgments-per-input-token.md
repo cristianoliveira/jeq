@@ -1,7 +1,7 @@
 ---
 id: TASK-0065
 title: Measure useful judgments per input token
-status: todo
+status: doing
 depends_on: []
 priority: high
 tags: [cost, usage, observability, cli, typesafe]
