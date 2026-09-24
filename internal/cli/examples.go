@@ -31,8 +31,7 @@ var exampleRecipes = []exampleRecipe{
 		ID: "choice", Purpose: "Categorize a file with a typed Choice question and validate the native request offline.", Covers: []string{"map", "validate"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY for map"}, Cost: "map: 1 API request; validate: 0 API requests",
 		Shell: `printf '%s\n' '{"file":"report.pdf"}' |
   jeq map --as category --input ndjson --state-pointer /file \
-    --questions-json '{"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}'
-
+    --questions-json '{"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}' &&
 printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{"category":{"type":"choice","instructions":"Which category fits this file?","criteria":{"invoice":"Financial document","report":"Analysis or findings"}}}}' |
   jeq validate --request -`,
 		InputShape: "JSON records with a file path; native validation request uses {model,state,questions}", OutputShape: "map adds typed Choice evidence under _jeq/category; validate prints an offline receipt",
@@ -46,7 +45,9 @@ printf '%s\n' '{"model":"jev-latest","state":{"file":"report.pdf"},"questions":{
 	},
 	{
 		ID: "rate-sort", Purpose: "Rate records with one Score rubric, then select the highest-scoring record with jq.", Covers: []string{"rate", "jq"}, Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request per record; jq is offline",
-		Shell: `printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
+		Shell: `# Run in Bash; rate sends synthetic records to TypeSafe.
+set -o pipefail
+printf '%s\n' '{"id":"a","description":"minor issue"}' '{"id":"b","description":"service outage"}' |
 jeq rate --as severity --input ndjson --state-pointer /description --instruction 'How severe is this issue?' \
   --level 'Cosmetic: no functional impact' --level 'Degraded: an important workflow is impaired' --level 'Critical: service or data is at risk' |
 jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.id)'`,
@@ -55,7 +56,9 @@ jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.i
 	{
 		ID: "rank-top-k", Purpose: "Rank candidates once, then select an explicit top-k policy with jq.", Covers: []string{"rank", "jq"},
 		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request; jq is offline",
-		Shell: `printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":"support","description":"Account help"},{"name":"fallback","description":"No specialist match"}]' |
+		Shell: `# Run in Bash; rank sends synthetic candidates and state to TypeSafe.
+set -o pipefail
+printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":"support","description":"Account help"},{"name":"fallback","description":"No specialist match"}]' |
   jeq rank --as route --input json --state 'A customer asks about a refund' \
     --instruction 'Which handler best fits this request?' --id-pointer /name --criteria-pointer /description |
   jq -c '.items[:2] | map(.candidate)'`,
@@ -79,7 +82,9 @@ jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.i
 	},
 	{
 		ID: "debug-chain", Purpose: "Capture safe lifecycle traces for a caller-owned map/rate/reduce chain.", Covers: []string{"verbose", "trace-id", "map", "rate", "reduce"}, Requirements: []string{"installed jeq", "bash", "TYPESAFE_API_KEY"}, Cost: "one request per map/rate record plus one reduce request",
-		Shell: `printf '%s\n' '{"description":"incident"}' |
+		Shell: `# Run in Bash; creates the three caller-owned trace files in this directory.
+set -o pipefail
+printf '%s\n' '{"description":"incident"}' |
   jeq --verbose map --as triage --input ndjson --state-pointer /description --questions-json '{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}' 2>map.trace.ndjson |
   jeq --verbose rate --as severity --input ndjson --state-pointer /description --instruction 'How severe?' --level Low --level High 2>rate.trace.ndjson |
   jeq --verbose reduce --as aggregate --input ndjson --questions-json '{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}' 2>reduce.trace.ndjson
@@ -89,32 +94,85 @@ jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.i
 	},
 	{
 		ID: "map-gate", Purpose: "Judge each record and apply an offline threshold.", Covers: []string{"map", "gate"},
-		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N API requests for N records; jq and gate are offline",
-		Shell: `printf '%s\n' '{"change":"small"}' '{"change":"large"}' |
+		Requirements: []string{"installed jeq", "Bash", "jq", "mktemp", "TYPESAFE_API_KEY"}, Cost: "N API requests for N records; jq and gate are offline",
+		Shell: `# Run in Bash. This uses synthetic data; map sends it to TypeSafe.
+set -o pipefail
+
+decisions_file=$(mktemp) || exit $?
+trap 'rm -f "$decisions_file"' EXIT
+
+pipeline_status=0
+if printf '%s\n' '{"id":"a","change":"small"}' '{"id":"b","change":"large"}' |
   jeq map --as risk --input ndjson --state-pointer /change \
     --questions-json '{"questions":{"risk":{"type":"noul","instructions":"Is this low risk?"}}}' |
   jeq gate --as policy --input ndjson --value-pointer /_jeq/risk/answers/risk/noul \
     --pass-min 0.80 --reject-max 0.40 |
-  jq -c 'del(.change)'`,
-		InputShape: "NDJSON records containing change", OutputShape: "source-free records with _jeq/risk and _jeq/policy",
-		Privacy: "map sends each selected record; final jq removes change before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.",
+  jq -c 'del(.change)' >"$decisions_file"; then
+  pipeline_status=0
+else
+  pipeline_status=$?
+fi
+
+# Keep every decision visible, including reject and uncertain records.
+cat "$decisions_file"
+output_status=$?
+if ((output_status != 0)); then exit "$output_status"; fi
+
+case "$pipeline_status" in
+  0) ;;
+  10) printf '%s\n' 'policy rejected at least one record' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain for at least one record' >&2 ;;
+  *) exit "$pipeline_status" ;;
+esac
+exit "$pipeline_status"`,
+		InputShape: "two synthetic NDJSON records containing id and change", OutputShape: "all records with _jeq/risk and _jeq/policy; source change is removed",
+		Privacy: "the synthetic or caller-provided change is sent to TypeSafe; jq removes it from output, not from the request.", Exits: "0 pass; 10 if any record rejects; 11 if uncertain records and none reject. This Bash block handles policy outcomes explicitly.",
 	},
 	{
 		ID: "reduce-gate", Purpose: "Judge one complete collection and gate its aggregate signal.", Covers: []string{"reduce", "gate"},
-		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "1 API request for the complete collection; jq and gate are offline",
-		Shell: `printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
+		Requirements: []string{"installed jeq", "Bash", "jq", "mktemp", "TYPESAFE_API_KEY"}, Cost: "1 API request for the complete collection; jq and gate are offline",
+		Shell: `# Run in Bash. This collection is synthetic; reduce sends it to TypeSafe.
+set -o pipefail
+
+decisions_file=$(mktemp) || exit $?
+trap 'rm -f "$decisions_file"' EXIT
+
+pipeline_status=0
+if printf '%s\n' '{"id":"a","value":1}' '{"id":"b","value":2}' |
   jeq reduce --as coherent --input ndjson \
     --questions-json '{"questions":{"coherent":{"type":"noul","instructions":"Is this collection coherent?"}}}' |
   jeq gate --as policy --value-pointer /_jeq/coherent/answers/coherent/noul \
     --pass-min 0.80 --reject-max 0.40 |
-  jq -c 'del(.items)'`,
-		InputShape: "ordered NDJSON records; reduce evaluates the complete array", OutputShape: "source-free aggregate with _jeq/coherent and _jeq/policy",
-		Privacy: "the complete collection is sent in one request; final jq removes .items before sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain.",
+  jq -c 'del(.items)' >"$decisions_file"; then
+  pipeline_status=0
+else
+  pipeline_status=$?
+fi
+
+cat "$decisions_file"
+output_status=$?
+if ((output_status != 0)); then exit "$output_status"; fi
+case "$pipeline_status" in
+  0) ;;
+  10) printf '%s\n' 'policy rejected the collection' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain about the collection' >&2 ;;
+  *) exit "$pipeline_status" ;;
+esac
+exit "$pipeline_status"`,
+		InputShape: "ordered synthetic NDJSON records; reduce evaluates the complete array", OutputShape: "aggregate with _jeq/coherent and _jeq/policy; source items are removed",
+		Privacy: "the full collection is sent in one request; jq removes .items from output, not from the request.", Exits: "0 pass; 10 reject; 11 uncertain. The Bash block handles each gate result explicitly.",
 	},
 	{
 		ID: "map-reduce-gate", Purpose: "Compose local per-record judgments with one relational aggregate gate.", Covers: []string{"map", "reduce", "gate"},
-		Requirements: []string{"installed jeq", "bash", "jq", "TYPESAFE_API_KEY"}, Cost: "N map requests plus 1 reduce request; jq and gate are offline",
-		Shell: `printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","content":"two"}}' |
+		Requirements: []string{"installed jeq", "Bash", "jq", "mktemp", "TYPESAFE_API_KEY"}, Cost: "N map requests plus 1 reduce request; jq and gate are offline",
+		Shell: `# Run in Bash. These files are synthetic; map and reduce send them to TypeSafe.
+set -o pipefail
+
+decisions_file=$(mktemp) || exit $?
+trap 'rm -f "$decisions_file"' EXIT
+
+pipeline_status=0
+if printf '%s\n' '{"file":{"path":"a","content":"one"}}' '{"file":{"path":"b","content":"two"}}' |
   jeq map --as local --input ndjson --state-pointer /file \
     --questions-json '{"questions":{"local":{"type":"noul","instructions":"Is this file focused?"}}}' |
   jq -c '{file:.file,local:._jeq.local.answers.local.noul}' |
@@ -122,9 +180,24 @@ jq -s 'sort_by(._jeq.severity.answers.severity.score) | reverse | .[:1] | map(.i
     --questions-json '{"questions":{"aggregate":{"type":"noul","instructions":"Is this related collection coherent?"}}}' |
   jeq gate --as policy --value-pointer /_jeq/aggregate/answers/aggregate/noul \
     --pass-min 0.80 --reject-max 0.40 |
-  jq -c 'del(.items)'`,
-		InputShape: "NDJSON records with file:{path,content}", OutputShape: "source-free aggregate/gate evidence after del(.items)",
-		Privacy: "source crosses map and reduce; final jq removes .items before logs or sharing.", Exits: "gate exits 0 pass, 10 reject, 11 uncertain; pipefail preserves it.",
+  jq -c 'del(.items)' >"$decisions_file"; then
+  pipeline_status=0
+else
+  pipeline_status=$?
+fi
+
+cat "$decisions_file"
+output_status=$?
+if ((output_status != 0)); then exit "$output_status"; fi
+case "$pipeline_status" in
+  0) ;;
+  10) printf '%s\n' 'policy rejected the collection' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain about the collection' >&2 ;;
+  *) exit "$pipeline_status" ;;
+esac
+exit "$pipeline_status"`,
+		InputShape: "synthetic NDJSON records with file:{path,content}", OutputShape: "aggregate with _jeq/aggregate and _jeq/policy; source items are removed",
+		Privacy: "source crosses map and reduce; jq removes .items from output, not from either request.", Exits: "0 pass; 10 reject; 11 uncertain. The Bash block handles each gate result explicitly.",
 	},
 }
 

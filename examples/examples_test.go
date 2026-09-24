@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/cristianoliveira/jeq/internal/cli"
 )
 
 var (
@@ -522,6 +524,121 @@ func stringSlice(values [][]byte) []string {
 		result[i] = string(value)
 	}
 	return result
+}
+
+func builtinRecipeShell(t *testing.T, recipe string) string {
+	t.Helper()
+	root := cli.NewExamplesCmd(cli.AskDeps{})
+	command, _, err := root.Find([]string{recipe})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if command.Example == "" {
+		t.Fatalf("recipe %q has no copyable shell example", recipe)
+	}
+	return command.Example
+}
+
+func TestBuiltinExamplesParseAsBash(t *testing.T) {
+	for _, recipe := range []string{"noul", "choice", "score", "rate-sort", "rank-top-k", "validate-native", "ask-native", "debug-chain", "map-gate", "reduce-gate", "map-reduce-gate"} {
+		t.Run(recipe, func(t *testing.T) {
+			cmd := exec.Command("bash", "-n", "-c", builtinRecipeShell(t, recipe))
+			if output, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("invalid Bash example: %v: %s", err, output)
+			}
+		})
+	}
+}
+
+func runBuiltinRecipe(t *testing.T, recipe string, extra map[string]string) processResult {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", "-c", builtinRecipeShell(t, recipe))
+	cmd.Dir = repoRoot
+	cmd.Env = envWith(map[string]string{"PATH": os.Getenv("PATH"), "REAL_JEQ": jeqBin, "FAKE_SIGNAL_A": "0.9", "FAKE_SIGNAL_B": "0.9"}, extra)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	_ = cmd.Run()
+	if ctx.Err() != nil {
+		t.Fatalf("recipe %s timed out: stdout=%q stderr=%q", recipe, stdout.String(), stderr.String())
+	}
+	return processResult{stdout: stdout.String(), stderr: stderr.String(), exit: processExit(cmd)}
+}
+
+func TestCopyableMapGateRecipePropagatesPolicyAndPipelineStatuses(t *testing.T) {
+	stub := filepath.Join(t.TempDir(), "jeq")
+	stubSource := `#!/usr/bin/env bash
+if [[ ${1:-} != map ]]; then exec "$REAL_JEQ" "$@"; fi
+index=0
+while IFS= read -r record; do
+  index=$((index + 1))
+  case "$index" in
+    1) id=a; value=$FAKE_SIGNAL_A ;;
+    2) id=b; value=$FAKE_SIGNAL_B ;;
+    *) exit 2 ;;
+  esac
+  if [[ ${FAKE_MALFORMED:-0} == 1 ]]; then
+    printf 'not-json\n'
+  else
+    printf '{"id":"%s","change":"synthetic","_jeq":{"risk":{"answers":{"risk":{"noul":%s}}}}}\n' "$id" "$value"
+  fi
+done
+exit "${FAKE_MAP_EXIT:-0}"
+`
+	if err := os.WriteFile(stub, []byte(stubSource), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	toolDir := t.TempDir()
+	if err := os.Symlink(stub, filepath.Join(toolDir, "jeq")); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name, signalA, signalB string
+		mapExit, wantExit      int
+		malformed              bool
+		decisions              []string
+	}{
+		{name: "inclusive pass boundary", signalA: "0.8", signalB: "0.9", wantExit: 0, decisions: []string{"pass", "pass"}},
+		{name: "reject", signalA: "0.4", signalB: "0.9", wantExit: 10, decisions: []string{"reject", "pass"}},
+		{name: "uncertain", signalA: "0.5", signalB: "0.79", wantExit: 11, decisions: []string{"uncertain", "uncertain"}},
+		{name: "reject takes precedence", signalA: "0.4", signalB: "0.5", wantExit: 10, decisions: []string{"reject", "uncertain"}},
+		{name: "malformed mapped input", signalA: "0.9", signalB: "0.9", wantExit: 2, malformed: true},
+		{name: "upstream failure despite successful gate and jq", signalA: "0.9", signalB: "0.9", mapExit: 23, wantExit: 23, decisions: []string{"pass", "pass"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			extra := map[string]string{
+				"PATH":          toolDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+				"FAKE_SIGNAL_A": tc.signalA, "FAKE_SIGNAL_B": tc.signalB,
+				"FAKE_MAP_EXIT": fmt.Sprint(tc.mapExit),
+			}
+			if tc.malformed {
+				extra["FAKE_MALFORMED"] = "1"
+			}
+			result := runBuiltinRecipe(t, "map-gate", extra)
+			if result.exit != tc.wantExit {
+				t.Fatalf("exit=%d want=%d stdout=%q stderr=%q", result.exit, tc.wantExit, result.stdout, result.stderr)
+			}
+			if len(tc.decisions) == 0 {
+				if result.stdout != "" || result.stderr == "" {
+					t.Fatalf("malformed input output: stdout=%q stderr=%q", result.stdout, result.stderr)
+				}
+				return
+			}
+			records := ndjson(t, result.stdout)
+			if len(records) != len(tc.decisions) {
+				t.Fatalf("emitted %d decisions, want %d: %s", len(records), len(tc.decisions), result.stdout)
+			}
+			for i, record := range records {
+				policy, ok := record["_jeq"].(map[string]any)["policy"].(map[string]any)
+				if !ok || policy["decision"] != tc.decisions[i] {
+					t.Errorf("decision %d=%#v want %q", i, policy, tc.decisions[i])
+				}
+			}
+		})
+	}
 }
 
 func slicesEqual(left, right []string) bool {

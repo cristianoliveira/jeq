@@ -5,11 +5,13 @@ catalog key, looks up a fixed runbook question, and writes a complete native
 request into a new record field. The second map evaluates that request. Gate
 then checks its numeric confidence offline.
 
-From the repository root, run:
+From the repository root in Bash, with `jeq`, `jq`, and `TYPESAFE_API_KEY` configured, run:
 
-```sh
-< examples/readable-workflows/incident/fixtures/incident.json \
-jeq map --as category --questions examples/readable-workflows/incident/category-questions.json \
+```bash
+set -o pipefail
+policy_status=0
+if < examples/readable-workflows/incident/fixtures/incident.json \
+  jeq map --as category --questions examples/readable-workflows/incident/category-questions.json \
     --state-pointer /incident |
   jq --slurpfile catalog examples/readable-workflows/incident/runbook-catalog.json '
     (._jeq.category.answers.category.choice // error("missing category answer")) as $category |
@@ -33,7 +35,18 @@ jeq map --as category --questions examples/readable-workflows/incident/category-
   jeq map --as runbook --request-pointer /request |
   jeq gate --as incident_policy \
     --value-pointer /_jeq/runbook/answers/runbook/confidence \
-    --pass-min 0.80 --reject-max 0.40
+    --pass-min 0.80 --reject-max 0.40; then
+  policy_status=0
+else
+  policy_status=$?
+fi
+case "$policy_status" in
+  0) printf '%s\n' 'policy passed' ;;
+  10) printf '%s\n' 'policy rejected' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain' >&2 ;;
+  *) exit "$policy_status" ;;
+esac
+exit "$policy_status"
 ```
 
 The catalog lookup is ordinary `jq` data processing. A response is accepted

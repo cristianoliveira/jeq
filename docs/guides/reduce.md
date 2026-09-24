@@ -22,15 +22,32 @@ mode. The aggregate evidence is appended under:
 The example's output can be sent to an offline policy gate. These thresholds are
 illustrative, not calibrated defaults:
 
-```sh
-./examples/release-readiness/review.sh \
+```bash
+# Requires Bash, the example's documented tools, jeq, and TYPESAFE_API_KEY.
+set -o pipefail
+policy_status=0
+if ./examples/release-readiness/review.sh \
   | jeq gate --as release_policy \
     --value-pointer /_jeq/release_ready/answers/release_ready/noul \
-    --pass-min 0.80 --reject-max 0.40
+    --pass-min 0.80 --reject-max 0.40; then
+  policy_status=0
+else
+  policy_status=$?
+fi
+case "$policy_status" in
+  0) printf '%s\n' 'policy passed' ;;
+  10) printf '%s\n' 'policy rejected' >&2 ;;
+  11) printf '%s\n' 'policy is uncertain' >&2 ;;
+  *) exit "$policy_status" ;;
+esac
+exit "$policy_status"
 ```
 
 Values at or above `0.80` pass, values at or below `0.40` reject, and the middle
-is uncertain. `gate` makes no network request.
+is uncertain; both comparisons are inclusive. Gate emits the decision for every
+processed record. Aggregate exit is `0` when all pass, `10` if any reject, and
+`11` only when there are uncertain records and no rejects. Filtering and actions
+remain the caller's job. Gate makes no network request.
 
 Choose the primitive that matches the question:
 

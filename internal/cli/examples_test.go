@@ -135,6 +135,21 @@ func TestMapHelpDiscoversEveryQuestionType(t *testing.T) {
 	}
 }
 
+func TestRankExampleUsesExplicitNDJSONAndSyntheticInputs(t *testing.T) {
+	cmd := cli.NewRankCmd(cli.AskDeps{})
+	var help bytes.Buffer
+	cmd.SetOut(&help)
+	cmd.SetErr(&help)
+	if err := cmd.Help(); err != nil {
+		t.Fatal(err)
+	}
+	for _, phrase := range []string{"--input ndjson", `"name":"billing"`, "--state 'A customer asks about a refund'"} {
+		if !strings.Contains(help.String(), phrase) {
+			t.Errorf("rank help missing %q: %s", phrase, help.String())
+		}
+	}
+}
+
 func TestJudgmentHelpStatesJevRole(t *testing.T) {
 	for _, command := range []*cobra.Command{cli.NewAskCmd(cli.AskDeps{}), cli.NewMapCmd(cli.AskDeps{}), cli.NewRateCmd(cli.AskDeps{}), cli.NewRankCmd(cli.AskDeps{}), cli.NewReduceCmd(cli.AskDeps{})} {
 		var out bytes.Buffer
