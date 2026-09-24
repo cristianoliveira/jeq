@@ -265,6 +265,20 @@ func TestUsageSummaryCoversRateRankAndReduce(t *testing.T) {
 	}
 }
 
+func TestUsageSummaryFlagIsDocumentedAndIgnoredForNonPaidCommands(t *testing.T) {
+	client := &usageClient{evaluate: func(contract.Request) (contract.Response, *jeq.Error) {
+		return contract.Response{}, jeq.NewError(jeq.CodeResponseInvalid, "unexpected evaluation")
+	}}
+	code, help, stderr := runUsageCommand(t, []string{"ask", "--help"}, "", client)
+	if code != 0 || !strings.Contains(help, "--usage-summary") || stderr != "" {
+		t.Fatalf("help code=%d flag-present=%t stderr=%q", code, strings.Contains(help, "--usage-summary"), stderr)
+	}
+	code, output, stderr := runUsageCommand(t, []string{"examples", "--usage-summary"}, "", client)
+	if code != 0 || output == "" || stderr != "" || client.callCount() != 0 {
+		t.Fatalf("non-paid command code=%d calls=%d stdout-empty=%t stderr=%q", code, client.callCount(), output == "", stderr)
+	}
+}
+
 func TestUsageSummaryExcludesFailedAndMalformedResponses(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
