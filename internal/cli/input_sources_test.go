@@ -114,6 +114,17 @@ func TestValidateAcceptsInlineAndFileSourceContract(t *testing.T) {
 	}
 }
 
+func TestOversizedInlineQuestionsFailBeforeReadingState(t *testing.T) {
+	client := &fakeClient{}
+	reads := 0
+	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { t.Fatal("environment read for oversized input"); return "" })
+	large := strings.Repeat("x", cli.SourceLimit+1)
+	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions-json", large, "--state", "state"}, deps)
+	if code != 2 || renderer.err != nil || reads != 0 || client.call != 0 || !strings.Contains(stderr, "exceeds the") || strings.Contains(stderr, large[:32]) {
+		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, reads, client.call, stderr)
+	}
+}
+
 func TestQuestionSourceConflictDoesNotOpenFiles(t *testing.T) {
 	client := &fakeClient{}
 	reads := 0
