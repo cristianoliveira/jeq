@@ -62,8 +62,9 @@ For composed commands, model selection is:
 1. `--model`
 2. `JEQ_DEFAULT_MODEL`
 3. the selected provider profile's `default_model`
-4. legacy `TYPESAFE_DEFAULT_MODEL` or the top-level `default_model` in config
-5. the provider default
+4. top-level `default_model` in config
+5. legacy `TYPESAFE_DEFAULT_MODEL`
+6. the `jev-latest` fallback
 
 A native `ask` request's embedded model is authoritative. Provider selection and model selection are separate decisions.
 
@@ -123,7 +124,7 @@ JEQ_PROVIDER=typesafe jeq ask --model jev-latest --state 'A customer was charged
 JEQ_PROVIDER=laya jeq ask --model english --state 'A customer was charged twice' --questions questions.json
 ```
 
-This changes no persistent state and never falls back between providers. For native `jeq ask --request` documents, the embedded `model` is authoritative and neither `--model` nor `JEQ_DEFAULT_MODEL` replaces it. Use separate request documents with `"model":"jev-latest"` for Jev and `"model":"english"` for Laya, as shown above.
+This changes no persistent state and never falls back between providers. For native `jeq ask --request` and `jeq validate --request` documents, the embedded `model` is authoritative. An explicit `--model` is rejected; edit the request document's `model` field to change it. `JEQ_DEFAULT_MODEL` does not replace the embedded model. Use separate request documents with `"model":"jev-latest"` for Jev and `"model":"english"` for Laya, as shown above.
 
 ## Verify and troubleshoot
 

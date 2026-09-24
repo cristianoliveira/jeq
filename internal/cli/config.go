@@ -40,38 +40,15 @@ func ResolveProvider(getenv func(string) string, readFile func(string, int64) ([
 	if err != nil {
 		return ResolvedProvider{}, err
 	}
-	name := strings.TrimSpace(getenv("JEQ_PROVIDER"))
-	if name == "" {
-		name = strings.TrimSpace(config.DefaultProvider)
-	}
-	if name == "" {
-		name = "typesafe"
-	}
-	profile, ok := builtinProvider(name)
-	if !ok {
-		profile, ok = config.Providers[name]
-	}
-	if !ok && name == "custom" {
-		profile = providerConfig{BaseURL: getenv("JEQ_BASE_URL"), DefaultModel: getenv("JEQ_DEFAULT_MODEL"), Auth: getenv("JEQ_AUTH"), APIKeyEnv: "JEQ_API_KEY"}
-		ok = true
-	}
-	if !ok {
-		return ResolvedProvider{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("unknown provider %q", name))
-	}
-	if name == "typesafe" && strings.TrimSpace(getenv("TYPESAFE_BASE_URL")) != "" {
-		profile.BaseURL = getenv("TYPESAFE_BASE_URL")
+	name, profile, err := resolveProviderProfile(config, getenv)
+	if err != nil {
+		return ResolvedProvider{}, err
 	}
 	if profile.DefaultModel == "" {
 		profile.DefaultModel = config.DefaultModel
 	}
 	if profile.DefaultModel == "" {
 		profile.DefaultModel = DefaultModel
-	}
-	if profile.Auth == "" {
-		profile.Auth = "bearer"
-	}
-	if err := validateProvider(name, &profile); err != nil {
-		return ResolvedProvider{}, err
 	}
 	key := ""
 	if profile.Auth == "bearer" {
@@ -95,6 +72,37 @@ func builtinProvider(name string) (providerConfig, bool) {
 		return providerConfig{BaseURL: "https://ai-gateway.vercel.sh/typesafe", DefaultModel: "typesafe-ai/jev", Auth: "bearer", APIKeyEnv: key}, true
 	}
 	return providerConfig{}, false
+}
+
+func resolveProviderProfile(config configDocument, getenv func(string) string) (string, providerConfig, *jeq.Error) {
+	name := strings.TrimSpace(getenv("JEQ_PROVIDER"))
+	if name == "" {
+		name = strings.TrimSpace(config.DefaultProvider)
+	}
+	if name == "" {
+		name = "typesafe"
+	}
+	profile, ok := builtinProvider(name)
+	if !ok {
+		profile, ok = config.Providers[name]
+	}
+	if !ok && name == "custom" {
+		profile = providerConfig{BaseURL: getenv("JEQ_BASE_URL"), DefaultModel: getenv("JEQ_DEFAULT_MODEL"), Auth: getenv("JEQ_AUTH"), APIKeyEnv: "JEQ_API_KEY"}
+		ok = true
+	}
+	if !ok {
+		return "", providerConfig{}, jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("unknown provider %q", name))
+	}
+	if name == "typesafe" && strings.TrimSpace(getenv("TYPESAFE_BASE_URL")) != "" {
+		profile.BaseURL = getenv("TYPESAFE_BASE_URL")
+	}
+	if profile.Auth == "" {
+		profile.Auth = "bearer"
+	}
+	if err := validateProvider(name, &profile); err != nil {
+		return "", providerConfig{}, err
+	}
+	return name, profile, nil
 }
 
 func validateProvider(name string, p *providerConfig) *jeq.Error {
@@ -128,6 +136,9 @@ func validProviderScheme(scheme, host, auth string) bool {
 
 func readProviderConfig(path string, getenv func(string) string, readFile func(string, int64) ([]byte, *jeq.Error), readOptional func(string, int64) ([]byte, *jeq.Error, bool)) (configDocument, *jeq.Error) {
 	path = strings.TrimSpace(path)
+	if path == "" && readOptional == nil {
+		return configDocument{}, nil
+	}
 	explicit := path != ""
 	if !explicit {
 		if root := strings.TrimSpace(getenv("XDG_CONFIG_HOME")); root != "" {
@@ -263,22 +274,9 @@ func ResolveConfiguredModelWithSource(flagModel, explicitPath string, getenv fun
 	if err != nil {
 		return "", "", err
 	}
-	providerName := strings.TrimSpace(getenv("JEQ_PROVIDER"))
-	if providerName == "" {
-		providerName = strings.TrimSpace(config.DefaultProvider)
-	}
-	if providerName == "" {
-		providerName = "typesafe"
-	}
-	profile, ok := builtinProvider(providerName)
-	if !ok {
-		profile, ok = config.Providers[providerName]
-	}
-	if !ok && providerName != "custom" {
-		return "", "", jeq.NewError(jeq.CodeInputInvalid, fmt.Sprintf("unknown provider %q", providerName))
-	}
-	if !ok {
-		profile = providerConfig{DefaultModel: strings.TrimSpace(getenv("JEQ_DEFAULT_MODEL"))}
+	_, profile, profileErr := resolveProviderProfile(config, getenv)
+	if profileErr != nil {
+		return "", "", profileErr
 	}
 	if flagModel != "" {
 		return flagModel, "flag", nil

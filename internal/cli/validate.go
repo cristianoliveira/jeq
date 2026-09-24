@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ type validateDocument struct {
 	Valid         bool   `json:"valid"`
 	Mode          string `json:"mode"`
 	Model         string `json:"model"`
+	ModelSource   string `json:"model_source"`
 	QuestionCount int    `json:"question_count"`
 }
 
@@ -20,13 +22,28 @@ type validateDocument struct {
 func NewValidateCmd(deps AskDeps) *cobra.Command {
 	var request, questions, questionsJSON, state, stateFile, stateJSON, stateJSONFile, model string
 	cmd := &cobra.Command{
-		Use: "validate", Short: "Validate one request without network access", Long: "Validate request or composed inputs locally. `--state-json` is inline JSON; use `--state-json-file` for a file. Inline values may enter shell history, so use files or stdin when that matters.", Args: cobra.NoArgs,
+		Use:   "validate",
+		Short: "Validate one request without network access",
+		Long: `Validate request shape locally without authentication or network access.
+
+For composed input, model precedence is --model, JEQ_DEFAULT_MODEL, the selected
+JEQ_PROVIDER/default_provider profile's default_model, config.default_model,
+legacy TYPESAFE_DEFAULT_MODEL, then jev-latest. JEQ_CONFIG selects the config
+file; otherwise jeq reads its optional user config. The receipt names the model
+and source. Passing validation does not show that the provider supports the
+model; run jeq models to check provider support.
+
+For native requests, the request document owns its model. Edit that document
+rather than passing --model. --state-json is inline JSON; use --state-json-file
+for a file. Inline values may enter shell history, so use files or stdin when
+that matters.`,
+		Args: cobra.NoArgs,
 		Example: `  jeq validate --questions-json '{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}' --state-json '{"ticket":"abc"}' --model jev-latest
   jeq validate --questions questions.json --state-json-file state.json
   jeq examples validate`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			flags := askFlags{
-				request: request, questions: questions, questionsJSON: questionsJSON, state: state, stateFile: stateFile, stateJSON: stateJSON, stateJSONFile: stateJSONFile, model: model,
+				request: request, questions: questions, questionsJSON: questionsJSON, state: state, stateFile: stateFile, stateJSON: stateJSON, stateJSONFile: stateJSONFile, model: model, modelSet: cmd.Flags().Changed("model"),
 				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"), questionsJSONSet: cmd.Flags().Changed("questions-json"),
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), stateJSONFileSet: cmd.Flags().Changed("state-json-file"),
 			}
@@ -46,6 +63,9 @@ func NewValidateCmd(deps AskDeps) *cobra.Command {
 }
 
 func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
+	if f.requestSet && f.modelSet {
+		return jeq.NewError(jeq.CodeSourceConflict, "--model cannot be used with --request; remove --model or edit the model in the request document")
+	}
 	if f.questionsSet && f.questionsJSONSet {
 		return jeq.NewError(jeq.CodeSourceConflict, "choose exactly one of --questions or --questions-json")
 	}
@@ -120,9 +140,13 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if err != nil {
 		return err
 	}
-	resolvedModel := ""
+	resolvedModel, modelSource := "", "native"
 	if !f.requestSet {
-		resolvedModel = ResolveModel(f.model, deps.Getenv)
+		var modelErr *jeq.Error
+		resolvedModel, modelSource, modelErr = ResolveConfiguredModelWithSource(f.model, strings.TrimSpace(deps.Getenv("JEQ_CONFIG")), deps.Getenv, deps.ReadFile, deps.ReadOptionalFile)
+		if modelErr != nil {
+			return modelErr
+		}
 	}
 	req, composeErr := jeq.Compose(jeq.ComposeInput{RequestDoc: requestDoc, QuestionsDoc: questionsDoc, State: stateInput, Model: resolvedModel})
 	if composeErr != nil {
@@ -132,9 +156,9 @@ func runValidate(cmd *cobra.Command, deps AskDeps, f askFlags) error {
 	if f.requestSet {
 		mode = "native"
 	}
-	traceMetadata(cmd, req.Model, mode, "json", "", req.Questions)
-	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, QuestionCount: len(req.Questions)}
-	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.QuestionCount)
+	traceMetadata(cmd, req.Model, modelSource, "json", "", req.Questions)
+	doc := validateDocument{Valid: true, Mode: mode, Model: req.Model, ModelSource: modelSource, QuestionCount: len(req.Questions)}
+	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "valid: %t\nmode: %s\nmodel: %s\nmodel_source: %s\nquestion_count: %d\n", doc.Valid, doc.Mode, doc.Model, doc.ModelSource, doc.QuestionCount)
 	if writeErr != nil {
 		return withTracePhase(jeq.WrapError(jeq.CodeResponseInvalid, writeErr, "writing validation output"), "output_write")
 	}

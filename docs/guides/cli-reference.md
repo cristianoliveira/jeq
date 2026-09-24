@@ -36,12 +36,16 @@ Input flags keep one meaning across commands:
 | `--questions-json JSON` | Inline questions document for `ask`, `validate`, `map`, and `reduce` |
 | `--request PATH` | Complete native request file, or `-` for stdin |
 
-`rate` and `rank` build their own question shapes and do not accept question-document flags. Each command reads stdin at most once; use a file for the other sources. Inline values can appear in shell history, so use file flags or stdin when that exposure matters. `--state-json` now means inline JSON. Migrate previous `--state-json FILE` invocations to `--state-json-file FILE`; jeq does not guess whether an argument is a path. `--verbose` writes structured trace events to stderr and never changes
-stdout. For composed commands, precedence is `--model`, then `JEQ_DEFAULT_MODEL`, then the selected provider profile, then legacy `TYPESAFE_DEFAULT_MODEL` or top-level config, then the provider default. The file
-named by non-empty `JEQ_CONFIG`, otherwise the default path
-(`$XDG_CONFIG_HOME/jeq/config.json` or `$HOME/.config/jeq/config.json`). If
-that optional default config is absent, use `jev-latest`. A native `ask` request's
-embedded model is authoritative. `--trace-id` overrides `JEQ_TRACE_ID`; traces are stateless and
+`rate` and `rank` build their own question shapes and do not accept question-document flags. Each command reads stdin at most once; use a file for the other sources. Inline values can appear in shell history, so use file flags or stdin when that exposure matters. `--state-json` now means inline JSON. Migrate previous `--state-json FILE` invocations to `--state-json-file FILE`; jeq does not guess whether an argument is a path. `--verbose` writes structured trace events to stderr and never changes stdout.
+Composed model precedence is `--model`, `JEQ_DEFAULT_MODEL`, the selected
+provider profile's `default_model`, top-level config `default_model`, legacy
+`TYPESAFE_DEFAULT_MODEL`, then the `jev-latest` fallback. `JEQ_CONFIG` names an
+explicit config file; otherwise jeq reads the optional
+`$XDG_CONFIG_HOME/jeq/config.json` or `$HOME/.config/jeq/config.json`. If that
+optional file is absent, resolution continues to the legacy environment value
+and fallback. Native `ask --request` and `validate --request` documents own
+their model; an explicit `--model` is rejected, so edit the request document to
+change it. `--trace-id` overrides `JEQ_TRACE_ID`; traces are stateless and
 process-local unless the caller correlates them. Check exit codes in scripts:
 
 | Code | Meaning |

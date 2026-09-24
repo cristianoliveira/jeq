@@ -5,14 +5,13 @@ import "os"
 // DefaultModel is the documented fallback when no model is configured.
 const DefaultModel = "jev-latest"
 
-// DefaultModelEnv is the environment variable holding the account's
-// preferred default model.
+// DefaultModelEnv is the legacy environment variable holding the default model.
+// JEQ_DEFAULT_MODEL takes precedence when selecting composed request models.
 const DefaultModelEnv = "TYPESAFE_DEFAULT_MODEL"
 
-// ResolveModel applies the documented precedence (ADR 0001 Configuration):
-// --model, then TYPESAFE_DEFAULT_MODEL, then jev-latest. Resolution lives
-// in the shell layer because it reads the environment; the domain receives
-// the resolved model explicitly.
+// ResolveModel applies the legacy model-only precedence: --model, then
+// TYPESAFE_DEFAULT_MODEL, then jev-latest. Network commands use
+// ResolveConfiguredModelWithSource to include provider and user config.
 func ResolveModel(flagModel string, getenv func(string) string) string {
 	if flagModel != "" {
 		return flagModel

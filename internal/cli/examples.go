@@ -69,7 +69,7 @@ printf '%s\n' '[{"name":"billing","description":"Payments and refunds"},{"name":
 		Requirements: []string{"installed jeq", "bash"}, Cost: "0 API requests; validation is offline",
 		Shell: `printf '%s\n' '{"model":"jev-latest","state":{"message":"hello"},"questions":{"urgent":{"type":"noul","instructions":"Is this urgent?"}}}' |
   jeq validate --request -`,
-		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "plain validation receipt with valid, mode, model, and question_count lines",
+		InputShape: "native request JSON on stdin: {model,state,questions}", OutputShape: "plain validation receipt with valid, mode, model, model_source, and question_count lines",
 		Privacy: "validation is local and sends no state to TypeSafe.",
 	},
 	{
