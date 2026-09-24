@@ -89,7 +89,7 @@ composed request construction. Stable error codes live in
 
 Infrastructure configuration is process-wide and comes from the environment or the strict JSON config; commands do not expose infrastructure flags. Select `JEQ_PROVIDER=typesafe|vercel|custom`, or `default_provider` in `JEQ_CONFIG`. Vercel uses `https://ai-gateway.vercel.sh/typesafe`, `AI_GATEWAY_API_KEY` (then `VERCEL_OIDC_TOKEN`), and `typesafe-ai/jev`. Custom profiles name `base_url`, `default_model`, `auth`, and `api_key_env`; credentials are never stored in config. Remote endpoints require HTTPS; unauthenticated HTTP is loopback-only. `JEQ_CONFIG` overrides optional `$XDG_CONFIG_HOME/jeq/config.json` and `$HOME/.config/jeq/config.json`; there is no provider inference or fallback.
 
-For composed commands, one shared resolver applies `--model`, `JEQ_DEFAULT_MODEL`, selected profile `default_model`, legacy top-level/`TYPESAFE_DEFAULT_MODEL`, then the selected provider default. Native `ask` requests keep their embedded request model authoritative. All network commands use the selected profile for `/v1/systemone` and `/v1/models`; the existing adapter owns bounded retries and redirect refusal.
+For composed commands, one shared resolver applies `--model`, `JEQ_DEFAULT_MODEL`, the selected profile `default_model`, top-level config `default_model`, legacy `TYPESAFE_DEFAULT_MODEL`, then the `jev-latest` fallback. Native requests keep their embedded model authoritative; `ask --request` and `validate --request` reject an explicit `--model`. All network commands use the selected profile for `/v1/systemone` and `/v1/models`; the existing adapter owns bounded retries and redirect refusal.
 
 ## Command shape
 

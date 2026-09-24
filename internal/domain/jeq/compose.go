@@ -61,7 +61,7 @@ func composeNative(in ComposeInput) (contract.Request, *Error) {
 func composeComposed(in ComposeInput) (contract.Request, *Error) {
 	if in.Model == "" {
 		return contract.Request{}, NewError(CodeInputInvalid,
-			"model: is required in composed mode; resolve --model, TYPESAFE_DEFAULT_MODEL, or jev-latest first")
+			"model: is required in composed mode; resolve model configuration first")
 	}
 
 	questions, extra, err := contract.DecodeQuestionsDoc(in.QuestionsDoc)

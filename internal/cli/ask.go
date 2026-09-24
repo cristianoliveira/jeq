@@ -67,15 +67,17 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ask",
 		Short: "Send one System One request",
-		Long:  "Jev returns caller-defined typed semantic decisions and probabilities; it does not write replies, produce code, or return reasoning explanations. Use --state-json for inline JSON and --state-json-file for a JSON file. Inline values may be saved in shell history; use files or stdin when that matters.",
-		Args:  cobra.NoArgs,
+		Long: `Jev returns caller-defined typed semantic decisions and probabilities; it does not write replies, produce code, or return reasoning explanations. Use --state-json for inline JSON and --state-json-file for a JSON file. Inline values may be saved in shell history; use files or stdin when that matters.
+
+Composed model precedence is --model, JEQ_DEFAULT_MODEL, selected provider default_model, config.default_model, legacy TYPESAFE_DEFAULT_MODEL, then jev-latest. Native --request documents own their model; --model is rejected with --request, so edit the document's model field instead.`,
+		Args: cobra.NoArgs,
 		Example: `  jeq ask --request request.json
   jeq ask --questions-json '{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}' --state-json '{"ticket":"abc"}' --model jev-latest
   jeq examples ask`,
 		RunE: withBareHelp(func(cmd *cobra.Command, _ []string) error {
 			return runAsk(cmd, deps, askFlags{
 				request: request, questions: questions, questionsJSON: questionsJSON, state: state, stateFile: stateFile, stateJSON: stateJSON, stateJSONFile: stateJSONFile,
-				model: model, timeout: timeoutText, maxRetries: maxRetries,
+				model: model, timeout: timeoutText, maxRetries: maxRetries, modelSet: cmd.Flags().Changed("model"),
 				requestSet: cmd.Flags().Changed("request"), questionsSet: cmd.Flags().Changed("questions"), questionsJSONSet: cmd.Flags().Changed("questions-json"),
 				stateSet: cmd.Flags().Changed("state"), stateFileSet: cmd.Flags().Changed("state-file"), stateJSONSet: cmd.Flags().Changed("state-json"), stateJSONFileSet: cmd.Flags().Changed("state-json-file"),
 			})
@@ -98,11 +100,15 @@ func NewAskCmd(deps AskDeps) *cobra.Command {
 type askFlags struct {
 	request, questions, questionsJSON, state, stateFile, stateJSON, stateJSONFile                      string
 	model, timeout                                                                                     string
+	modelSet                                                                                           bool
 	maxRetries                                                                                         int
 	requestSet, questionsSet, questionsJSONSet, stateSet, stateFileSet, stateJSONSet, stateJSONFileSet bool
 }
 
 func runAsk(cmd *cobra.Command, deps AskDeps, f askFlags) error {
+	if f.requestSet && f.modelSet {
+		return askError(jeq.NewError(jeq.CodeSourceConflict, "--model cannot be used with --request; remove --model or edit the model in the request document"))
+	}
 	if f.questionsSet && f.questionsJSONSet {
 		return askError(jeq.NewError(jeq.CodeSourceConflict, "choose exactly one of --questions or --questions-json"))
 	}

@@ -101,8 +101,16 @@ func TestValidateAcceptsInlineAndFileSourceContract(t *testing.T) {
 					}
 					return data, nil
 				},
-				Getenv: func(string) string { t.Fatal("explicit model must not consult environment"); return "" },
-				Stdin:  stdin,
+				Getenv: func(key string) string {
+					switch key {
+					case "JEQ_CONFIG", "JEQ_PROVIDER", "TYPESAFE_BASE_URL":
+						return ""
+					default:
+						t.Fatalf("explicit model consulted lower-priority environment value %s", key)
+						return ""
+					}
+				},
+				Stdin: stdin,
 			}
 			args := append([]string{"validate"}, tc.args...)
 			args = append(args, "--model", "m")
