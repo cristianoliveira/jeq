@@ -75,7 +75,7 @@ func TestValidateChoiceRequestOffline(t *testing.T) {
 			deps := cli.AskDeps{
 				ReadFile: func(string, int64) ([]byte, *jeq.Error) { return nil, nil },
 				Stdin:    strings.NewReader(tc.input),
-				ReadStdin: func(stdin io.Reader, limit int64, forbidEmpty bool) ([]byte, *jeq.Error) {
+				ReadStdin: func(stdin io.Reader, limit int64, _ bool) ([]byte, *jeq.Error) {
 					data, err := io.ReadAll(io.LimitReader(stdin, limit))
 					if err != nil {
 						return nil, jeq.WrapError(jeq.CodeInputInvalid, err, "reading test stdin")
