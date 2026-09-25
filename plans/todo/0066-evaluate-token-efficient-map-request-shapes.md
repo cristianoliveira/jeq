@@ -1,7 +1,7 @@
 ---
 id: TASK-0066
 title: Evaluate token-efficient map request shapes
-status: todo
+status: doing
 depends_on: [TASK-0065]
 priority: high
 tags: [cost, benchmark, map, batching, deduplication, typesafe]
