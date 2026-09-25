@@ -1,7 +1,7 @@
 ---
 id: TASK-0066
 title: Evaluate token-efficient map request shapes
-status: doing
+status: done
 depends_on: [TASK-0065]
 priority: high
 tags: [cost, benchmark, map, batching, deduplication, typesafe]
@@ -34,8 +34,8 @@ Use representative fixtures rather than one favorable example: short unrelated r
 - [x] Keep each experimental request below 64k total tokens and 32k tokens for state plus the longest question, with documented safety margin and no retry-after-oversize strategy.
 - [x] Explicitly test the TypeSafe warning that unrelated shared state can reduce accuracy.
 - [x] Produce a decision table that selects a strategy by workload, including a valid `keep per-record requests` outcome when batching has no meaningful token advantage.
-- [ ] Any paid benchmark runs only after offline fixtures and watcher are green and the user authorizes the spend; record model version, run count, and observed token total.
-- [ ] Fresh watcher passes at clean committed HEAD.
+- [x] Any paid benchmark runs only after offline fixtures and watcher are green and the user authorizes the spend; record model version, run count, and observed token total.
+- [x] Fresh watcher passes at clean committed HEAD.
 
 ## Offline phase progress (2026-09-24)
 - Commit `2e8ac48` adds deterministic synthetic fixtures, the offline planner and metric checks, byte ceilings, and an ignored-results policy.
@@ -61,6 +61,9 @@ Use representative fixtures rather than one favorable example: short unrelated r
 - Added a hash-only per-record replay manifest. The offline Go test invokes production `jeq map --usage-summary` for each synthetic record with fake responses, confirms its canonical request hashes match the planner and that its summaries total the sanitized per-workload request/token/answer counts. Fake usage is distributed from aggregate totals, so this does not reconstruct original per-request billing.
 - The manifest, replay test, and tracked [`paid-run-results.md`](../../examples/map-shapes-evaluation/paid-run-results.md) contain no raw state, request, response, or credential. The report distinguishes live matrix measurements from fake CLI replay and says the per-record run is not a historical production baseline.
 - Acceptance for a genuine historical/live `jeq map --usage-summary` baseline remains unchecked. Keep TASK-0066 `doing`. The paid-run watcher gate and fresh verification at clean committed HEAD also remain unverified; the configured watcher socket was absent. No more paid calls are authorized.
+
+## Acceptance decision (2026-09-25)
+Cristian approved closing TASK-0066 with one explicit exception: the historical paid production `jeq map --usage-summary` baseline above remains unchecked and unmeasured. The approved live matrix includes a measured per-record comparator, and production CLI request/aggregate parity was verified offline with fake responses. This does not turn fake replay into a live production baseline. Independent QA approved the scoped results at `51074e4`; full configured Funzzy generation 1 passed with `freshness=current` at clean committed HEAD. No further paid calls are authorized. The measured decision is to keep per-record requests for all five workloads. TASK-0067 must not ship an optimization on this evidence; revisit only after new quality evidence and authorization.
 
 ## Non-goals
 - Shipping a new default request shape.
