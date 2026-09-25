@@ -49,7 +49,7 @@ func TestExplicitConfigRejectsMissingUnreadableMalformedWrongTypeEmptyDuplicateA
 		document string
 	}{
 		{name: "malformed JSON is rejected", document: `{"default_model":`},
-		{name: "non-string default_model is rejected", document: `{"default_model":1}`},
+		{name: "numeric default_model is rejected", document: `{"default_model":1}`},
 		{name: "missing default_model is rejected", document: `{}`},
 		{name: "duplicate default_model is rejected", document: `{"default_model":"a","default_model":"b"}`},
 		{name: "oversized default_model is rejected", document: `{"default_model":"` + strings.Repeat("x", configMaxBytes) + `"}`},
