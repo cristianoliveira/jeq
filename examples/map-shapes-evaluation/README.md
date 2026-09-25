@@ -13,7 +13,7 @@ python3 examples/map-shapes-evaluation/harness.py plan --allow-shared-context
 python3 examples/map-shapes-evaluation/executor.py --dry-run --allow-shared-context
 ```
 
-Shared state includes every record in one request. The flag is required even for these synthetic fixtures. Do not use real or private records unless the data owner explicitly authorizes that disclosure. The harness marks the plan offline-only, and its mapping tests prove answer IDs are routed to the right record in input order. They do not prove Jev will semantically ignore other records; the paid phase must measure that risk.
+Shared state includes every record in one request. The flag is required even for these synthetic fixtures. Do not use real or private records unless the data owner explicitly authorizes that disclosure. The harness marks the plan offline-only, and its mapping tests prove answer IDs are routed to the right record in input order. They do not prove Jev will semantically ignore other records. The single paid matrix measured synthetic large-unrelated inputs, but its three repetitions cannot establish production quality or safety.
 
 ## Workloads and strategies
 
@@ -52,4 +52,4 @@ Recheck the live docs before authorizing a run because model limits and prices m
 
 `harness.py check` runs fake usage and probability examples only to test metric arithmetic. The printed values are marked synthetic and are not TypeSafe measurements, accuracy claims, or savings claims. No response cache or paid output is committed.
 
-The [proposed paid run matrix](paid-run-proposal.md) specifies calls, model, request/token planning guards, quality checks, a planning estimate, and a separate full-context list-price envelope. The dry-run summary reports 129 planned requests, a 135-attempt hard cap, an 814,000-token observed-usage planning ceiling / $0.034188 estimate, and a $0.36288 full-context list-price envelope. Neither spend number guarantees the final bill. Stop here until Cristian separately authorizes the envelope and confirms the synthetic data scope.
+The [paid run matrix and safeguards](paid-run-proposal.md) specifies calls, model, request/token planning guards, quality checks, and the planning envelope. One approved 129-request matrix has completed. Its raw JSONL and measured decision table remain in ignored `private/`; the analysis keeps per-record requests for all workloads because no candidate passed the strict probability-stability gate. Neither the $0.034188 planning estimate nor the $0.36288 full-context envelope guarantees the final bill. Do not run another paid matrix without renewed explicit approval.

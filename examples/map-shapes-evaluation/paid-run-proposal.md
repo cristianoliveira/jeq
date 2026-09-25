@@ -1,6 +1,6 @@
 # Proposed paid run matrix
 
-**Status: proposal only. No provider requests have been sent.** Run only after Cristian authorizes the spend and the synthetic data scope. Recheck the live TypeSafe limits and price immediately before execution.
+**Status: one matrix completed on 2026-09-25 after explicit authorization.** The raw JSONL and aggregate decision table remain under ignored `private/`; the detailed report is `private/paid-run-analysis.md`. Do not rerun without renewed explicit approval. Refresh live TypeSafe limits, price, and billing behavior before any future run.
 
 ## Matrix
 
@@ -23,7 +23,7 @@ The experiment is exploratory. Three repeats can identify large movements, not c
 
 ### Decision rules by workload
 
-These are hypotheses for the paid results, not measured findings:
+These were the pre-run hypotheses; compare them with the measured decision table in the private run analysis:
 
 | Workload | Candidate selection rule |
 | --- | --- |

@@ -47,7 +47,14 @@ Use representative fixtures rather than one favorable example: short unrelated r
 - Added a separate executor with a no-network dry-run, a pinned synthetic corpus, explicit authorization checks, sequential single-attempt HTTPS transport, observed-usage planning guards, and mode-restricted ignored JSONL results.
 - Added deterministic fake-transport tests for success, malformed/missing usage, wrong model, retries, byte guards, token/request ceilings, credential echo rejection, and private file permissions. Tests and watcher do not use the paid execution path.
 - Generated `examples/map-shapes-evaluation/preflight-authorization.json` from the offline dry-run. It records the 129 planned requests, 135 attempt cap, 814,000-token / $0.034188 planning figures, and 8.64M-token / $0.36288 current-price full-context envelope. The estimates are not guaranteed billing.
-- No provider calls or credentials were used. Paid execution remains unauthorized; keep TASK-0066 `doing` and do not start TASK-0067.
+- During executor implementation and preflight, no provider calls or credentials were used. The later approved paid matrix is recorded below; keep TASK-0066 `doing` pending independent QA and do not start TASK-0067.
+
+## Paid run phase (2026-09-25)
+- Cristian explicitly approved one bounded 129-request matrix over the committed synthetic corpus. It completed 129/129 sequential attempts with zero retries, exact model `jev-1.13.0`, 62,223 reported input tokens, 4,956 output tokens, and `plan_complete`; no failure stop or extra request occurred.
+- Current-list-price input usage is estimated at $0.002613366, not an invoice. The authorized $0.36288 full-context envelope remains non-guaranteed. Raw responses and the detailed decision table remain mode-restricted under ignored `examples/map-shapes-evaluation/private/`.
+- Shared context saved 24.5–62.7% input tokens by workload, but every candidate strategy exceeded the strict per-answer probability-stability check in at least one workload. Threshold accuracy against synthetic labels was 80/84 per-record, 79/84 exact-dedup, and 81/84 shared-context. Keep per-record for all workloads; cheaper calls alone do not pass.
+- The comparator is the synthetic per-record strategy measured directly by this executor, not a historical production usage summary. TASK-0065 recorded no paid/live baseline; production `jeq map --usage-summary` parity remains unverified.
+- Kelly independently QAed the private evidence and decision table: pass, with no numeric or gate discrepancies. The watcher is disconnected (`.watch.sock` missing), so there is no fresh verification generation. Commit the documentation changes and restore watcher evidence before closing TASK-0066. No further provider calls are authorized.
 
 ## Non-goals
 - Shipping a new default request shape.
