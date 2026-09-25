@@ -3,11 +3,14 @@ id: TASK-0067
 title: Ship the proven map cost optimization
 status: todo
 depends_on: [TASK-0066]
-priority: high
+priority: low
 tags: [cost, map, batching, deduplication, cli, typesafe]
 ---
 
 # Ship the proven map cost optimization
+
+## Current decision (2026-09-25)
+TASK-0066 found no strategy that passed its pre-set probability-stability gate on the synthetic workloads. Keep per-record map requests; do not implement batching or deduplication from the observed token savings alone. This task is retained for future evidence, not ready for implementation on the current results. Reassess only with a new quality case and explicit authorization for any further paid validation. Cristian accepted the no-optimization decision when closing TASK-0066.
 
 ## Problem
 After measuring competing request shapes, jeq must apply the cheapest validated strategy without hiding usage, exceeding TypeSafe context limits, or weakening deterministic stream behavior.
