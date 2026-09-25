@@ -1,0 +1,81 @@
+{
+  "fixture_sha256": "119868552bbccfd9b0287153b2d1ce33fc5d50cc374900834db4b3440c91f841",
+  "model": "jev-1.13.0",
+  "repetitions": 3,
+  "request_hash_semantics": "SHA-256 of canonical planned request body; hashes only, no request content",
+  "schema": "jeq.map-shapes-per-record-replay.v1",
+  "source": "one authorized live matrix; per-record strategy aggregates only",
+  "usage_replay_semantics": "aggregate reported tokens are distributed deterministically across fake responses; not original per-request usage",
+  "workloads": [
+    {
+      "answers_per_1000_input_tokens": 3.466205,
+      "attached_answers": 12,
+      "id": "short-unrelated",
+      "input_tokens": 3462,
+      "output_tokens": 240,
+      "request_hashes_by_record": [
+        {"record_id": "short-01", "sha256": "5927f0300e6bf124dadc747e220ba4545323dd2b32f6706ab353da8b1058c8b1"},
+        {"record_id": "short-02", "sha256": "b80b8c9fb985480fafa5cbfc9618b1cbaaa94a446703f0a16b93068bb6e974f0"},
+        {"record_id": "short-03", "sha256": "e9324d7f8fb0e67d9227749d226a24c8a33c9c7ba958121a3251f4ad5f83dab4"},
+        {"record_id": "short-04", "sha256": "67f05b2a971dfc53cb9e6335245330e0383f72e53c08f05ba8d160991a03c042"}
+      ],
+      "requests": 12
+    },
+    {
+      "answers_per_1000_input_tokens": 1.838235,
+      "attached_answers": 12,
+      "id": "large-unrelated",
+      "input_tokens": 6528,
+      "output_tokens": 240,
+      "request_hashes_by_record": [
+        {"record_id": "large-01", "sha256": "1366fcbf6883fef157f23c85337ff43797a4fcf47f4d3b0eedb79fe236193971"},
+        {"record_id": "large-02", "sha256": "e858e046d48d374be8353fad0ba60710f582e6523146be061a3a8e2833f0d511"},
+        {"record_id": "large-03", "sha256": "7f1a51d41b175f1a7086d7312d9afe1a9ec3a2966361bb1e18c4f728d4d45b84"},
+        {"record_id": "large-04", "sha256": "1e2ea797f9444620fa04157439115b207f7af742f4c3cfd5db704943dfe9268a"}
+      ],
+      "requests": 12
+    },
+    {
+      "answers_per_1000_input_tokens": 9.287926,
+      "attached_answers": 36,
+      "id": "multi-question",
+      "input_tokens": 3876,
+      "output_tokens": 624,
+      "request_hashes_by_record": [
+        {"record_id": "multi-01", "sha256": "25eb74a96504c9eba7077f32b19c2d151bb631219a97ba5c3734543a5d12cf9f"},
+        {"record_id": "multi-02", "sha256": "212a67b16a868147b266436b45c477040297ba921ec86994d090407a8fe61d80"},
+        {"record_id": "multi-03", "sha256": "48493a311e1887f9265db83ebffd9bc2eac9e1cdb748291cbda6c8fdea851c82"},
+        {"record_id": "multi-04", "sha256": "1d9c2de6b655b41ded6de4822f531699597bee5d15063e29cf290fa55efada46"}
+      ],
+      "requests": 12
+    },
+    {
+      "answers_per_1000_input_tokens": 3.472222,
+      "attached_answers": 12,
+      "id": "exact-duplicates",
+      "input_tokens": 3456,
+      "output_tokens": 240,
+      "request_hashes_by_record": [
+        {"record_id": "duplicate-01", "sha256": "57f67babb0b6e4e011df560415094c97696aef6e773df32d09c2391c3a70d942"},
+        {"record_id": "duplicate-02", "sha256": "57f67babb0b6e4e011df560415094c97696aef6e773df32d09c2391c3a70d942"},
+        {"record_id": "duplicate-03", "sha256": "a47258b972c02a4b0b90725b42a012a636752ba129bea8f26d278d9c458ce719"},
+        {"record_id": "duplicate-04", "sha256": "a47258b972c02a4b0b90725b42a012a636752ba129bea8f26d278d9c458ce719"}
+      ],
+      "requests": 12
+    },
+    {
+      "answers_per_1000_input_tokens": 1.581028,
+      "attached_answers": 12,
+      "id": "large-shared-reference",
+      "input_tokens": 7590,
+      "output_tokens": 240,
+      "request_hashes_by_record": [
+        {"record_id": "shared-01", "sha256": "d4974a503d97bb85d626c8f955dcd10e5e17287cdcdb9ae475471843e8aa7178"},
+        {"record_id": "shared-02", "sha256": "ef553518c6cff8b60e57587c19fc5935ad1e48daf28ed98a9e64c7e3d1b8744b"},
+        {"record_id": "shared-03", "sha256": "9e6be0686c9b0901ea31300d59ca40a9edea41f87f76c6eb0024a110a619ac91"},
+        {"record_id": "shared-04", "sha256": "9906228599e65075a1aa525f2fec006bf5e8058166f5ae7f7070ebbfca6e0faa"}
+      ],
+      "requests": 12
+    }
+  ]
+}

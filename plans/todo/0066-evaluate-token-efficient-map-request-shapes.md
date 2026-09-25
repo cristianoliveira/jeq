@@ -27,13 +27,13 @@ Use representative fixtures rather than one favorable example: short unrelated r
 ## Acceptance criteria
 - [x] Add a reproducible benchmark harness whose inputs and calculations are committed, while live credentials, response caches, and paid outputs remain ignored.
 - [ ] Establish the existing per-record map behavior as the baseline using TASK-0065 usage summaries.
-- [ ] Compare all three strategies on short unrelated records, large unrelated records, multi-question records, exact duplicates, and large shared-context workloads.
-- [ ] Report total input tokens, answers per 1,000 input tokens, requests, latency, and request-size distribution for every case.
+- [x] Compare all three strategies on short unrelated records, large unrelated records, multi-question records, exact duplicates, and large shared-context workloads.
+- [x] Report total input tokens, answers per 1,000 input tokens, requests, latency, and request-size distribution for every case.
 - [x] Prove offline that batched answer IDs map back to the correct record and original question without changing input order.
-- [ ] Evaluate quality using repeated provider runs: compare mean probabilities and configured threshold decisions against both baseline variation and expected labels; batching does not pass solely because it is cheaper.
+- [x] Evaluate quality using repeated provider runs: compare mean probabilities and configured threshold decisions against both baseline variation and expected labels; batching does not pass solely because it is cheaper.
 - [x] Keep each experimental request below 64k total tokens and 32k tokens for state plus the longest question, with documented safety margin and no retry-after-oversize strategy.
-- [ ] Explicitly test the TypeSafe warning that unrelated shared state can reduce accuracy.
-- [ ] Produce a decision table that selects a strategy by workload, including a valid `keep per-record requests` outcome when batching has no meaningful token advantage.
+- [x] Explicitly test the TypeSafe warning that unrelated shared state can reduce accuracy.
+- [x] Produce a decision table that selects a strategy by workload, including a valid `keep per-record requests` outcome when batching has no meaningful token advantage.
 - [ ] Any paid benchmark runs only after offline fixtures and watcher are green and the user authorizes the spend; record model version, run count, and observed token total.
 - [ ] Fresh watcher passes at clean committed HEAD.
 
@@ -51,10 +51,16 @@ Use representative fixtures rather than one favorable example: short unrelated r
 
 ## Paid run phase (2026-09-25)
 - Cristian explicitly approved one bounded 129-request matrix over the committed synthetic corpus. It completed 129/129 sequential attempts with zero retries, exact model `jev-1.13.0`, 62,223 reported input tokens, 4,956 output tokens, and `plan_complete`; no failure stop or extra request occurred.
-- Current-list-price input usage is estimated at $0.002613366, not an invoice. The authorized $0.36288 full-context envelope remains non-guaranteed. Raw responses and the detailed decision table remain mode-restricted under ignored `examples/map-shapes-evaluation/private/`.
+- Current-list-price input usage is estimated at $0.002613366, not an invoice. The authorized $0.36288 full-context envelope remains non-guaranteed. Raw responses and per-answer analysis remain mode-restricted under ignored `examples/map-shapes-evaluation/private/`; sanitized aggregates are now tracked in [`paid-run-results.md`](../../examples/map-shapes-evaluation/paid-run-results.md).
 - Shared context saved 24.5–62.7% input tokens by workload, but every candidate strategy exceeded the strict per-answer probability-stability check in at least one workload. Threshold accuracy against synthetic labels was 80/84 per-record, 79/84 exact-dedup, and 81/84 shared-context. Keep per-record for all workloads; cheaper calls alone do not pass.
-- The comparator is the synthetic per-record strategy measured directly by this executor, not a historical production usage summary. TASK-0065 recorded no paid/live baseline; production `jeq map --usage-summary` parity remains unverified.
-- Kelly independently QAed the private evidence and decision table: pass, with no numeric or gate discrepancies. The watcher is disconnected (`.watch.sock` missing), so there is no fresh verification generation. Commit the documentation changes and restore watcher evidence before closing TASK-0066. No further provider calls are authorized.
+- The comparator is the synthetic per-record strategy measured directly by this executor, not a historical production usage summary. TASK-0065 recorded no paid/live baseline.
+- Kelly independently QAed the private evidence and decision table: pass, with no numeric or gate discrepancies. The watcher was disconnected (`.watch.sock` missing), so there is no fresh verification generation. No further provider calls are authorized.
+
+## Offline CLI replay and tracked results (2026-09-25)
+- Corrected the harness numerator to TASK-0065's definition: successfully decoded answers attached to their records. Threshold correctness and accuracy are separate quality metrics.
+- Added a hash-only per-record replay manifest. The offline Go test invokes production `jeq map --usage-summary` for each synthetic record with fake responses, confirms its canonical request hashes match the planner and that its summaries total the sanitized per-workload request/token/answer counts. Fake usage is distributed from aggregate totals, so this does not reconstruct original per-request billing.
+- The manifest, replay test, and tracked [`paid-run-results.md`](../../examples/map-shapes-evaluation/paid-run-results.md) contain no raw state, request, response, or credential. The report distinguishes live matrix measurements from fake CLI replay and says the per-record run is not a historical production baseline.
+- Acceptance for a genuine historical/live `jeq map --usage-summary` baseline remains unchecked. Keep TASK-0066 `doing`. The paid-run watcher gate and fresh verification at clean committed HEAD also remain unverified; the configured watcher socket was absent. No more paid calls are authorized.
 
 ## Non-goals
 - Shipping a new default request shape.

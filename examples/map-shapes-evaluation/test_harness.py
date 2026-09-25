@@ -1,3 +1,5 @@
+import hashlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -27,6 +29,26 @@ class MapShapeHarnessTests(unittest.TestCase):
             ],
         )
         self.assertEqual(len(self.fixtures["workloads"]), 5)
+
+    def test_per_record_replay_manifest_contains_only_matching_request_hashes(self):
+        manifest_path = Path(__file__).with_name("per-record-baseline-replay.json")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["fixture_sha256"], hashlib.sha256(harness.FIXTURES.read_bytes()).hexdigest())
+        self.assertEqual(manifest["model"], harness.MODEL_VERSION)
+        for workload, recorded in zip(self.fixtures["workloads"], manifest["workloads"], strict=True):
+            plans = harness.plan_per_record(workload, harness.MODEL_VERSION)
+            expected = [
+                {"record_id": record["id"], "sha256": hashlib.sha256(plan.body).hexdigest()}
+                for record, plan in zip(workload["records"], plans, strict=True)
+            ]
+            self.assertEqual(recorded["id"], workload["id"])
+            self.assertAlmostEqual(
+                recorded["answers_per_1000_input_tokens"],
+                recorded["attached_answers"] * 1000 / recorded["input_tokens"],
+                places=6,
+            )
+            self.assertEqual(recorded["request_hashes_by_record"], expected)
+            self.assertEqual(recorded["requests"], len(plans) * self.fixtures["repetitions"])
 
     def test_exact_dedup_only_collapses_byte_identical_canonical_requests(self):
         duplicates = self.workload("exact-duplicates")
@@ -146,12 +168,14 @@ class MapShapeHarnessTests(unittest.TestCase):
         self.assertEqual(metrics["attempted_requests"], 2)
         self.assertEqual(metrics["successful_responses"], 2)
         self.assertEqual(metrics["answers"], 2)
-        self.assertEqual(metrics["useful_answers"], 1)
+        self.assertEqual(metrics["useful_answers"], 2)
+        self.assertEqual(metrics["threshold_correct_answers"], 1)
+        self.assertEqual(metrics["threshold_accuracy"], 0.5)
         self.assertEqual(metrics["input_tokens"], 200)
         self.assertEqual(metrics["output_tokens"], 5)
         self.assertEqual(metrics["latency_ms_distribution"]["median"], 15)
         self.assertEqual(metrics["latency_ms_distribution"]["p95"], 20)
-        self.assertEqual(metrics["useful_answers_per_1000_input_tokens"], 5.0)
+        self.assertEqual(metrics["useful_answers_per_1000_input_tokens"], 10.0)
         zero_token_metrics = harness.calculate_usage_metrics(
             [{
                 "attempts": 1,

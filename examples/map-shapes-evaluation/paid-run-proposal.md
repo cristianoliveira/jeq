@@ -1,6 +1,6 @@
 # Proposed paid run matrix
 
-**Status: one matrix completed on 2026-09-25 after explicit authorization.** The raw JSONL and aggregate decision table remain under ignored `private/`; the detailed report is `private/paid-run-analysis.md`. Do not rerun without renewed explicit approval. Refresh live TypeSafe limits, price, and billing behavior before any future run.
+**Status: one matrix completed on 2026-09-25 after explicit authorization.** The raw JSONL remains under ignored `private/`; sanitized aggregate results are in [`paid-run-results.md`](paid-run-results.md), with private evidence in `private/paid-run-analysis.md`. Do not rerun without renewed explicit approval. Refresh live TypeSafe limits, price, and billing behavior before any future run.
 
 ## Matrix
 
@@ -15,15 +15,15 @@ Pin model `jev-1.13.0`; reject any response with a different resolved model. Use
 | large shared reference | 4 | 4 | 1 |
 | **Total** | **20** | **18** | **5** |
 
-Three repetitions require 129 planned requests. The hard request cap is 135, the total if exact dedup saves nothing. A request-count cap is not a token or quality result. Use the existing `map --usage-summary` behavior for the per-record baseline and TASK-0065 summaries for request/token accounting. Run dedup and shared requests as explicit native requests and keep a separate local answer-ID map. Never put expected labels in provider input.
+Three repetitions require 129 planned requests. The hard request cap is 135, the total if exact dedup saves nothing. A request-count cap is not a token or quality result. The live comparator is the per-record strategy. `internal/cli/map_baseline_replay_test.go` verifies offline that production `map --usage-summary` constructs the same canonical request bodies and reproduces sanitized per-workload usage totals with fake responses. This proves local request and summary parity, not another live baseline or original per-call token distribution. Run dedup and shared requests as explicit native requests and keep a separate local answer-ID map. Never put expected labels in provider input.
 
-For every valid answer record the response model version, provider input/output usage, attempt count, latency, probability, expected label, and threshold. Compare per-record baseline variation against each candidate: per-answer mean probability, baseline within-run standard deviation, threshold-decision disagreement, threshold accuracy against fixture labels, and Noul Brier score. Report total requests, request-size distribution, useful answers, total input/output tokens, elapsed latency, and useful answers per 1,000 input tokens. Require complete token usage for the efficiency ratio; if any attempted request, retry, or failed response has unknown usage, mark the ratio unknown rather than treating missing tokens as zero.
+For every valid answer record the response model version, provider input/output usage, attempt count, latency, probability, expected label, and threshold. Compare per-record baseline variation against each candidate: per-answer mean probability, baseline within-run standard deviation, threshold-decision disagreement, threshold accuracy against fixture labels, and Noul Brier score. Report total requests, request-size distribution, decoded answers attached to records, total input/output tokens, elapsed latency, and TASK-0065 useful answers per 1,000 input tokens. A useful answer is a successfully decoded answer attached to its requested record; label correctness is reported separately. Require complete token usage for the efficiency ratio; if any attempted request, retry, or failed response has unknown usage, mark the ratio unknown rather than treating missing tokens as zero.
 
 The experiment is exploratory. Three repeats can identify large movements, not certify production accuracy. Shared-context passes only if answer-ID routing is correct, threshold decisions and probability movement stay within baseline variation for every workload, and expected-label quality does not regress materially. Cheaper calls alone do not pass. `large-unrelated` directly tests the documented risk that irrelevant state lowers accuracy. If no strategy gives a useful token advantage without a quality regression, keep per-record requests.
 
 ### Decision rules by workload
 
-These were the pre-run hypotheses; compare them with the measured decision table in the private run analysis:
+These were the pre-run hypotheses; compare them with the sanitized measured decision table in [`paid-run-results.md`](paid-run-results.md):
 
 | Workload | Candidate selection rule |
 | --- | --- |
@@ -49,5 +49,5 @@ Before any paid request:
 2. Confirm current Jev limits, version, price, and failure billing behavior from the linked TypeSafe docs.
 3. Confirm the only data is the committed synthetic corpus and explicitly opt in to shared context.
 4. Show Cristian the 135-request cap, 814,000-token observed-usage planning ceiling, $0.034188 planning estimate, $0.36288 full-context list-price envelope, and matrix above. Wait for explicit authorization.
-5. Save raw responses only as mode-0600 JSONL under the ignored `examples/map-shapes-evaluation/private/` directory. Read the API key only from `TYPESAFE_API_KEY`; never persist it. Do not commit results or credentials.
+5. Save raw responses only as mode-0600 JSONL under the ignored `examples/map-shapes-evaluation/private/` directory. Read the API key only from `TYPESAFE_API_KEY`; never persist it. Do not commit raw results or credentials. Commit only sanitized aggregates without request, state, or response content.
 6. Stop before spending if the returned model differs, usage is missing, the response is malformed, an unexpected retry occurs, a request exceeds either byte guard, the 135-attempt cap is reached, or the 814,000-token planning ceiling stops the run.

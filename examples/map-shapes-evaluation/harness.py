@@ -328,10 +328,11 @@ def calculate_usage_metrics(observations: list[dict[str, Any]]) -> dict[str, Any
             "p95": latencies[math.ceil(0.95 * len(latencies)) - 1],
             "maximum": latencies[-1],
         }
-    useful = sum(
+    threshold_correct = sum(
         (answer["probability"] >= answer["threshold"]) == answer["expected"]
         for answer in answers
     )
+    useful = len(answers)
     usage_complete = (
         len(successful) == len(observations)
         and all(item["input_tokens"] is not None and item["attempts"] == 1 for item in successful)
@@ -341,6 +342,7 @@ def calculate_usage_metrics(observations: list[dict[str, Any]]) -> dict[str, Any
         "successful_responses": len(successful),
         "answers": len(answers),
         "useful_answers": useful,
+        "threshold_correct_answers": threshold_correct,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "responses_with_reported_input_tokens": known_input,
@@ -348,7 +350,7 @@ def calculate_usage_metrics(observations: list[dict[str, Any]]) -> dict[str, Any
         "useful_answers_per_1000_input_tokens": (
             useful * 1000.0 / input_tokens if usage_complete and input_tokens > 0 else None
         ),
-        "threshold_accuracy": useful / len(answers) if answers else None,
+        "threshold_accuracy": threshold_correct / len(answers) if answers else None,
     }
 
 
@@ -567,9 +569,11 @@ def offline_check(fixtures: dict[str, Any]) -> dict[str, Any]:
             },
         ]
     )
-    if metrics["attempted_requests"] != 2 or metrics["useful_answers"] != 1:
+    if metrics["attempted_requests"] != 2 or metrics["useful_answers"] != 2:
         raise PlanError("synthetic usage metric self-check failed")
-    if metrics["useful_answers_per_1000_input_tokens"] != 5.0:
+    if metrics["threshold_correct_answers"] != 1 or metrics["threshold_accuracy"] != 0.5:
+        raise PlanError("synthetic threshold-quality metric self-check failed")
+    if metrics["useful_answers_per_1000_input_tokens"] != 10.0:
         raise PlanError("synthetic efficiency metric self-check failed")
 
     budget = PaidRunBudget()
