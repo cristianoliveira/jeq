@@ -81,6 +81,8 @@ def load_fixtures() -> dict[str, Any]:
         raise PlanError("unsupported fixture schema")
     if fixtures.get("model") != MODEL_VERSION:
         raise PlanError(f"fixtures must pin {MODEL_VERSION}")
+    if fixtures.get("data_class") != "synthetic":
+        raise PlanError("fixtures must declare data_class=synthetic")
     return expand_fixture_value(fixtures)
 
 
@@ -427,6 +429,8 @@ class PaidRunBudget:
         self.input_tokens = 0
         self.in_flight = False
         self.halted = False
+        self.final_request_reserved = False
+        self.stop_reason: str | None = None
 
     def begin(
         self, model: str, request: dict[str, Any], *, max_retries: int = MAX_RETRIES
@@ -443,8 +447,22 @@ class PaidRunBudget:
         if self.in_flight:
             raise PlanError("paid requests must be sequential")
         if self.requests >= MAX_REQUESTS:
+            self.halted = True
+            self.stop_reason = "hard_request_cap"
             raise PlanError(f"paid run reached the {MAX_REQUESTS} request cap")
-        if self.input_tokens + MAX_SINGLE_REQUEST_TOKENS > PLANNING_TOKEN_CEILING:
+        if self.input_tokens >= PLANNING_REPORTED_INPUT_TOKEN_STOP:
+            if self.final_request_reserved:
+                self.halted = True
+                self.stop_reason = "final_request_reserve_consumed"
+                raise PlanError("paid run already used its final request reserve")
+            if self.input_tokens + MAX_SINGLE_REQUEST_TOKENS > PLANNING_TOKEN_CEILING:
+                self.halted = True
+                self.stop_reason = "planning_token_ceiling"
+                raise PlanError("paid run cannot reserve the final request context")
+            self.final_request_reserved = True
+        elif self.input_tokens + MAX_SINGLE_REQUEST_TOKENS > PLANNING_TOKEN_CEILING:
+            self.halted = True
+            self.stop_reason = "planning_token_ceiling"
             raise PlanError("paid run cannot reserve the maximum context for another request")
         self.requests += 1
         self.in_flight = True
@@ -474,6 +492,7 @@ class PaidRunBudget:
             self.requests += max(0, safe_attempts - 1)
             self.input_tokens += safe_attempts * MAX_SINGLE_REQUEST_TOKENS
             self.halted = True
+            self.stop_reason = "unexpected_retry"
             return
         usage_valid = (
             isinstance(reported_input_tokens, int)
@@ -487,11 +506,21 @@ class PaidRunBudget:
         ):
             self.input_tokens += MAX_SINGLE_REQUEST_TOKENS
             self.halted = True
+            if not response_valid:
+                self.stop_reason = "malformed_response"
+            elif resolved_model_version != MODEL_VERSION:
+                self.stop_reason = "model_mismatch"
+            else:
+                self.stop_reason = "missing_or_invalid_usage"
             return
         self.input_tokens += reported_input_tokens
         if self.input_tokens > PLANNING_TOKEN_CEILING:
             self.halted = True
+            self.stop_reason = "planning_token_ceiling"
             raise PlanError("reported usage exceeded the planning token ceiling")
+        if self.final_request_reserved:
+            self.halted = True
+            self.stop_reason = "final_request_reserve_consumed"
 
 
 def offline_check(fixtures: dict[str, Any]) -> dict[str, Any]:

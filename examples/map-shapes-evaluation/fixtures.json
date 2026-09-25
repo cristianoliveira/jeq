@@ -1,6 +1,7 @@
 {
   "schema": "jeq.map-shapes-fixtures.v1",
   "model": "jev-1.13.0",
+  "data_class": "synthetic",
   "repetitions": 3,
   "shared_context_opt_in_required": true,
   "workloads": [

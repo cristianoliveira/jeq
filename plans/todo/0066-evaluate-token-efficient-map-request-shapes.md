@@ -41,7 +41,13 @@ Use representative fixtures rather than one favorable example: short unrelated r
 - Commit `2e8ac48` adds deterministic synthetic fixtures, the offline planner and metric checks, byte ceilings, and an ignored-results policy.
 - The matrix plans 129 requests across 5 workloads, 3 strategies, and 3 repetitions (135-call hard cap). It pins `jev-1.13.0`, disables retries, and uses an 814,000-token observed-usage planning ceiling. This is not a guaranteed billing cap. At the checked current price, that is a $0.034188 planning estimate; the 135 × 64,000-token full-context list-price envelope is $0.36288, subject to provider billing and price uncertainty. Details and decision rules are in [`examples/map-shapes-evaluation/paid-run-proposal.md`](../../examples/map-shapes-evaluation/paid-run-proposal.md).
 - No TypeSafe calls, credentials, caches, or paid outputs were used. Fake metric outputs are arithmetic tests, not quality or cost evidence. Shared-context semantic quality, provider token counts, and latency remain unmeasured pending explicit authorization.
-- Focused offline tests pass. The configured Funzzy watcher was unavailable because `.watch.sock` was absent, so the fresh watcher criterion remains open. Keep this task `doing` and do not start paid runs until watcher verification and separate authorization.
+- The earlier focused offline tests passed. At that point the configured Funzzy watcher was unavailable because `.watch.sock` was absent; this remains historical evidence only. Keep this task `doing` and do not start paid runs until fresh watcher verification and separate authorization.
+
+## Executor phase progress (2026-09-25)
+- Added a separate executor with a no-network dry-run, a pinned synthetic corpus, explicit authorization checks, sequential single-attempt HTTPS transport, observed-usage planning guards, and mode-restricted ignored JSONL results.
+- Added deterministic fake-transport tests for success, malformed/missing usage, wrong model, retries, byte guards, token/request ceilings, credential echo rejection, and private file permissions. Tests and watcher do not use the paid execution path.
+- Generated `examples/map-shapes-evaluation/preflight-authorization.json` from the offline dry-run. It records the 129 planned requests, 135 attempt cap, 814,000-token / $0.034188 planning figures, and 8.64M-token / $0.36288 current-price full-context envelope. The estimates are not guaranteed billing.
+- No provider calls or credentials were used. Paid execution remains unauthorized; keep TASK-0066 `doing` and do not start TASK-0067.
 
 ## Non-goals
 - Shipping a new default request shape.
