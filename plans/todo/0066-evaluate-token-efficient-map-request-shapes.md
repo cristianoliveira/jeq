@@ -25,17 +25,23 @@ Compare three strategies against the current map contract:
 Use representative fixtures rather than one favorable example: short unrelated records, large unrelated records, several questions per record, duplicate records, and records sharing a large reference document. Measure provider-reported input tokens, useful answers, latency, request count, probability movement, and threshold decisions.
 
 ## Acceptance criteria
-- [ ] Add a reproducible benchmark harness whose inputs and calculations are committed, while live credentials, response caches, and paid outputs remain ignored.
+- [x] Add a reproducible benchmark harness whose inputs and calculations are committed, while live credentials, response caches, and paid outputs remain ignored.
 - [ ] Establish the existing per-record map behavior as the baseline using TASK-0065 usage summaries.
 - [ ] Compare all three strategies on short unrelated records, large unrelated records, multi-question records, exact duplicates, and large shared-context workloads.
 - [ ] Report total input tokens, answers per 1,000 input tokens, requests, latency, and request-size distribution for every case.
-- [ ] Prove offline that batched answer IDs map back to the correct record and original question without changing input order.
+- [x] Prove offline that batched answer IDs map back to the correct record and original question without changing input order.
 - [ ] Evaluate quality using repeated provider runs: compare mean probabilities and configured threshold decisions against both baseline variation and expected labels; batching does not pass solely because it is cheaper.
-- [ ] Keep each experimental request below 64k total tokens and 32k tokens for state plus the longest question, with documented safety margin and no retry-after-oversize strategy.
+- [x] Keep each experimental request below 64k total tokens and 32k tokens for state plus the longest question, with documented safety margin and no retry-after-oversize strategy.
 - [ ] Explicitly test the TypeSafe warning that unrelated shared state can reduce accuracy.
 - [ ] Produce a decision table that selects a strategy by workload, including a valid `keep per-record requests` outcome when batching has no meaningful token advantage.
 - [ ] Any paid benchmark runs only after offline fixtures and watcher are green and the user authorizes the spend; record model version, run count, and observed token total.
 - [ ] Fresh watcher passes at clean committed HEAD.
+
+## Offline phase progress (2026-09-24)
+- Commit `2e8ac48` adds deterministic synthetic fixtures, the offline planner and metric checks, byte ceilings, and an ignored-results policy.
+- The matrix plans 129 requests across 5 workloads, 3 strategies, and 3 repetitions (135-call hard cap). It pins `jev-1.13.0`, disables retries, and sets an 814,000 input-token cap; proposed maximum input charge is $0.034188 at the checked current price. Details and decision rules are in [`examples/map-shapes-evaluation/paid-run-proposal.md`](../../examples/map-shapes-evaluation/paid-run-proposal.md).
+- No TypeSafe calls, credentials, caches, or paid outputs were used. Fake metric outputs are arithmetic tests, not quality or cost evidence. Shared-context semantic quality, provider token counts, and latency remain unmeasured pending explicit authorization.
+- Focused offline tests pass. The configured Funzzy watcher was unavailable because `.watch.sock` was absent, so the fresh watcher criterion remains open. Keep this task `doing` and do not start paid runs until watcher verification and separate authorization.
 
 ## Non-goals
 - Shipping a new default request shape.
