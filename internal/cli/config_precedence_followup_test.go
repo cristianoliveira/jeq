@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -45,21 +44,27 @@ func TestOptionalConfigIsSkippedWhenHigherModelSourceWins(t *testing.T) {
 }
 
 func TestExplicitConfigRejectsMissingUnreadableMalformedWrongTypeEmptyDuplicateAndOversize(t *testing.T) {
-	cases := []string{
-		`{"default_model":`,
-		`{"default_model":1}`,
-		`{}`,
-		`{"default_model":"a","default_model":"b"}`,
-		`{"default_model":"` + strings.Repeat("x", configMaxBytes) + `"}`,
+	cases := []struct {
+		name     string
+		document string
+	}{
+		{name: "malformed JSON is rejected", document: `{"default_model":`},
+		{name: "non-string default_model is rejected", document: `{"default_model":1}`},
+		{name: "missing default_model is rejected", document: `{}`},
+		{name: "duplicate default_model is rejected", document: `{"default_model":"a","default_model":"b"}`},
+		{name: "oversized default_model is rejected", document: `{"default_model":"` + strings.Repeat("x", configMaxBytes) + `"}`},
 	}
-	if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, func(string, int64) ([]byte, *jeq.Error) {
-		return nil, jeq.NewError(jeq.CodeInputInvalid, "permission denied")
-	}); err == nil {
-		t.Fatal("unreadable config accepted")
-	}
-	for i, document := range cases {
-		t.Run(fmt.Sprintf("case-%d", i), func(t *testing.T) {
-			read := func(string, int64) ([]byte, *jeq.Error) { return []byte(document), nil }
+	t.Run("unreadable explicit config is rejected", func(t *testing.T) {
+		read := func(string, int64) ([]byte, *jeq.Error) {
+			return nil, jeq.NewError(jeq.CodeInputInvalid, "permission denied")
+		}
+		if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read); err == nil {
+			t.Fatal("unreadable config accepted")
+		}
+	})
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			read := func(string, int64) ([]byte, *jeq.Error) { return []byte(tc.document), nil }
 			if _, err := ResolveConfiguredModel("", "explicit.json", func(string) string { return "" }, read); err == nil {
 				t.Fatal("invalid config accepted")
 			}

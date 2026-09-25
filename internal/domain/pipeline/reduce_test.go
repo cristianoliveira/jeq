@@ -37,15 +37,23 @@ func TestReduceSendsOneExactCollectionAndPreservesResponseExtras(t *testing.T) {
 }
 
 func TestReduceRejectsEmptyCollectionAndEvaluatorErrors(t *testing.T) {
-	e := &reduceEvaluator{err: jeq.NewError(jeq.CodeServerError, "boom")}
-	request := contract.Request{Model: "m", State: json.RawMessage(`[]`), Questions: map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}}
-	if _, err := Reduce(context.Background(), []byte(`[]`), "batch", request, e); err == nil || e.calls != 0 {
-		t.Fatalf("empty err=%v calls=%d", err, e.calls)
-	}
-	request.State = json.RawMessage(`[1]`)
-	if _, err := Reduce(context.Background(), []byte(`[1]`), "batch", request, e); err == nil || err.Code != jeq.CodeServerError || e.calls != 1 {
-		t.Fatalf("eval err=%v calls=%d", err, e.calls)
-	}
+	t.Run("empty collection fails without calling evaluator", func(t *testing.T) {
+		e := &reduceEvaluator{}
+		request := contract.Request{Model: "m", State: json.RawMessage(`[]`), Questions: map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}}
+		if _, err := Reduce(context.Background(), []byte(`[]`), "batch", request, e); err == nil || e.calls != 0 {
+			t.Fatalf("empty err=%v calls=%d", err, e.calls)
+		}
+	})
+
+	t.Run("evaluator error is returned unchanged", func(t *testing.T) {
+		evalErr := jeq.NewError(jeq.CodeServerError, "boom")
+		e := &reduceEvaluator{err: evalErr}
+		request := contract.Request{Model: "m", State: json.RawMessage(`[1]`), Questions: map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}}
+		_, err := Reduce(context.Background(), []byte(`[1]`), "batch", request, e)
+		if err != evalErr || e.calls != 1 {
+			t.Fatalf("err=%v calls=%d", err, e.calls)
+		}
+	})
 }
 
 func containsBytes(data, needle []byte) bool {
