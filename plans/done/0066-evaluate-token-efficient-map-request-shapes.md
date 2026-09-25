@@ -74,4 +74,3 @@ Cristian approved closing TASK-0066 with one explicit exception: the historical 
 - Optimize useful answers per input token first; latency and requests are secondary metrics.
 - Provider usage is the cost evidence. Serialized bytes are only a conservative safety bound, not a billing estimate.
 - Large shared state must not expose one record's answer to unrelated or private record content without explicit user choice.
-
