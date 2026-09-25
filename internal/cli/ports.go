@@ -41,10 +41,22 @@ func newClient(deps AskDeps, provider ResolvedProvider, timeout time.Duration, m
 }
 
 func attachTrace(cmd *cobra.Command, client APIClient) {
-	if observer, ok := client.(traceAttachable); ok {
-		if cfg := trace.FromContext(cmd.Context()); cfg != nil {
-			observer.SetTraceObserver(cfg)
-		}
+	observer, ok := client.(traceAttachable)
+	if !ok {
+		return
+	}
+	observers := make([]trace.Observer, 0, 2)
+	if cfg := trace.FromContext(cmd.Context()); cfg != nil {
+		observers = append(observers, cfg)
+	}
+	if summary := usageSummaryFrom(cmd.Context()); summary != nil {
+		observers = append(observers, summary)
+	}
+	switch len(observers) {
+	case 1:
+		observer.SetTraceObserver(observers[0])
+	case 2:
+		observer.SetTraceObserver(combinedTraceObserver(observers))
 	}
 }
 

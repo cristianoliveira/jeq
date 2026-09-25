@@ -167,7 +167,11 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, "", map[string]contract.Question{f.name: {Type: contract.TypeChoice}})
 	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
-	response, callErr := client.Evaluate(cmd.Context(), request)
+	tracker := newUsageEvaluator(cmd.Context(), client)
+	if tracker.summary != nil {
+		tracker.summary.addProcessedRecords(int64(len(records)))
+	}
+	response, callErr := tracker.Evaluate(cmd.Context(), request)
 	if callErr != nil {
 		return callErr
 	}
@@ -191,6 +195,7 @@ func runRank(cmd *cobra.Command, deps AskDeps, f rankFlags) error {
 	if attachErr != nil {
 		return attachErr
 	}
+	tracker.recordAttachedAnswers()
 	if tr := trace.FromContext(cmd.Context()); tr != nil {
 		tr.EmitSummary(cmd.CommandPath(), len(records), 1, 1, 0)
 	}

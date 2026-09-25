@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cristianoliveira/jeq/internal/trace"
 	"github.com/spf13/cobra"
@@ -23,12 +24,12 @@ func withBareHelp(run func(*cobra.Command, []string) error) func(*cobra.Command,
 
 // NewRootCmd builds a fresh jeq command tree.
 func NewRootCmd(deps ...AskDeps) *cobra.Command {
-	var showVersion, verbose bool
+	var showVersion, verbose, usageSummaryEnabled bool
 	var traceID string
 	root := &cobra.Command{
 		Use:           "jeq",
 		Short:         "Agent-first CLI for TypeSafe System One",
-		Long:          modelRoleNote + "\n\nExecution traces from --verbose are safe lifecycle metadata on stderr, not model reasoning or raw payloads. Use --trace-id or JEQ_TRACE_ID to correlate caller-owned pipelines.",
+		Long:          modelRoleNote + "\n\nExecution traces from --verbose are safe lifecycle metadata on stderr, not model reasoning or raw payloads. Use --trace-id or JEQ_TRACE_ID to correlate caller-owned pipelines. The opt-in --usage-summary flag writes observed token and decoded-answer totals as one final JSON line to stderr for ask, map, rate, rank, and reduce.",
 		Example:       "  jeq examples\n  jeq examples map-reduce-gate",
 		SilenceUsage:  true,
 		SilenceErrors: true, // Run prints Cobra's standard error line once, after policy-exit mapping
@@ -40,9 +41,17 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		},
 	}
 	root.PersistentFlags().BoolVar(&verbose, "verbose", false, "Emit safe execution metadata to stderr (not model reasoning)")
+	root.PersistentFlags().BoolVar(&usageSummaryEnabled, "usage-summary", false, "Write observed token efficiency totals to stderr for paid commands")
 	root.PersistentFlags().StringVar(&traceID, "trace-id", "", "Correlate safe execution traces (also JEQ_TRACE_ID)")
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print build information")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+		if usageSummaryEnabled && isUsageSummaryCommand(cmd.Name()) {
+			summary := newUsageSummary(cmd.CommandPath(), time.Now())
+			ctx = withUsageSummary(ctx, summary)
+			cmd.SetContext(ctx)
+			root.SetContext(ctx)
+		}
 		if !verbose && traceID == "" {
 			return nil
 		}
@@ -58,7 +67,7 @@ func NewRootCmd(deps ...AskDeps) *cobra.Command {
 		cfg.Command = cmd.CommandPath()
 		cfg.Emit(cmd.CommandPath(), "run.started", "preflight", "started", "")
 		cfg.Emit(cmd.CommandPath(), "operation.started", "preflight", "started", "")
-		ctx := trace.WithContext(cmd.Context(), cfg)
+		ctx = trace.WithContext(cmd.Context(), cfg)
 		cmd.SetContext(ctx)
 		root.SetContext(ctx)
 		return nil

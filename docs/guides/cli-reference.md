@@ -66,6 +66,27 @@ the caller's job. In Bash pipelines, use `set -o pipefail`; it returns the
 rightmost failing stage's status, not every stage's exact error. Read
 `PIPESTATUS` immediately only when a workflow needs each stage's status.
 
+### Usage summary
+
+Pass `--usage-summary` to `ask`, `map`, `rate`, `rank`, or `reduce` to append one
+JSON line to stderr. The flag is opt-in. stdout and the command's exit code keep
+their normal meanings, so JSON and NDJSON pipelines remain composable. The
+summary reports `attempted_requests`, `successful_requests`, `processed_records`,
+`decoded_answers`, provider-reported `input_tokens` and `output_tokens`,
+`answers_per_1000_input_tokens`, `elapsed_ms`, and distinct
+`resolved_model_versions` returned by the provider.
+
+The ratio is decoded answers divided by input tokens, multiplied by 1,000. It is
+`null` when the provider reports zero or fewer input tokens; raw counts remain
+available. Attempts count actual HTTP exchanges, including retries. Successful
+requests count responses that jeq decoded; decoded answers count only judgments
+attached to their requested state or record. For streams, processed records
+count records the command started processing, not output lines. Usage totals
+include only valid responses observed by jeq. A provider may bill a failed or
+cancelled request even when it returns no usage, so the summary cannot account
+for such charges. jeq makes no extra calls, estimates no prices, and excludes
+prompts, state, and credentials.
+
 Provider selection is explicit: `JEQ_PROVIDER=typesafe|vercel|custom`, or
 `default_provider` in `JEQ_CONFIG`; there is no credential inference or fallback.
 Named profiles use `base_url`, `default_model`, `auth`, and `api_key_env`.

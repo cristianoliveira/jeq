@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/trace"
@@ -37,6 +38,11 @@ func RunWithDeps(args []string, stdout, stderr io.Writer, renderer Renderer, dep
 		root.PrintErrln("Error:", publicCLIError(err))
 		return 2
 	}
+	defer func() {
+		if summary := usageSummaryFrom(root.Context()); summary != nil {
+			summary.write(root.ErrOrStderr(), time.Now())
+		}
+	}()
 	if err := root.Execute(); err != nil {
 		if cfg := trace.FromContext(root.Context()); cfg != nil {
 			code := ""

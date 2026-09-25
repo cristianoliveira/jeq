@@ -68,6 +68,8 @@ For composed commands, model selection is:
 
 A native `ask` request's embedded model is authoritative. Provider selection and model selection are separate decisions.
 
+Use `--usage-summary` on `ask`, `map`, `rate`, `rank`, or `reduce` to write observed token efficiency totals to stderr without changing stdout. It counts only successful, decoded responses and reports answers per 1,000 provider-reported input tokens. A provider can still bill a failed request that returns no usage; see the [CLI reference](cli-reference.md#usage-summary) for field definitions and accounting limits.
+
 ## Loopback Jev-compatible servers
 
 A local server that implements `POST /v1/systemone` can serve judgment commands through the custom provider. `jeq` sends the request directly to that endpoint; judgment commands do not require `GET /v1/models` first. A model-listing endpoint is only needed by `jeq models`.

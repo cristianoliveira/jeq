@@ -106,15 +106,26 @@ func runReduce(cmd *cobra.Command, deps AskDeps, f reduceFlags) error {
 	traceMetadata(cmd, resolvedModel, modelSource, f.input, "", questions)
 	client := newClient(deps, provider, timeout, f.maxRetries, func(line string) { _, _ = fmt.Fprintln(cmd.ErrOrStderr(), line) })
 	attachTrace(cmd, client)
+	tracker := newUsageEvaluator(cmd.Context(), client)
+	if tracker.summary != nil {
+		tracker.summary.addProcessedRecords(reduceRecordCount(items))
+	}
 	request := contract.Request{Model: resolvedModel, State: items, Questions: questions, Extra: extra}
-	output, evalErr := pipeline.Reduce(cmd.Context(), items, f.name, request, client)
+	output, evalErr := pipeline.Reduce(cmd.Context(), items, f.name, request, tracker)
 	if evalErr != nil {
 		return evalErr
 	}
+	tracker.recordAttachedAnswers()
 	if tr := trace.FromContext(cmd.Context()); tr != nil {
 		tr.EmitSummary(cmd.CommandPath(), len(items), 1, 1, 0)
 	}
 	return withTracePhase(renderRaw(deps.Renderer, cmd.OutOrStdout(), output), "output_write")
+}
+
+func reduceRecordCount(items []byte) int64 {
+	var records []json.RawMessage
+	_ = json.Unmarshal(items, &records) // reduceItems has already validated this array.
+	return int64(len(records))
 }
 
 func reduceItems(input []byte, framing string) ([]byte, *jeq.Error) {
