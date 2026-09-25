@@ -21,14 +21,20 @@ ROOT = Path(__file__).resolve().parent
 FIXTURES = ROOT / "fixtures.json"
 MODEL_VERSION = "jev-1.13.0"
 MAX_REQUESTS = 135
-MAX_REPORTED_INPUT_TOKENS = 750_000
+PLANNING_REPORTED_INPUT_TOKEN_STOP = 750_000
 MAX_SINGLE_REQUEST_TOKENS = 64_000
-MAX_INPUT_TOKEN_BUDGET = MAX_REPORTED_INPUT_TOKENS + MAX_SINGLE_REQUEST_TOKENS
+PLANNING_TOKEN_CEILING = PLANNING_REPORTED_INPUT_TOKEN_STOP + MAX_SINGLE_REQUEST_TOKENS
+MAX_CONTEXT_TOKENS_AT_REQUEST_CAP = MAX_REQUESTS * MAX_SINGLE_REQUEST_TOKENS
 MAX_TOTAL_REQUEST_BYTES = 24 * 1024
 MAX_STATE_AND_LONGEST_QUESTION_BYTES = 12 * 1024
 MAX_RETRIES = 0
 PRICE_USD_PER_MILLION_INPUT_TOKENS = 0.042
-MAX_INPUT_SPEND_USD = MAX_INPUT_TOKEN_BUDGET * PRICE_USD_PER_MILLION_INPUT_TOKENS / 1_000_000
+PLANNING_SPEND_AT_TOKEN_CEILING_USD = (
+    PLANNING_TOKEN_CEILING * PRICE_USD_PER_MILLION_INPUT_TOKENS / 1_000_000
+)
+MAX_CONTEXT_LIST_PRICE_ENVELOPE_USD = (
+    MAX_CONTEXT_TOKENS_AT_REQUEST_CAP * PRICE_USD_PER_MILLION_INPUT_TOKENS / 1_000_000
+)
 STRATEGIES = ("per-record", "exact-dedup", "shared-context")
 RECORD_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 QUESTION_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
@@ -285,11 +291,17 @@ def build_matrix(fixtures: dict[str, Any], *, allow_shared_context: bool) -> dic
         "maximum_requests_without_dedup_savings": maximum_total,
         "max_requests": MAX_REQUESTS,
         "max_retries": MAX_RETRIES,
-        "max_reported_input_tokens_before_stop": MAX_REPORTED_INPUT_TOKENS,
-        "max_input_token_budget_including_one_final_request": MAX_INPUT_TOKEN_BUDGET,
+        "planning_reported_input_token_stop": PLANNING_REPORTED_INPUT_TOKEN_STOP,
+        "planning_token_ceiling_including_one_request_reserve": PLANNING_TOKEN_CEILING,
         "max_input_tokens_per_request": MAX_SINGLE_REQUEST_TOKENS,
+        "max_context_tokens_at_request_cap_if_each_call_uses_full_context": (
+            MAX_CONTEXT_TOKENS_AT_REQUEST_CAP
+        ),
         "price_usd_per_million_input_tokens": PRICE_USD_PER_MILLION_INPUT_TOKENS,
-        "maximum_input_spend_usd": round(MAX_INPUT_SPEND_USD, 6),
+        "planning_spend_at_token_ceiling_usd": round(PLANNING_SPEND_AT_TOKEN_CEILING_USD, 6),
+        "max_context_list_price_envelope_usd": round(MAX_CONTEXT_LIST_PRICE_ENVELOPE_USD, 6),
+        "reported_usage_does_not_guarantee_provider_billing": True,
+        "halts_after_missing_usage_invalid_response_wrong_version_or_retry": True,
         "max_serialized_request_bytes": max_body_bytes,
         "max_state_plus_longest_question_bytes": max_state_question_bytes,
         "serialized_request_bytes_across_matrix": total_body_bytes,
@@ -408,16 +420,19 @@ def summarize_probability_runs(
 
 
 class PaidRunBudget:
-    """Offline-tested guard contract for a future sequential, retry-free runner."""
+    """Offline-tested planning guard; usage reports do not prove final billing."""
 
     def __init__(self) -> None:
         self.requests = 0
         self.input_tokens = 0
         self.in_flight = False
+        self.halted = False
 
     def begin(
         self, model: str, request: dict[str, Any], *, max_retries: int = MAX_RETRIES
     ) -> None:
+        if self.halted:
+            raise PlanError("paid run halted; do not start another request")
         if model != MODEL_VERSION:
             raise PlanError(f"paid run must pin {MODEL_VERSION}")
         if max_retries != MAX_RETRIES:
@@ -429,23 +444,54 @@ class PaidRunBudget:
             raise PlanError("paid requests must be sequential")
         if self.requests >= MAX_REQUESTS:
             raise PlanError(f"paid run reached the {MAX_REQUESTS} request cap")
-        if self.input_tokens + MAX_SINGLE_REQUEST_TOKENS > MAX_INPUT_TOKEN_BUDGET:
+        if self.input_tokens + MAX_SINGLE_REQUEST_TOKENS > PLANNING_TOKEN_CEILING:
             raise PlanError("paid run cannot reserve the maximum context for another request")
         self.requests += 1
         self.in_flight = True
 
-    def finish(self, reported_input_tokens: int | None) -> None:
+    def finish(
+        self,
+        reported_input_tokens: int | None,
+        *,
+        resolved_model_version: str | None = None,
+        response_valid: bool = True,
+        actual_attempts: int = 1,
+    ) -> None:
         if not self.in_flight:
             raise PlanError("no request is awaiting completion")
-        if reported_input_tokens is None:
-            self.input_tokens += MAX_SINGLE_REQUEST_TOKENS
-        elif not 0 <= reported_input_tokens <= MAX_SINGLE_REQUEST_TOKENS:
-            raise PlanError("reported usage is outside the Jev per-request context limit")
-        else:
-            self.input_tokens += reported_input_tokens
         self.in_flight = False
-        if self.input_tokens > MAX_INPUT_TOKEN_BUDGET:
-            raise PlanError("paid run exceeded its input-token budget")
+        attempts_valid = (
+            isinstance(actual_attempts, int)
+            and not isinstance(actual_attempts, bool)
+            and actual_attempts == 1
+        )
+        if not attempts_valid:
+            safe_attempts = (
+                actual_attempts
+                if isinstance(actual_attempts, int) and actual_attempts > 0
+                else 1
+            )
+            self.requests += max(0, safe_attempts - 1)
+            self.input_tokens += safe_attempts * MAX_SINGLE_REQUEST_TOKENS
+            self.halted = True
+            return
+        usage_valid = (
+            isinstance(reported_input_tokens, int)
+            and not isinstance(reported_input_tokens, bool)
+            and 0 <= reported_input_tokens <= MAX_SINGLE_REQUEST_TOKENS
+        )
+        if (
+            not response_valid
+            or resolved_model_version != MODEL_VERSION
+            or not usage_valid
+        ):
+            self.input_tokens += MAX_SINGLE_REQUEST_TOKENS
+            self.halted = True
+            return
+        self.input_tokens += reported_input_tokens
+        if self.input_tokens > PLANNING_TOKEN_CEILING:
+            self.halted = True
+            raise PlanError("reported usage exceeded the planning token ceiling")
 
 
 def offline_check(fixtures: dict[str, Any]) -> dict[str, Any]:

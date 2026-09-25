@@ -4,7 +4,7 @@
 
 ## Matrix
 
-Pin model `jev-1.13.0`; reject any response with a different resolved model. Use three repeated runs for each workload/strategy pair. Make calls sequentially in a deterministic, interleaved strategy order. Disable retries (`--max-retries 0`); a rejected or missing-usage request stops or consumes the conservative budget instead of retrying. No oversize retry or request truncation.
+Pin model `jev-1.13.0`; reject any response with a different resolved model. Use three repeated runs for each workload/strategy pair. Make calls sequentially in a deterministic, interleaved strategy order. Disable retries (`--max-retries 0`). A missing-usage, malformed, or wrong-version response halts the run before another request. No oversize retry or request truncation.
 
 | Workload | Per-record requests / repeat | Exact-dedup requests / repeat | Shared-context requests / repeat |
 | --- | ---: | ---: | ---: |
@@ -33,13 +33,13 @@ These are hypotheses for the paid results, not measured findings:
 | Exact duplicates | Prefer exact dedup only for byte-identical canonical requests and only if answer mapping and repeated quality checks agree with per-record. Otherwise keep per-record. |
 | Large shared reference | Consider shared context only with explicit privacy opt-in and no measured quality regression; otherwise keep per-record despite repeated reference tokens. |
 
-## Size and budget caps
+## Size and planning budgets
 
 The offline planner currently measures 129 requests, with a maximum serialized request of 8,696 bytes and maximum serialized state plus longest question of 7,855 bytes. It checks stricter ceilings of 24 KiB and 12 KiB respectively. Those byte limits are safety checks only, not a token or price estimate.
 
-The paid executor must use `PaidRunBudget`'s policy in the harness: exact model `jev-1.13.0`, at most 135 requests, sequential calls, zero retries, per-request validation, and no next call unless a full 64,000-token context still fits in the 814,000-token budget. The 814,000 allowance is a 750,000 reported-usage stop target plus one 64,000-token final-request reserve. If usage is missing or the response is malformed, conservatively charge the full 64,000-token context against the allowance. Stop before another request when its maximum context would exceed the budget.
+The paid executor must use `PaidRunBudget` as an observed-usage planning guard: exact model `jev-1.13.0`, at most 135 sequential requests, zero retries, and per-request validation. The 750,000-token stop target plus one 64,000-token request reserve gives an **814,000 reported-usage planning ceiling**, not a guaranteed charge ceiling. Before each request, reserve one full 64,000-token context. If usage is missing, the response is malformed, the returned model is wrong, or an unexpected retry occurs, debit one full context per attempt in the planning ledger and halt before another request. This blocks further calls after an unknown result; it cannot prove how TypeSafe bills that call.
 
-The current models page lists input at $0.042 per million tokens and output as free. At the proposed 814,000 input-token cap, the maximum input charge is **$0.034188 (about 3.42 cents)**, excluding taxes or any future price change. The executor must enforce the token cap, not infer billed usage from serialized bytes. Failed provider requests with unreported usage consume a full context reserve. If the provider's billing rules change or this cap cannot be enforced, do not run; ask Cristian to approve a revised cap.
+At the currently published $0.042 per million input tokens, 814,000 reported tokens correspond to a **$0.034188 planning estimate** (about 3.42 cents), not a maximum invoice. The conservative worst-case context envelope is 135 capped attempts × 64,000 input tokens = 8,640,000 tokens, or **$0.36288 at today's list price**, assuming every attempt is billed at full context. Use $0.36288 as the authorization envelope under the published per-attempt context and price. It is not a guaranteed invoice: TypeSafe's billing for failed or malformed requests is not established here, and prices, taxes, hidden billing treatment, or other charges can change. The request/token guards do not infer billed usage from serialized bytes. If the provider's current billing behavior or price cannot be confirmed, stop and ask Cristian to approve a revised envelope.
 
 ## Authorization gate
 
@@ -48,6 +48,6 @@ Before any paid request:
 1. Run the offline tests and matrix on the final committed fixtures.
 2. Confirm current Jev limits, version, price, and failure billing behavior from the linked TypeSafe docs.
 3. Confirm the only data is the committed synthetic corpus and explicitly opt in to shared context.
-4. Show Cristian the 135-request cap, 814,000-token cap, $0.034188 maximum, and matrix above. Wait for explicit authorization.
+4. Show Cristian the 135-request cap, 814,000-token observed-usage planning ceiling, $0.034188 planning estimate, $0.36288 full-context list-price envelope, and matrix above. Wait for explicit authorization.
 5. Save raw responses, credentials, and caches only under ignored `private/`, `.cache/`, or `results/` directories. Do not commit them.
-6. Stop before spending if the returned model differs, the budget guard fails, a request exceeds the byte guard, or the measured usage reaches the cap.
+6. Stop before spending if the returned model differs, usage is missing, the response is malformed, the budget guard fails, a request exceeds the byte guard, or the planning ceiling is reached.

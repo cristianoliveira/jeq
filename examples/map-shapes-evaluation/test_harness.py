@@ -208,8 +208,15 @@ class MapShapeHarnessTests(unittest.TestCase):
         self.assertEqual(matrix["planned_requests_with_exact_dedup"], 129)
         self.assertEqual(matrix["maximum_requests_without_dedup_savings"], 135)
         self.assertEqual(matrix["max_retries"], 0)
-        self.assertEqual(matrix["max_input_token_budget_including_one_final_request"], 814_000)
-        self.assertEqual(matrix["maximum_input_spend_usd"], 0.034188)
+        self.assertEqual(matrix["planning_token_ceiling_including_one_request_reserve"], 814_000)
+        self.assertEqual(matrix["planning_spend_at_token_ceiling_usd"], 0.034188)
+        self.assertEqual(
+            matrix["max_context_tokens_at_request_cap_if_each_call_uses_full_context"],
+            8_640_000,
+        )
+        self.assertEqual(matrix["max_context_list_price_envelope_usd"], 0.36288)
+        self.assertTrue(matrix["reported_usage_does_not_guarantee_provider_billing"])
+        self.assertTrue(matrix["halts_after_missing_usage_invalid_response_wrong_version_or_retry"])
 
         request = harness.make_request(
             harness.MODEL_VERSION, {"message": "synthetic"},
@@ -221,11 +228,41 @@ class MapShapeHarnessTests(unittest.TestCase):
         with self.assertRaisesRegex(harness.PlanError, "must set max_retries=0"):
             budget.begin(harness.MODEL_VERSION, request, max_retries=1)
         budget.begin(harness.MODEL_VERSION, request)
-        budget.finish(12_000)
+        budget.finish(12_000, resolved_model_version=harness.MODEL_VERSION)
         self.assertEqual(budget.input_tokens, 12_000)
         budget.begin(harness.MODEL_VERSION, request)
         budget.finish(None)
         self.assertEqual(budget.input_tokens, 76_000)
+        self.assertTrue(budget.halted)
+        with self.assertRaisesRegex(harness.PlanError, "halted"):
+            budget.begin(harness.MODEL_VERSION, request)
+
+        wrong_model = harness.PaidRunBudget()
+        wrong_model.begin(harness.MODEL_VERSION, request)
+        wrong_model.finish(1_000, resolved_model_version="jev-latest")
+        self.assertTrue(wrong_model.halted)
+        self.assertEqual(wrong_model.input_tokens, harness.MAX_SINGLE_REQUEST_TOKENS)
+
+        malformed = harness.PaidRunBudget()
+        malformed.begin(harness.MODEL_VERSION, request)
+        malformed.finish(
+            1_000,
+            resolved_model_version=harness.MODEL_VERSION,
+            response_valid=False,
+        )
+        self.assertTrue(malformed.halted)
+        self.assertEqual(malformed.input_tokens, harness.MAX_SINGLE_REQUEST_TOKENS)
+
+        retried = harness.PaidRunBudget()
+        retried.begin(harness.MODEL_VERSION, request)
+        retried.finish(
+            1_000,
+            resolved_model_version=harness.MODEL_VERSION,
+            actual_attempts=2,
+        )
+        self.assertTrue(retried.halted)
+        self.assertEqual(retried.requests, 2)
+        self.assertEqual(retried.input_tokens, 2 * harness.MAX_SINGLE_REQUEST_TOKENS)
 
     def test_offline_check_is_explicitly_not_quality_or_cost_evidence(self):
         result = harness.offline_check(self.fixtures)

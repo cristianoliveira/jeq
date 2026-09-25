@@ -51,4 +51,4 @@ Recheck the live docs before authorizing a run because model limits and prices m
 
 `harness.py check` runs fake usage and probability examples only to test metric arithmetic. The printed values are marked synthetic and are not TypeSafe measurements, accuracy claims, or savings claims. No response cache or paid output is committed.
 
-The [proposed paid run matrix](paid-run-proposal.md) specifies exact calls, model, request/token caps, quality checks, and an upper spend calculation. Stop here until Cristian separately authorizes that spend and confirms the data is safe to send.
+The [proposed paid run matrix](paid-run-proposal.md) specifies calls, model, request/token planning guards, quality checks, a planning estimate, and a separate full-context list-price envelope. The 814,000-token figure is not a guaranteed billing cap. Stop here until Cristian separately authorizes the $0.36288 envelope and confirms the data is safe to send.
