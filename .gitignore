@@ -2,3 +2,6 @@
 !.watch.yaml
 __pycache__/
 *.py[cod]
+/examples/map-shapes-evaluation/private/
+/examples/map-shapes-evaluation/results/
+/examples/map-shapes-evaluation/.cache/

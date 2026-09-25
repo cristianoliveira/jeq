@@ -58,3 +58,7 @@ jobs:
   - name: install-cli
     run_on_init: true
     run: nix develop -c go install ./cmd/jeq
+  - name: map-shapes-offline
+    run_on_init: true
+    parallel: checks
+    run: python3 -m unittest discover -s examples/map-shapes-evaluation -p 'test_*.py' && python3 examples/map-shapes-evaluation/harness.py check --allow-shared-context >/dev/null

@@ -1,0 +1,71 @@
+{
+  "schema": "jeq.map-shapes-fixtures.v1",
+  "model": "jev-1.13.0",
+  "repetitions": 3,
+  "shared_context_opt_in_required": true,
+  "workloads": [
+    {
+      "id": "short-unrelated",
+      "questions": {
+        "risk": {"type": "noul", "instructions": "Does this message report immediate user harm?", "threshold": 0.5}
+      },
+      "records": [
+        {"id": "short-01", "state": {"message": "The login button is slightly misaligned."}, "expected": {"risk": false}},
+        {"id": "short-02", "state": {"message": "A customer cannot access a paid account."}, "expected": {"risk": true}},
+        {"id": "short-03", "state": {"message": "The footer uses an old copyright year."}, "expected": {"risk": false}},
+        {"id": "short-04", "state": {"message": "A payment was taken twice for one order."}, "expected": {"risk": true}}
+      ]
+    },
+    {
+      "id": "large-unrelated",
+      "questions": {
+        "risk": {"type": "noul", "instructions": "Does this report describe an active security incident?", "threshold": 0.5}
+      },
+      "records": [
+        {"id": "large-01", "state": {"report": "An informational style warning appears in a local preview.", "unrelated_notes": {"repeat_text": "Synthetic unrelated deployment note. ", "repeat_count": 48}}, "expected": {"risk": false}},
+        {"id": "large-02", "state": {"report": "An exposed credential was used to read private account data.", "unrelated_notes": {"repeat_text": "Synthetic unrelated deployment note. ", "repeat_count": 48}}, "expected": {"risk": true}},
+        {"id": "large-03", "state": {"report": "The dashboard chart labels overlap at narrow widths.", "unrelated_notes": {"repeat_text": "Synthetic unrelated deployment note. ", "repeat_count": 48}}, "expected": {"risk": false}},
+        {"id": "large-04", "state": {"report": "An unknown actor changed recovery details on an account.", "unrelated_notes": {"repeat_text": "Synthetic unrelated deployment note. ", "repeat_count": 48}}, "expected": {"risk": true}}
+      ]
+    },
+    {
+      "id": "multi-question",
+      "questions": {
+        "urgent": {"type": "noul", "instructions": "Does the record require action within 24 hours?", "threshold": 0.5},
+        "refund": {"type": "noul", "instructions": "Is the customer explicitly asking for a refund?", "threshold": 0.5},
+        "security": {"type": "noul", "instructions": "Does the record report unauthorized account access?", "threshold": 0.5}
+      },
+      "records": [
+        {"id": "multi-01", "state": {"message": "Please refund the duplicate charge this week."}, "expected": {"urgent": false, "refund": true, "security": false}},
+        {"id": "multi-02", "state": {"message": "Someone changed my email and I cannot sign in."}, "expected": {"urgent": true, "refund": false, "security": true}},
+        {"id": "multi-03", "state": {"message": "The invoice download is missing its logo."}, "expected": {"urgent": false, "refund": false, "security": false}},
+        {"id": "multi-04", "state": {"message": "A second payment posted and support has not replied."}, "expected": {"urgent": true, "refund": true, "security": false}}
+      ]
+    },
+    {
+      "id": "exact-duplicates",
+      "questions": {
+        "category": {"type": "noul", "instructions": "Is this request about a billing correction?", "threshold": 0.5}
+      },
+      "records": [
+        {"id": "duplicate-01", "state": {"message": "The same invoice was charged twice."}, "expected": {"category": true}},
+        {"id": "duplicate-02", "state": {"message": "The same invoice was charged twice."}, "expected": {"category": true}},
+        {"id": "duplicate-03", "state": {"message": "The package arrived with a damaged outer box."}, "expected": {"category": false}},
+        {"id": "duplicate-04", "state": {"message": "The package arrived with a damaged outer box."}, "expected": {"category": false}}
+      ]
+    },
+    {
+      "id": "large-shared-reference",
+      "shared_reference": {"policy": "Synthetic public policy: billing corrections require an exact duplicate transaction; account recovery requires identity verification.", "appendix": {"repeat_text": "Synthetic reference text unrelated to these four records. ", "repeat_count": 32}},
+      "questions": {
+        "billing": {"type": "noul", "instructions": "Does this record describe an exact duplicate transaction under the shared policy?", "threshold": 0.5}
+      },
+      "records": [
+        {"id": "shared-01", "state": {"message": "Two identical charges appear for one purchase."}, "expected": {"billing": true}},
+        {"id": "shared-02", "state": {"message": "A single charge has the wrong display label."}, "expected": {"billing": false}},
+        {"id": "shared-03", "state": {"message": "The account recovery link expired before verification."}, "expected": {"billing": false}},
+        {"id": "shared-04", "state": {"message": "The same transaction appears twice in the ledger."}, "expected": {"billing": true}}
+      ]
+    }
+  ]
+}
