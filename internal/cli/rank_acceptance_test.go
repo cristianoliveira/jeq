@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
@@ -32,9 +35,9 @@ func TestRankAcceptanceInputFailures(t *testing.T) {
 			args := []string{"rank", "--as", "route", "--id-pointer", "/id"}
 			args = append(args, tc.args...)
 			code := cli.RunWithDeps(args, &out, &stderr, RankRenderer{}, deps)
-			if code != 2 || out.Len() != 0 || client.call != 0 {
-				t.Fatalf("code=%d out=%q stderr=%q calls=%d", code, out.String(), stderr.String(), client.call)
-			}
+			assert.Equal(t, 2, code)
+			assert.Empty(t, out.String())
+			assert.Zero(t, client.call)
 		})
 	}
 }
@@ -46,9 +49,10 @@ func TestRankAcceptsInlineJSONState(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"A"}]`)
 	args := []string{"rank", "--as", "route", "--state-json", `{"query":"route"}`, "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}
-	if code := cli.RunWithDeps(args, &out, &stderr, RankRenderer{}, deps); code != 0 || !strings.Contains(out.String(), `"id":"a"`) || string(client.request.State) != `{"query":"route"}` {
-		t.Fatalf("code=%d output=%q stderr=%q request-state=%q", code, out.String(), stderr.String(), client.request.State)
-	}
+	code := cli.RunWithDeps(args, &out, &stderr, RankRenderer{}, deps)
+	require.Equal(t, 0, code, "stderr=%q", stderr.String())
+	assert.Contains(t, out.String(), `"id":"a"`)
+	assert.Equal(t, `{"query":"route"}`, string(client.request.State))
 }
 
 func TestRankAcceptanceJSONArrayAndFullTieOrder(t *testing.T) {
@@ -58,17 +62,13 @@ func TestRankAcceptanceJSONArrayAndFullTieOrder(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":null},{"id":"b","criteria":"B"},{"id":"c","criteria":"C"}]`)
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "one", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &stderr, RankRenderer{}, deps)
-	if code != 0 || stderr.Len() != 0 {
-		t.Fatalf("code=%d stderr=%q", code, stderr.String())
-	}
+	require.Equal(t, 0, code, "stderr=%q", stderr.String())
+	assert.Empty(t, stderr.String())
 	for _, id := range []string{"b", "a", "c"} {
-		if !strings.Contains(out.String(), `"id":"`+id+`"`) {
-			t.Fatalf("missing %s in %s", id, out.String())
-		}
+		assert.Contains(t, out.String(), `"id":"`+id+`"`)
 	}
-	if strings.Index(out.String(), `"id":"b"`) > strings.Index(out.String(), `"id":"a"`) || strings.Index(out.String(), `"id":"a"`) > strings.Index(out.String(), `"id":"c"`) {
-		t.Fatalf("tie order=%s", out.String())
-	}
+	assert.Less(t, strings.Index(out.String(), `"id":"b"`), strings.Index(out.String(), `"id":"a"`), "tie order")
+	assert.Less(t, strings.Index(out.String(), `"id":"a"`), strings.Index(out.String(), `"id":"c"`), "tie order")
 }
 
 func TestRankAcceptanceRejectsNonFiniteProbabilities(t *testing.T) {
@@ -83,9 +83,8 @@ func TestRankAcceptanceRejectsNonFiniteProbabilities(t *testing.T) {
 			deps := RankDeps(client, &out)
 			deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"A"}]`)
 			code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "one", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &stderr, RankRenderer{}, deps)
-			if code != 1 || out.Len() != 0 {
-				t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
-			}
+			assert.Equal(t, 1, code)
+			assert.Empty(t, out.String())
 		})
 	}
 }
@@ -97,7 +96,6 @@ func TestRankAcceptanceUnknownSelectedChoice(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"A"}]`)
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "one", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &stderr, RankRenderer{}, deps)
-	if code != 1 || out.Len() != 0 {
-		t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
-	}
+	assert.Equal(t, 1, code)
+	assert.Empty(t, out.String())
 }

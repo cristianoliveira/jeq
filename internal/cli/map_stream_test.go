@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/spf13/cobra"
@@ -106,9 +109,8 @@ func TestRunMapCancellationClosesBlockedPipe(t *testing.T) {
 	cancel()
 	err := <-done
 	_ = pipeWriter
-	if err == nil || !strings.Contains(err.Error(), string(jeq.CodeInterrupted)) {
-		t.Fatalf("err=%v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), string(jeq.CodeInterrupted))
 }
 
 func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
@@ -125,9 +127,9 @@ func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
 		return ""
 	}}
 	code := RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, &orderedWriter{output: &output, written: written}, io.Discard, streamRenderer{}, deps)
-	if code != 0 || client.calls != 2 || !bytes.Contains(output.Bytes(), []byte("first")) {
-		t.Fatalf("code=%d calls=%d output=%q", code, client.calls, output.String())
-	}
+	assert.Equal(t, 0, code)
+	assert.Equal(t, 2, client.calls)
+	assert.Contains(t, output.String(), "first")
 }
 
 func TestMapStreamEmitsBeforeReadError(t *testing.T) {
@@ -136,9 +138,8 @@ func TestMapStreamEmitsBeforeReadError(t *testing.T) {
 	cmd.SetOut(&out)
 	client := &streamClient{}
 	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(&readErrorAfterFirst{}), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", client)
-	if err == nil || !strings.Contains(out.String(), "first") {
-		t.Fatalf("err=%v out=%q", err, out.String())
-	}
+	require.Error(t, err)
+	assert.Contains(t, out.String(), "first")
 }
 
 func TestMapStreamDoesNotReadAfterEvaluationCancellation(t *testing.T) {
@@ -147,9 +148,8 @@ func TestMapStreamDoesNotReadAfterEvaluationCancellation(t *testing.T) {
 	reads := 0
 	reader := &countingReader{reads: &reads}
 	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
-	if err == nil || reads > 4 {
-		t.Fatalf("err=%v reads=%d", err, reads)
-	}
+	require.Error(t, err)
+	assert.LessOrEqual(t, reads, 4)
 }
 
 type countingReader struct{ reads *int }
@@ -161,17 +161,15 @@ func (r *countingReader) Read([]byte) (int, error) {
 
 func TestReadNDJSONSkipsEmptyAndRejectsOversized(t *testing.T) {
 	record, eof, err := readNDJSONRecord(bufio.NewReader(strings.NewReader("\n\n{\"x\":1}\n")))
-	if err != nil || eof || string(record) != "{\"x\":1}" {
-		t.Fatalf("record=%q eof=%v err=%v", record, eof, err)
-	}
+	require.Nil(t, err)
+	assert.False(t, eof)
+	assert.Equal(t, "{\"x\":1}", string(record))
 	exact := strings.Repeat("x", MapMaxRecordBytes) + "\n"
-	if record, _, err := readNDJSONRecord(bufio.NewReader(strings.NewReader(exact))); err != nil || len(record) != MapMaxRecordBytes {
-		t.Fatalf("boundary record len=%d err=%v", len(record), err)
-	}
+	record, _, err = readNDJSONRecord(bufio.NewReader(strings.NewReader(exact)))
+	require.Nil(t, err)
+	assert.Len(t, record, MapMaxRecordBytes)
 	_, _, err = readNDJSONRecord(bufio.NewReader(strings.NewReader(strings.Repeat("x", MapMaxRecordBytes+1))))
-	if err == nil {
-		t.Fatal("oversized record accepted")
-	}
+	require.NotNil(t, err, "oversized record accepted")
 }
 
 func TestMapStreamStopsBeforeReadingWhenCancelled(t *testing.T) {
@@ -179,9 +177,8 @@ func TestMapStreamStopsBeforeReadingWhenCancelled(t *testing.T) {
 	cancel()
 	client := &cancelClient{}
 	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(strings.NewReader("{\\\"state\\\":\\\"never\\\"}\\n")), []byte("{\\\"state\\\":\\\"first\\\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
-	if err == nil || client.calls != 0 {
-		t.Fatalf("err=%v calls=%d", err, client.calls)
-	}
+	require.Error(t, err)
+	assert.Zero(t, client.calls)
 }
 
 type eofEvidenceReader struct {
@@ -210,9 +207,9 @@ func TestMapStreamRequestsEOFOnlyAfterFirstOutput(t *testing.T) {
 	reader := &eofEvidenceReader{output: &out}
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
-	if err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", &streamClient{}); err != nil || !reader.eofSeen {
-		t.Fatalf("err=%v eof=%v out=%q", err, reader.eofSeen, out.String())
-	}
+	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", &streamClient{})
+	require.NoError(t, err)
+	assert.True(t, reader.eofSeen)
 }
 
 func TestMapStreamStopsOnOutputFailure(t *testing.T) {
@@ -220,9 +217,9 @@ func TestMapStreamStopsOnOutputFailure(t *testing.T) {
 	reader := &countingDataReader{reads: &reads, data: []byte("{\"state\":\"second\"}\n")}
 	client := &streamClient{}
 	err := processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
-	if err == nil || reads > 4 || client.calls > 4 {
-		t.Fatalf("err=%v reads=%d calls=%d", err, reads, client.calls)
-	}
+	require.Error(t, err)
+	assert.LessOrEqual(t, reads, 4)
+	assert.LessOrEqual(t, client.calls, 4)
 }
 
 type countingDataReader struct {
@@ -248,9 +245,10 @@ func TestMapStreamStopsOnProviderFailure(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
-	if err == nil || client.calls > 4 || reads > 3 || !strings.Contains(out.String(), "first") {
-		t.Fatalf("err=%v calls=%d reads=%d out=%q", err, client.calls, reads, out.String())
-	}
+	require.Error(t, err)
+	assert.LessOrEqual(t, client.calls, 4)
+	assert.LessOrEqual(t, reads, 3)
+	assert.Contains(t, out.String(), "first")
 }
 
 type failingStreamClient struct {
@@ -271,9 +269,7 @@ func (c *failingStreamClient) Evaluate(_ context.Context, request contract.Reque
 func TestMapStreamRejectsMalformedAndNonObject(t *testing.T) {
 	for _, record := range []string{"not-json", "[]"} {
 		err := processMapStream(context.Background(), &cobra.Command{}, streamRenderer{}, bufio.NewReader(strings.NewReader("")), []byte(record), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", &streamClient{})
-		if err == nil {
-			t.Fatalf("record %q accepted", record)
-		}
+		require.Error(t, err, "record %q accepted", record)
 	}
 }
 
@@ -286,7 +282,6 @@ func TestMapStreamProcessesMoreThanFormerRecordLimit(t *testing.T) {
 	deps, _ := streamDeps(client, input.String(), "{\"questions\":{\"q\":{\"type\":\"noul\",\"instructions\":\"is it?\"}}}")
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 0 || client.calls != MapMaxRecords+1 {
-		t.Fatalf("code=%d calls=%d stderr=%q", code, client.calls, stderr.String())
-	}
+	assert.Equal(t, 0, code, "stderr=%q", stderr.String())
+	assert.Equal(t, MapMaxRecords+1, client.calls)
 }
