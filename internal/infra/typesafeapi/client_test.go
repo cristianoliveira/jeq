@@ -6,10 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -31,55 +33,61 @@ func newTestClient(t *testing.T, baseURL string, mutate func(*typesafeapi.Client
 func sampleRequest(t *testing.T) contract.Request {
 	t.Helper()
 	req, err := contract.DecodeRequest(fixtures.MustContract(t, "request_full.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 	return req
 }
 
 func TestEvaluateHitsSystemOneWithBearerAndContentType(t *testing.T) {
-	var sawAuth, sawContentType, sawPath, sawMethod bool
+	type requestObservation struct {
+		auth, contentType, path, method string
+	}
+	observations := make(chan requestObservation, 1)
+	responseBody := fixtures.MustContract(t, "response_200_full.json")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sawAuth = r.Header.Get("Authorization") == "Bearer "+testKey
-		sawContentType = r.Header.Get("Content-Type") == "application/json"
-		sawPath = r.URL.Path == "/v1/systemone"
-		sawMethod = r.Method == http.MethodPost
-		_, _ = w.Write(fixtures.MustContract(t, "response_200_full.json"))
+		observations <- requestObservation{
+			auth:        r.Header.Get("Authorization"),
+			contentType: r.Header.Get("Content-Type"),
+			path:        r.URL.Path,
+			method:      r.Method,
+		}
+		_, _ = w.Write(responseBody)
 	}))
 	defer srv.Close()
 
 	resp, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err != nil {
-		t.Fatalf("evaluate failed: %v", err)
-	}
-	if !sawAuth || !sawContentType || !sawPath || !sawMethod {
-		t.Errorf("auth=%v content-type=%v path=%v method=%v", sawAuth, sawContentType, sawPath, sawMethod)
-	}
-	if resp.Model != "jev-1.13.0" {
-		t.Errorf("model = %q", resp.Model)
-	}
+	require.Nil(t, err)
+	got := <-observations
+	assert.Equal(t, "Bearer "+testKey, got.auth)
+	assert.Equal(t, "application/json", got.contentType)
+	assert.Equal(t, "/v1/systemone", got.path)
+	assert.Equal(t, http.MethodPost, got.method)
+	assert.Equal(t, "jev-1.13.0", resp.Model)
 }
 
 func TestModelsHitsModelsWithBearer(t *testing.T) {
-	var sawAuth, sawPath, sawMethod bool
+	type requestObservation struct {
+		auth, path, method string
+	}
+	observations := make(chan requestObservation, 1)
+	modelsBody := fixtures.MustContract(t, "models.json")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sawAuth = r.Header.Get("Authorization") == "Bearer "+testKey
-		sawPath = r.URL.Path == "/v1/models"
-		sawMethod = http.MethodGet == r.Method
-		_, _ = w.Write(fixtures.MustContract(t, "models.json"))
+		observations <- requestObservation{
+			auth:   r.Header.Get("Authorization"),
+			path:   r.URL.Path,
+			method: r.Method,
+		}
+		_, _ = w.Write(modelsBody)
 	}))
 	defer srv.Close()
 
 	models, err := newTestClient(t, srv.URL, nil).Models(context.Background())
-	if err != nil {
-		t.Fatalf("models failed: %v", err)
-	}
-	if !sawAuth || !sawPath || !sawMethod {
-		t.Errorf("auth=%v path=%v method=%v", sawAuth, sawPath, sawMethod)
-	}
-	if len(models.Models) != 2 || models.Models[0].Name != "jev-latest" {
-		t.Errorf("models = %v", models.Models)
-	}
+	require.Nil(t, err)
+	got := <-observations
+	assert.Equal(t, "Bearer "+testKey, got.auth)
+	assert.Equal(t, "/v1/models", got.path)
+	assert.Equal(t, http.MethodGet, got.method)
+	require.Len(t, models.Models, 2)
+	assert.Equal(t, "jev-latest", models.Models[0].Name)
 }
 
 func TestMissingKeyFailsPreNetwork(t *testing.T) {
@@ -93,12 +101,9 @@ func TestMissingKeyFailsPreNetwork(t *testing.T) {
 	c.APIKey = ""
 
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != jeq.CodeAuthMissing {
-		t.Fatalf("expected %q, got %v", jeq.CodeAuthMissing, err)
-	}
-	if hits.Load() != 0 {
-		t.Errorf("missing key made %d requests; must fail pre-network", hits.Load())
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeAuthMissing, err.Code)
+	assert.Zero(t, hits.Load(), "missing key must fail before making a request")
 }
 
 func TestStatusClassification(t *testing.T) {
@@ -127,9 +132,8 @@ func TestStatusClassification(t *testing.T) {
 			defer srv.Close()
 
 			_, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-			if err == nil || err.Code != tt.wantCode {
-				t.Fatalf("expected %q, got %v", tt.wantCode, err)
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, tt.wantCode, err.Code)
 		})
 	}
 }
@@ -142,15 +146,10 @@ func Test422SurfacesSanitizedServerDetail(t *testing.T) {
 	defer srv.Close()
 
 	_, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != jeq.CodeRequestRejected {
-		t.Fatalf("expected %q, got %v", jeq.CodeRequestRejected, err)
-	}
-	if !strings.Contains(err.Message, "questions.department.criteria") {
-		t.Errorf("message %q does not surface the server's field detail", err.Message)
-	}
-	if err.Recovery == "" {
-		t.Error("422 must carry an actionable recovery instruction")
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeRequestRejected, err.Code)
+	assert.Contains(t, err.Message, "questions.department.criteria")
+	assert.NotEmpty(t, err.Recovery, "422 must carry an actionable recovery instruction")
 }
 
 func TestOversizeReplyRejected(t *testing.T) {
@@ -161,9 +160,8 @@ func TestOversizeReplyRejected(t *testing.T) {
 
 	c := newTestClient(t, srv.URL, func(c *typesafeapi.Client) { c.MaxBodyBytes = 64 })
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != jeq.CodeResponseInvalid {
-		t.Fatalf("expected %q for oversize reply, got %v", jeq.CodeResponseInvalid, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeResponseInvalid, err.Code)
 }
 
 func TestErrorBodyReadBounded(t *testing.T) {
@@ -175,9 +173,8 @@ func TestErrorBodyReadBounded(t *testing.T) {
 
 	c := newTestClient(t, srv.URL, func(c *typesafeapi.Client) { c.MaxErrorBytes = 1024 })
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != jeq.CodeServerError {
-		t.Fatalf("expected %q, got %v", jeq.CodeServerError, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeServerError, err.Code)
 }
 
 func TestTimeoutClassifiesAsTimeout(t *testing.T) {
@@ -190,9 +187,8 @@ func TestTimeoutClassifiesAsTimeout(t *testing.T) {
 		c.HTTP = &http.Client{Timeout: 20 * time.Millisecond}
 	})
 	_, err := c.Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != jeq.CodeTimeout {
-		t.Fatalf("expected %q, got %v", jeq.CodeTimeout, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeTimeout, err.Code)
 }
 
 func TestConnectionFailureClassifiesAsNetworkError(t *testing.T) {
@@ -200,9 +196,8 @@ func TestConnectionFailureClassifiesAsNetworkError(t *testing.T) {
 	srv.Close() // dead endpoint
 
 	_, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil || err.Code != jeq.CodeNetworkError {
-		t.Fatalf("expected %q, got %v", jeq.CodeNetworkError, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeNetworkError, err.Code)
 }
 
 func TestSecretNeverLeaksIntoErrors(t *testing.T) {
@@ -215,12 +210,9 @@ func TestSecretNeverLeaksIntoErrors(t *testing.T) {
 	defer srv.Close()
 
 	_, err := newTestClient(t, srv.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if strings.Contains(err.Message, testKey) || strings.Contains(err.Recovery, testKey) {
-		t.Errorf("secret leaked: %q / %q", err.Message, err.Recovery)
-	}
+	require.NotNil(t, err)
+	assert.NotContains(t, err.Message, testKey)
+	assert.NotContains(t, err.Recovery, testKey)
 
 	// Non-JSON error body: contained entirely.
 	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -230,18 +222,15 @@ func TestSecretNeverLeaksIntoErrors(t *testing.T) {
 	defer srv2.Close()
 
 	_, err = newTestClient(t, srv2.URL, nil).Evaluate(context.Background(), sampleRequest(t))
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if strings.Contains(err.Message, testKey) {
-		t.Errorf("raw body leaked the secret: %q", err.Message)
-	}
+	require.NotNil(t, err)
+	assert.NotContains(t, err.Message, testKey)
 }
 
 func TestResponseBodyAlwaysClosed(t *testing.T) {
 	var open, closed atomic.Int32
+	responseBody := fixtures.MustContract(t, "response_200_full.json")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(fixtures.MustContract(t, "response_200_full.json"))
+		_, _ = w.Write(responseBody)
 	}))
 	defer srv.Close()
 
@@ -252,15 +241,11 @@ func TestResponseBodyAlwaysClosed(t *testing.T) {
 		}
 		c.HTTP.Transport = countedTransport{base: base, open: &open, closed: &closed}
 	})
-	if _, err := c.Evaluate(context.Background(), sampleRequest(t)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.Models(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if open.Load() != closed.Load() {
-		t.Errorf("open=%d closed=%d; response bodies must always be closed", open.Load(), closed.Load())
-	}
+	_, err := c.Evaluate(context.Background(), sampleRequest(t))
+	require.Nil(t, err)
+	_, err = c.Models(context.Background())
+	require.Nil(t, err)
+	assert.Equal(t, open.Load(), closed.Load(), "response bodies must always be closed")
 }
 
 type countedTransport struct {
