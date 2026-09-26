@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -21,13 +23,11 @@ func TestRateUsesMapPipelineAndPreservesScoreEvidence(t *testing.T) {
 {"description":"minor"}
 `)
 	code := cli.RunWithDeps([]string{"rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 0 || errOut.Len() != 0 || client.call != 2 {
-		t.Fatalf("code=%d err=%q calls=%d", code, errOut.String(), client.call)
-	}
+	assert.Equal(t, 0, code, "stderr=%q", errOut.String())
+	assert.Empty(t, errOut.String())
+	assert.Equal(t, 2, client.call)
 	for _, field := range []string{`"score":1.7`, `"legend"`, `"probabilities"`, `"confidence"`, `"model":"m"`, `"input_tokens":0`, `"trace":"x"`} {
-		if !strings.Contains(out.String(), field) {
-			t.Fatalf("evidence field %s missing: %s", field, out.String())
-		}
+		assert.Contains(t, out.String(), field, "missing evidence field %s", field)
 	}
 }
 
@@ -38,9 +38,9 @@ func TestRateJSONObjectSuccess(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`{"description":"one"}`)
 	code := cli.RunWithDeps([]string{"rate", "--as", "severity", "--state-pointer", "/description", "--instruction", "How?", "--level", "Low", "--level", "High"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 0 || client.call != 1 || !strings.Contains(out.String(), `"description":"one"`) {
-		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
-	}
+	assert.Equal(t, 0, code, "stderr=%q", errOut.String())
+	assert.Equal(t, 1, client.call)
+	assert.Contains(t, out.String(), `"description":"one"`)
 }
 
 func TestRateRejectsCollisionPointerFramingAndAPIErrorBeforePartialOutput(t *testing.T) {
@@ -64,9 +64,8 @@ func TestRateRejectsCollisionPointerFramingAndAPIErrorBeforePartialOutput(t *tes
 				args[6] = "/missing"
 			}
 			code := cli.RunWithDeps(args, &out, &errOut, RankRenderer{}, deps)
-			if code == 0 || out.Len() != 0 {
-				t.Fatalf("code=%d out=%q err=%q", code, out.String(), errOut.String())
-			}
+			assert.NotEqual(t, 0, code)
+			assert.Empty(t, out.String())
 		})
 	}
 }
@@ -80,8 +79,8 @@ func TestRateRejectsBlankAndInsufficientFlagsBeforeNetwork(t *testing.T) {
 		base := []string{"rate", "--as", "severity", "--state-pointer", "/description"}
 		base = append(base, args...)
 		code := cli.RunWithDeps(base, &out, &errOut, RankRenderer{}, deps)
-		if code != 2 || client.call != 0 || out.Len() != 0 {
-			t.Fatalf("args=%v code=%d err=%q", args, code, errOut.String())
-		}
+		assert.Equal(t, 2, code, "args=%v stderr=%q", args, errOut.String())
+		assert.Zero(t, client.call)
+		assert.Empty(t, out.String())
 	}
 }

@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
@@ -80,12 +83,12 @@ func TestMapNDJSONMakesOneRequestPerRecordAndPreservesOrder(t *testing.T) {
 `, `{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`)
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"map", "--as", "route", "--input", "ndjson", "--questions", "questions.json", "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 0 || client.calls != 2 || strings.Count(out.String(), "\n") != 2 || stderr.Len() != 0 {
-		t.Fatalf("code=%d calls=%d out=%q stderr=%q", code, client.calls, out.String(), stderr.String())
-	}
-	if !strings.Contains(out.String(), `"state":"one"`) || !strings.Contains(out.String(), `"state":"two"`) {
-		t.Fatalf("order/output=%q", out.String())
-	}
+	assert.Equal(t, 0, code, "stderr=%q", stderr.String())
+	assert.Equal(t, 2, client.calls)
+	assert.Equal(t, 2, strings.Count(out.String(), "\n"))
+	assert.Empty(t, stderr.String())
+	assert.Contains(t, out.String(), `"state":"one"`)
+	assert.Contains(t, out.String(), `"state":"two"`)
 }
 
 func TestMapNativeRequestPointerUsesRecordRequest(t *testing.T) {
@@ -94,9 +97,11 @@ func TestMapNativeRequestPointerUsesRecordRequest(t *testing.T) {
 	deps, _ := streamDeps(client, record, "")
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"map", "--as", "native", "--request-pointer", "/request"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 0 || client.calls != 1 || client.requests[0].Model != "native" || stderr.Len() != 0 {
-		t.Fatalf("code=%d calls=%d requests=%+v stderr=%q", code, client.calls, client.requests, stderr.String())
-	}
+	assert.Equal(t, 0, code, "stderr=%q", stderr.String())
+	assert.Equal(t, 1, client.calls)
+	require.Len(t, client.requests, 1)
+	assert.Equal(t, "native", client.requests[0].Model)
+	assert.Empty(t, stderr.String())
 }
 
 func TestGateAggregateStatusDoesNotRenderSecondError(t *testing.T) {
@@ -105,9 +110,9 @@ func TestGateAggregateStatusDoesNotRenderSecondError(t *testing.T) {
 `, "")
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"gate", "--as", "policy", "--input", "ndjson", "--value-pointer", "/score", "--pass-min", "0.8", "--reject-max", "0.2"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 10 || strings.Count(out.String(), "\n") != 2 || strings.Contains(out.String(), `"code"`) {
-		t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
-	}
+	assert.Equal(t, 10, code)
+	assert.Equal(t, 2, strings.Count(out.String(), "\n"))
+	assert.NotContains(t, out.String(), `"code"`)
 }
 
 func TestMapNDJSONFailureKeepsPriorOutputAndEmitsOneErrorLine(t *testing.T) {
@@ -117,7 +122,8 @@ not-json
 `, `{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`)
 	var out, stderr bytes.Buffer
 	code := RunWithDeps([]string{"map", "--as", "route", "--input", "ndjson", "--questions", "questions.json", "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
-	if code != 2 || client.calls != 1 || !strings.Contains(stderr.String(), "JEQ_REQUEST_INVALID") || strings.Contains(out.String(), `"code"`) {
-		t.Fatalf("code=%d calls=%d out=%q stderr=%q", code, client.calls, out.String(), stderr.String())
-	}
+	assert.Equal(t, 2, code)
+	assert.Equal(t, 1, client.calls)
+	assert.Contains(t, stderr.String(), "JEQ_REQUEST_INVALID")
+	assert.NotContains(t, out.String(), `"code"`)
 }

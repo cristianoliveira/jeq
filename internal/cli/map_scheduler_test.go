@@ -12,6 +12,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/trace"
@@ -144,27 +147,15 @@ func TestMapSchedulerRunsBoundedWorkersAndCommitsOrder(t *testing.T) {
 	for range 4 {
 		<-evaluator.started
 	}
-	if got := evaluator.MaxActive(); got != 4 {
-		t.Fatalf("max active=%d, want 4", got)
-	}
-	if got := reader.Reads(); got != 3 {
-		t.Fatalf("read-ahead=%d records, want 3 after first dispatch window", got)
-	}
+	assert.Equal(t, 4, evaluator.MaxActive())
+	assert.Equal(t, 3, reader.Reads(), "read-ahead records after first dispatch window")
 	close(release)
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
-	if got := evaluator.Calls(); len(got) != 8 {
-		t.Fatalf("calls=%v", got)
-	}
+	require.NoError(t, <-done)
+	assert.Len(t, evaluator.Calls(), 8)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 8 {
-		t.Fatalf("output lines=%d, want 8", len(lines))
-	}
+	require.Len(t, lines, 8)
 	for i, line := range lines {
-		if !strings.Contains(line, fmt.Sprintf(`"state":"%d"`, i)) {
-			t.Fatalf("line %d=%s", i, line)
-		}
+		assert.Contains(t, line, fmt.Sprintf(`"state":"%d"`, i), "line %d", i)
 	}
 }
 
@@ -180,14 +171,10 @@ func TestMapSchedulerCommitsOutOfOrderSuccessInInputOrder(t *testing.T) {
 	}
 	<-completed
 	close(release)
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, <-done)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	for i, line := range lines {
-		if !strings.Contains(line, fmt.Sprintf(`"state":"%d"`, i)) {
-			t.Fatalf("line %d=%s", i, line)
-		}
+		assert.Contains(t, line, fmt.Sprintf(`"state":"%d"`, i), "line %d", i)
 	}
 }
 
@@ -209,25 +196,24 @@ func TestMapSchedulerLaterFailurePreservesPrefixWithinDispatchBound(t *testing.T
 	close(release)
 	err := <-done
 	var coded *jeq.Error
-	if !errors.As(err, &coded) || coded.Code != jeq.CodeServerError {
-		t.Fatalf("error=%v", err)
-	}
+	require.True(t, errors.As(err, &coded))
+	require.NotNil(t, coded)
+	assert.Equal(t, jeq.CodeServerError, coded.Code)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 2 || !strings.Contains(lines[0], `"state":"0"`) || !strings.Contains(lines[1], `"state":"1"`) {
-		t.Fatalf("prefix=%q", out.String())
-	}
+	require.Len(t, lines, 2)
+	assert.Contains(t, lines[0], `"state":"0"`)
+	assert.Contains(t, lines[1], `"state":"1"`)
 	calls := evaluator.Calls()
 	for id := 0; id < 4; id++ {
-		if calls[fmt.Sprint(id)] != 1 {
-			t.Fatalf("calls=%v", calls)
-		}
+		assert.Equal(t, 1, calls[fmt.Sprint(id)])
 	}
 	// Job 3 can complete before job 2's concurrent failure reaches the coordinator.
 	// One replacement can therefore be dispatched speculatively within the worker bound.
 	reads := reader.Reads()
-	if calls["4"] > 1 || reads < 3 || reads > 4 || calls["4"] != reads-3 {
-		t.Fatalf("dispatch outside failure bound: calls=%v reads=%d", calls, reads)
-	}
+	assert.LessOrEqual(t, calls["4"], 1)
+	assert.GreaterOrEqual(t, reads, 3)
+	assert.LessOrEqual(t, reads, 4)
+	assert.Equal(t, calls["4"], reads-3)
 }
 
 func TestMapSchedulerCancellationDrainsWorkersWithoutDispatchingMore(t *testing.T) {
@@ -243,12 +229,12 @@ func TestMapSchedulerCancellationDrainsWorkersWithoutDispatchingMore(t *testing.
 	cancel()
 	err := <-done
 	var coded *jeq.Error
-	if !errors.As(err, &coded) || coded.Code != jeq.CodeInterrupted {
-		t.Fatalf("error=%v", err)
-	}
-	if got := evaluator.Calls(); len(got) != 4 || reader.Reads() != 3 || out.Len() != 0 {
-		t.Fatalf("cancellation calls=%v reads=%d output=%q", got, reader.Reads(), out.String())
-	}
+	require.True(t, errors.As(err, &coded))
+	require.NotNil(t, coded)
+	assert.Equal(t, jeq.CodeInterrupted, coded.Code)
+	assert.Len(t, evaluator.Calls(), 4)
+	assert.Equal(t, 3, reader.Reads())
+	assert.Empty(t, out.String())
 }
 
 type schedulerFailingRenderer struct{}
@@ -274,12 +260,9 @@ func TestMapSchedulerOutputFailureStopsAtDispatchBound(t *testing.T) {
 			mapFlags{input: "ndjson", name: "risk", statePointer: "/state"},
 			map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}, nil, "m", evaluator)
 	}()
-	if err := <-done; err == nil {
-		t.Fatal("output failure was swallowed")
-	}
-	if calls := evaluator.Calls(); len(calls) != mapWorkerLimit || reader.Reads() != mapWorkerLimit-1 {
-		t.Fatalf("work after output failure: calls=%v reads=%d", calls, reader.Reads())
-	}
+	require.Error(t, <-done, "output failure was swallowed")
+	assert.Len(t, evaluator.Calls(), mapWorkerLimit)
+	assert.Equal(t, mapWorkerLimit-1, reader.Reads())
 }
 
 func TestMapSchedulerEmitsOneFinalTraceSummary(t *testing.T) {
@@ -290,16 +273,12 @@ func TestMapSchedulerEmitsOneFinalTraceSummary(t *testing.T) {
 	evaluator.observer = cfg
 	ctx := trace.WithContext(context.Background(), cfg)
 	var out bytes.Buffer
-	if err := <-runScheduler(ctx, &out, reader, first, evaluator); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, <-runScheduler(ctx, &out, reader, first, evaluator))
 	var summaries []map[string]any
 	attempts, retries := 0, 0
 	for _, line := range strings.Split(strings.TrimSpace(traceOut.String()), "\n") {
 		var event map[string]any
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, json.Unmarshal([]byte(line), &event))
 		switch event["event"] {
 		case "request.attempted":
 			attempts++
@@ -310,13 +289,10 @@ func TestMapSchedulerEmitsOneFinalTraceSummary(t *testing.T) {
 			summaries = append(summaries, event)
 		}
 	}
-	if attempts != 8 || retries != 4 {
-		t.Fatalf("retry trace attempts=%d retries=%d trace=%s", attempts, retries, traceOut.String())
-	}
-	if len(summaries) != 1 {
-		t.Fatalf("summaries=%d trace=%s", len(summaries), traceOut.String())
-	}
-	if summaries[0]["seen"] != float64(4) || summaries[0]["succeeded"] != float64(4) || summaries[0]["emitted"] != float64(4) {
-		t.Fatalf("summary=%v", summaries[0])
-	}
+	assert.Equal(t, 8, attempts, "trace=%s", traceOut.String())
+	assert.Equal(t, 4, retries, "trace=%s", traceOut.String())
+	require.Len(t, summaries, 1, "trace=%s", traceOut.String())
+	assert.Equal(t, float64(4), summaries[0]["seen"])
+	assert.Equal(t, float64(4), summaries[0]["succeeded"])
+	assert.Equal(t, float64(4), summaries[0]["emitted"])
 }

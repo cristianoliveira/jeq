@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -31,24 +34,30 @@ func TestRankSelectsOriginalCandidateAndAttachesCompleteEvidence(t *testing.T) {
 {"name":"b","description":"second"}
 `)
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 0 || errOut.Len() != 0 {
-		t.Fatalf("code=%d stderr=%q", code, errOut.String())
-	}
+	require.Equal(t, 0, code, "stderr=%q", errOut.String())
+	assert.Empty(t, errOut.String())
 	var result map[string]any
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		t.Fatal(err)
-	}
-	items := result["items"].([]any)
-	if items[0].(map[string]any)["id"] != "b" || items[1].(map[string]any)["id"] != "a" {
-		t.Fatalf("ranking=%#v", items)
-	}
-	evidence := result["_jeq"].(map[string]any)["route"].(map[string]any)
-	if evidence["model"] != "jev-latest" || evidence["answers"].(map[string]any)["route"].(map[string]any)["choice"] != "b" {
-		t.Fatalf("evidence=%#v", evidence)
-	}
-	if client.call != 1 {
-		t.Fatalf("requests=%d", client.call)
-	}
+	require.NoError(t, json.Unmarshal(out.Bytes(), &result))
+	items, ok := result["items"].([]any)
+	require.True(t, ok)
+	require.Len(t, items, 2)
+	first, ok := items[0].(map[string]any)
+	require.True(t, ok)
+	second, ok := items[1].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "b", first["id"])
+	assert.Equal(t, "a", second["id"])
+	evidence, ok := result["_jeq"].(map[string]any)
+	require.True(t, ok)
+	route, ok := evidence["route"].(map[string]any)
+	require.True(t, ok)
+	answers, ok := route["answers"].(map[string]any)
+	require.True(t, ok)
+	routeAnswer, ok := answers["route"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "jev-latest", route["model"])
+	assert.Equal(t, "b", routeAnswer["choice"])
+	assert.Equal(t, 1, client.call)
 }
 
 func TestRankRejectsInvalidProbabilityResponses(t *testing.T) {
@@ -73,12 +82,13 @@ func TestRankRejectsInvalidProbabilityResponses(t *testing.T) {
 			deps := RankDeps(client, &out)
 			deps.Stdin = strings.NewReader("[{\"id\":\"a\",\"criteria\":null},{\"id\":\"b\",\"criteria\":\"B\"}]")
 			code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
-			if tc.wantError && (code != 1 || out.Len() != 0) {
-				t.Fatalf("code=%d out=%q err=%q", code, out.String(), errOut.String())
+			if tc.wantError {
+				assert.NotEqual(t, 0, code, "stderr=%q", errOut.String())
+				assert.Empty(t, out.String())
+				return
 			}
-			if !tc.wantError && (code != 0 || out.Len() == 0) {
-				t.Fatalf("code=%d out=%q err=%q", code, out.String(), errOut.String())
-			}
+			assert.Equal(t, 0, code, "stderr=%q", errOut.String())
+			assert.NotEmpty(t, out.String())
 		})
 	}
 }
@@ -89,9 +99,10 @@ func TestRankRejectsConflictingStateSourcesBeforeNetwork(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`[{"id":"a","criteria":"x"}]`)
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state-file", "-", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 2 || client.call != 0 || out.Len() != 0 || !strings.Contains(errOut.String(), "stdin") {
-		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
-	}
+	assert.Equal(t, 2, code)
+	assert.Zero(t, client.call)
+	assert.Empty(t, out.String())
+	assert.Contains(t, errOut.String(), "stdin")
 }
 
 func TestRankRejectsTooManyCandidatesBeforeNetwork(t *testing.T) {
@@ -104,9 +115,10 @@ func TestRankRejectsTooManyCandidatesBeforeNetwork(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(input.String())
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
-	if code != 2 || client.call != 0 || out.Len() != 0 || !strings.Contains(errOut.String(), "255 Choice option limit") {
-		t.Fatalf("code=%d calls=%d out=%q err=%q", code, client.call, out.String(), errOut.String())
-	}
+	assert.Equal(t, 2, code)
+	assert.Zero(t, client.call)
+	assert.Empty(t, out.String())
+	assert.Contains(t, errOut.String(), "255 Choice option limit")
 }
 
 func TestRankRejectsInvalidCandidatesBeforeAuthOrNetwork(t *testing.T) {
@@ -125,9 +137,10 @@ func TestRankRejectsInvalidCandidatesBeforeAuthOrNetwork(t *testing.T) {
 			deps := RankDeps(client, &out)
 			deps.Stdin = strings.NewReader(tc.input)
 			code := cli.RunWithDeps([]string{"rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
-			if code != 2 || out.Len() != 0 || !strings.Contains(errOut.String(), "Error: JEQ_INPUT_INVALID") || client.call != 0 {
-				t.Fatalf("code=%d out=%q err=%q calls=%d", code, out.String(), errOut.String(), client.call)
-			}
+			assert.Equal(t, 2, code)
+			assert.Empty(t, out.String())
+			assert.Contains(t, errOut.String(), "Error: JEQ_INPUT_INVALID")
+			assert.Zero(t, client.call)
 		})
 	}
 }
