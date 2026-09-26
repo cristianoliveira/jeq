@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 )
 
@@ -49,9 +51,7 @@ func TestValidateRequestEmptyShapeIsWhitespaceIndependent(t *testing.T) {
 				}
 			}
 
-			if tt.wantEmpty != hasStateViolation {
-				t.Errorf("state %s: wantEmpty=%t, violations=%v", tt.state, tt.wantEmpty, ruleNames(violations))
-			}
+			assert.Equal(t, tt.wantEmpty, hasStateViolation, "state %s; violations=%v", tt.state, ruleNames(violations))
 		})
 	}
 }
@@ -84,9 +84,7 @@ func TestEmptyInstructionsShapeAlsoNormalized(t *testing.T) {
 					hasInstructionsViolation = true
 				}
 			}
-			if tt.wantEmpty != hasInstructionsViolation {
-				t.Errorf("instructions %s: wantEmpty=%t, violations=%v", tt.instructions, tt.wantEmpty, ruleNames(violations))
-			}
+			assert.Equal(t, tt.wantEmpty, hasInstructionsViolation, "instructions %s; violations=%v", tt.instructions, ruleNames(violations))
 		})
 	}
 }

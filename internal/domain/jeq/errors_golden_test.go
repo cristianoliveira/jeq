@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -25,20 +28,11 @@ func TestErrorCodesGoldenSnapshot(t *testing.T) {
 	}
 
 	if *updateGolden {
-		if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
-			t.Fatalf("creating fixtures dir: %v", err)
-		}
-		if err := os.WriteFile(golden, []byte(b.String()), 0o644); err != nil {
-			t.Fatalf("writing golden fixture: %v", err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(golden), 0o755))
+		require.NoError(t, os.WriteFile(golden, []byte(b.String()), 0o644))
 	}
 
 	want, err := os.ReadFile(golden)
-	if err != nil {
-		t.Fatalf("reading golden fixture (run with -update to regenerate): %v", err)
-	}
-
-	if b.String() != string(want) {
-		t.Errorf("error code registry drifted from the golden snapshot.\nwant:\n%s\ngot:\n%s", want, b.String())
-	}
+	require.NoError(t, err, "reading golden fixture (run with -update to regenerate)")
+	assert.Equal(t, string(want), b.String(), "error code registry drifted from the golden snapshot")
 }

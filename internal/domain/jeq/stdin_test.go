@@ -3,6 +3,9 @@ package jeq_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -41,14 +44,11 @@ func TestCheckStdinRejectsDoubleStdin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := jeq.CheckStdin(tt.forRequest, tt.forQ, tt.forSted)
 			if tt.wantCode == "" {
-				if err != nil {
-					t.Fatalf("expected allowed, got %v", err)
-				}
+				assert.Nil(t, err)
 				return
 			}
-			if err == nil || err.Code != tt.wantCode {
-				t.Fatalf("expected %q, got %v", tt.wantCode, err)
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, tt.wantCode, err.Code)
 		})
 	}
 }

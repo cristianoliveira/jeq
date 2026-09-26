@@ -17,7 +17,7 @@ linters:
           allow:
             - $gostd
             - github.com/cristianoliveira/jeq/internal/domain
-        # Domain test files may additionally load the shared fixtures package.
+        # Domain test files may use shared fixtures and Testify assertions; production stays stdlib-only.
         domain-tests-fixtures-allowed:
           files:
             - "**/internal/domain/**/*_test.go"
@@ -26,6 +26,8 @@ linters:
             - $gostd
             - github.com/cristianoliveira/jeq/internal/domain
             - github.com/cristianoliveira/jeq/internal/fixtures
+            - github.com/stretchr/testify/assert
+            - github.com/stretchr/testify/require
         # ADR 0002: infra -> domain; never cli or cmd.
         infra-never-cli-or-main:
           files:

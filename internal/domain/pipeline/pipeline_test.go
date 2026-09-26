@@ -3,9 +3,11 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -54,9 +56,7 @@ func run(t *testing.T, record, pointer, name string, fake *fakeEvaluator) ([]byt
 func decodeOutput(t *testing.T, output []byte) map[string]json.RawMessage {
 	t.Helper()
 	var members map[string]json.RawMessage
-	if err := json.Unmarshal(output, &members); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, json.Unmarshal(output, &members))
 	return members
 }
 
@@ -77,38 +77,32 @@ func TestPointersPreserveRawStateAndCallOnce(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &fakeEvaluator{response: testResponse()}
 			output, err := run(t, tc.record, tc.pointer, "step", fake)
-			if err != nil || fake.calls != 1 {
-				t.Fatalf("err=%v calls=%d", err, fake.calls)
-			}
-			if got := string(fake.request.State); got != tc.want {
-				t.Fatalf("state=%s want=%s", got, tc.want)
-			}
+			require.Nil(t, err)
+			assert.Equal(t, 1, fake.calls)
+			assert.Equal(t, tc.want, string(fake.request.State))
 			members := decodeOutput(t, output)
-			if tc.name == "unsafe exponent" && string(members["value"]) != `123456789012345678901234567890e+10` {
-				t.Fatalf("unsafe number=%s", members["value"])
+			if tc.name == "unsafe exponent" {
+				assert.Equal(t, `123456789012345678901234567890e+10`, string(members["value"]))
 			}
 			jeqRaw := decodeOutput(t, members["_jeq"])
 			responseRaw := decodeOutput(t, jeqRaw["step"])
-			if string(responseRaw["server_extra"]) != `{"kept":true}` {
-				t.Fatalf("response extra=%s", responseRaw["server_extra"])
-			}
+			assert.Equal(t, `{"kept":true}`, string(responseRaw["server_extra"]))
 		})
 	}
 }
 
 func TestStringObjectAndNullStates(t *testing.T) {
 	fake := &fakeEvaluator{response: testResponse()}
-	if _, err := run(t, `{"text":"hello"}`, "/text", "text", fake); err != nil {
-		t.Fatalf("string: %v", err)
-	}
+	_, err := run(t, `{"text":"hello"}`, "/text", "text", fake)
+	require.Nil(t, err, "string state")
 	fake = &fakeEvaluator{response: testResponse()}
-	if _, err := run(t, `{"value":null}`, "/value", "null", fake); err == nil || fake.calls != 0 {
-		t.Fatalf("null err=%v calls=%d", err, fake.calls)
-	}
+	_, err = run(t, `{"value":null}`, "/value", "null", fake)
+	require.NotNil(t, err)
+	assert.Zero(t, fake.calls)
 	fake = &fakeEvaluator{response: testResponse()}
-	if _, err := run(t, `{"items":[1,2]}`, "/items", "array", fake); err != nil || fake.calls != 1 {
-		t.Fatalf("array state err=%v calls=%d", err, fake.calls)
-	}
+	_, err = run(t, `{"items":[1,2]}`, "/items", "array", fake)
+	require.Nil(t, err)
+	assert.Equal(t, 1, fake.calls)
 }
 
 func TestEnvelopeCollisionsNamesAndDuplicateKeys(t *testing.T) {
@@ -130,9 +124,10 @@ func TestEnvelopeCollisionsNamesAndDuplicateKeys(t *testing.T) {
 			if tc.name == "collision" {
 				name = "step"
 			}
-			if _, err := run(t, tc.record, tc.pointer, name, fake); err == nil || fake.calls != 0 || err.Code != jeq.CodeInputInvalid {
-				t.Fatalf("err=%v calls=%d", err, fake.calls)
-			}
+			_, err := run(t, tc.record, tc.pointer, name, fake)
+			require.NotNil(t, err)
+			assert.Zero(t, fake.calls)
+			assert.Equal(t, jeq.CodeInputInvalid, err.Code)
 		})
 	}
 }
@@ -140,35 +135,28 @@ func TestEnvelopeCollisionsNamesAndDuplicateKeys(t *testing.T) {
 func TestNamesAndChainedEnrichment(t *testing.T) {
 	for _, name := range []string{"", "-bad", "bad space", strings.Repeat("a", 65)} {
 		fake := &fakeEvaluator{response: testResponse()}
-		if _, err := run(t, `{"x":1}`, "/x", name, fake); err == nil || fake.calls != 0 {
-			t.Fatalf("name=%q err=%v calls=%d", name, err, fake.calls)
-		}
+		_, err := run(t, `{"x":1}`, "/x", name, fake)
+		require.NotNil(t, err, "name=%q", name)
+		assert.Zero(t, fake.calls)
 	}
 	firstFake := &fakeEvaluator{response: testResponse()}
 	first, err := run(t, `{"payload":{"id":1}}`, "/payload", "first", firstFake)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.Nil(t, err)
 	secondFake := &fakeEvaluator{response: testResponse()}
 	second, err := run(t, string(first), "", "second", secondFake)
-	if err != nil || secondFake.calls != 1 {
-		t.Fatalf("second err=%v calls=%d", err, secondFake.calls)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, 1, secondFake.calls)
 	members := decodeOutput(t, second)
 	jeqRaw := decodeOutput(t, members["_jeq"])
-	if jeqRaw["first"] == nil || jeqRaw["second"] == nil {
-		t.Fatalf("evidence=%s", members["_jeq"])
-	}
+	assert.NotNil(t, jeqRaw["first"])
+	assert.NotNil(t, jeqRaw["second"])
 }
 
 func TestEvaluatorErrorPropagatesUnchanged(t *testing.T) {
 	sentinel := jeq.NewError(jeq.CodeAuthRejected, "denied")
 	fake := &fakeEvaluator{err: sentinel}
 	_, err := run(t, `{"x":{"ok":true}}`, "/x", "step", fake)
-	if err != sentinel || fake.calls != 1 {
-		t.Fatalf("err=%v calls=%d", err, fake.calls)
-	}
-	if errors.Is(err, context.Canceled) {
-		t.Fatal("unexpected cancellation")
-	}
+	assert.Same(t, sentinel, err)
+	assert.Equal(t, 1, fake.calls)
+	assert.NotErrorIs(t, err, context.Canceled)
 }
