@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 )
 
@@ -15,16 +18,10 @@ func TestVersionCommandPrintsPlainBuildInformation(t *testing.T) {
 	cmd.SetOut(&out)
 
 	// When it runs
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("version command returned error: %v", err)
-	}
+	require.NoError(t, cmd.Execute())
 
 	// Then concise human-readable build information is printed.
 	want := "jeq dev\nCommit: unknown\n"
-	if out.String() != want {
-		t.Fatalf("output = %q, want %q", out.String(), want)
-	}
-	if strings.HasPrefix(strings.TrimSpace(out.String()), "{") {
-		t.Fatalf("version output must not be JSON: %q", out.String())
-	}
+	assert.Equal(t, want, out.String())
+	assert.False(t, strings.HasPrefix(strings.TrimSpace(out.String()), "{"), "version output must not be JSON")
 }

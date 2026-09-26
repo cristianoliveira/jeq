@@ -1,8 +1,10 @@
 package cli_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -10,10 +12,9 @@ import (
 
 func TestResolveProviderPrecedenceAndProfiles(t *testing.T) {
 	config := []byte(`{"default_provider":"vercel","providers":{"local":{"base_url":"http://127.0.0.1:8787","default_model":"local","auth":"none"}}}`)
+	var gotPath string
 	read := func(path string, _ int64) ([]byte, *jeq.Error) {
-		if path != "cfg.json" {
-			t.Fatalf("path=%s", path)
-		}
+		gotPath = path
 		return config, nil
 	}
 	getenv := func(key string) string {
@@ -28,9 +29,12 @@ func TestResolveProviderPrecedenceAndProfiles(t *testing.T) {
 		return ""
 	}
 	got, err := cli.ResolveProvider(getenv, read, nil)
-	if err != nil || got.Name != "local" || got.BaseURL != "http://127.0.0.1:8787" || got.Auth != "none" || got.Model != "local" {
-		t.Fatalf("got=%+v err=%v", got, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "cfg.json", gotPath)
+	assert.Equal(t, "local", got.Name)
+	assert.Equal(t, "http://127.0.0.1:8787", got.BaseURL)
+	assert.Equal(t, "none", got.Auth)
+	assert.Equal(t, "local", got.Model)
 }
 
 func TestResolveProviderVercelUsesDedicatedCredential(t *testing.T) {
@@ -44,9 +48,10 @@ func TestResolveProviderVercelUsesDedicatedCredential(t *testing.T) {
 		return ""
 	}
 	got, err := cli.ResolveProvider(getenv, nil, nil)
-	if err != nil || got.BaseURL != "https://ai-gateway.vercel.sh/typesafe" || got.APIKey != "gateway" || got.Model != "typesafe-ai/jev" {
-		t.Fatalf("got=%+v err=%v", got, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "https://ai-gateway.vercel.sh/typesafe", got.BaseURL)
+	assert.Equal(t, "gateway", got.APIKey)
+	assert.Equal(t, "typesafe-ai/jev", got.Model)
 }
 
 func TestResolveProviderUsesVercelOIDCFallback(t *testing.T) {
@@ -60,9 +65,8 @@ func TestResolveProviderUsesVercelOIDCFallback(t *testing.T) {
 		return ""
 	}
 	got, err := cli.ResolveProvider(getenv, nil, nil)
-	if err != nil || got.APIKey != "oidc-token" {
-		t.Fatalf("got=%+v err=%v", got, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "oidc-token", got.APIKey)
 }
 
 func TestResolveProviderRejectsRemoteUnauthenticatedHTTPAndHTTPS(t *testing.T) {
@@ -88,9 +92,8 @@ func TestResolveProviderRejectsRemoteUnauthenticatedHTTPAndHTTPS(t *testing.T) {
 				}
 			}
 			_, err := cli.ResolveProvider(getenv, nil, nil)
-			if err == nil || !strings.Contains(err.Message, "invalid base_url") {
-				t.Fatalf("err=%v", err)
-			}
+			require.NotNil(t, err)
+			assert.Contains(t, err.Message, "invalid base_url")
 		})
 	}
 }

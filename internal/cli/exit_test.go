@@ -9,6 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -72,9 +75,7 @@ func TestExitCodeMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := cli.ExitCode(tt.err); got != tt.want {
-				t.Errorf("ExitCode = %d, want %d", got, tt.want)
-			}
+			assert.Equal(t, tt.want, cli.ExitCode(tt.err))
 		})
 	}
 }
@@ -98,24 +99,17 @@ func TestEveryStableCodeHasAnExitClass(t *testing.T) {
 	}
 
 	codes := jeq.Codes()
-	if len(codes) != len(want) {
-		t.Fatalf("code registry changed: got %v; exit mapping must cover exactly the stable codes", codes)
-	}
+	require.Len(t, codes, len(want), "exit mapping must cover exactly the stable codes")
 	for _, code := range codes {
-		if got := cli.ExitCode(jeq.NewError(code, "probe")); got != want[code] {
-			t.Errorf("code %s maps to exit %d, want %d", code, got, want[code])
-		}
+		assert.Equal(t, want[code], cli.ExitCode(jeq.NewError(code, "probe")), "code %s", code)
 	}
 }
 
 func TestOutputFlagIsUnknownAndUsesPlainStderr(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if got := cli.Run([]string{"version", "--output", "toon"}, &stdout, &stderr, &stubRenderer{}); got != 2 {
-		t.Fatalf("output flag exit = %d, want 2", got)
-	}
-	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "unknown flag") {
-		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
-	}
+	assert.Equal(t, 2, cli.Run([]string{"version", "--output", "toon"}, &stdout, &stderr, &stubRenderer{}))
+	assert.Empty(t, stdout.String())
+	assert.Contains(t, stderr.String(), "unknown flag")
 }
 
 func TestRunExitCodesEndToEnd(t *testing.T) {
@@ -133,9 +127,7 @@ func TestRunExitCodesEndToEnd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			renderer := &stubRenderer{}
-			if got := cli.Run(tt.args, &stdout, &stderr, renderer); got != tt.want {
-				t.Errorf("Run(%q) exit = %d, want %d (stderr: %q)", tt.args, got, tt.want, stderr.String())
-			}
+			assert.Equal(t, tt.want, cli.Run(tt.args, &stdout, &stderr, renderer), "stderr=%q", stderr.String())
 		})
 	}
 }
@@ -155,19 +147,14 @@ func TestUsageFailuresArePlainStderr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			if got := cli.Run(tt.args, &stdout, &stderr, nil); got != 2 {
-				t.Fatalf("exit = %d, want 2", got)
-			}
+			require.Equal(t, 2, cli.Run(tt.args, &stdout, &stderr, nil))
 
 			text := stderr.String()
-			if stdout.Len() != 0 || !strings.HasPrefix(text, "Error: ") {
-				t.Errorf("stdout=%q stderr=%q", stdout.String(), text)
-			}
-			if !strings.Contains(text, tt.wantNamed) {
-				t.Errorf("stderr %q does not name the offending input %q", text, tt.wantNamed)
-			}
-			if tt.wantSuggest != "" && !strings.Contains(text, tt.wantSuggest) {
-				t.Errorf("stderr %q lacks the closest alternative", text)
+			assert.Empty(t, stdout.String())
+			assert.True(t, strings.HasPrefix(text, "Error: "))
+			assert.Contains(t, text, tt.wantNamed)
+			if tt.wantSuggest != "" {
+				assert.Contains(t, text, tt.wantSuggest, "closest alternative")
 			}
 		})
 	}

@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -41,21 +44,17 @@ func TestBareRootUsesCobraHelpWithoutDependencyWork(t *testing.T) {
 		},
 	}
 	var bareOut, helpOut, errOut bytes.Buffer
-	if code := cli.RunWithDeps(nil, &bareOut, &errOut, r, deps); code != 0 {
-		t.Fatalf("bare exit=%d stderr=%q", code, errOut.String())
-	}
-	if code := cli.RunWithDeps([]string{"--help"}, &helpOut, &errOut, r, deps); code != 0 {
-		t.Fatalf("help exit=%d stderr=%q", code, errOut.String())
-	}
-	if bareOut.String() != helpOut.String() {
-		t.Fatalf("bare root differs from Cobra help\nbare=%q\nhelp=%q", bareOut.String(), helpOut.String())
-	}
-	if envReads != 0 || clientCreates != 0 || errOut.Len() != 0 || len(r.values) != 0 {
-		t.Fatalf("env=%d clients=%d stderr=%q renderer-values=%d", envReads, clientCreates, errOut.String(), len(r.values))
-	}
-	if !strings.Contains(bareOut.String(), "Usage:") || !strings.Contains(bareOut.String(), "Available Commands:") || !strings.Contains(bareOut.String(), "examples") || strings.Contains(bareOut.String(), "Credentials:") {
-		t.Fatalf("unexpected root help: %q", bareOut.String())
-	}
+	require.Equal(t, 0, cli.RunWithDeps(nil, &bareOut, &errOut, r, deps), "bare stderr=%q", errOut.String())
+	require.Equal(t, 0, cli.RunWithDeps([]string{"--help"}, &helpOut, &errOut, r, deps), "help stderr=%q", errOut.String())
+	assert.Equal(t, bareOut.String(), helpOut.String())
+	assert.Zero(t, envReads)
+	assert.Zero(t, clientCreates)
+	assert.Empty(t, errOut.String())
+	assert.Empty(t, r.values)
+	assert.Contains(t, bareOut.String(), "Usage:")
+	assert.Contains(t, bareOut.String(), "Available Commands:")
+	assert.Contains(t, bareOut.String(), "examples")
+	assert.NotContains(t, bareOut.String(), "Credentials:")
 }
 
 func TestVersionUsesInjectedBuildValuesAndModelsUseAuth(t *testing.T) {
@@ -82,12 +81,14 @@ func TestVersionUsesInjectedBuildValuesAndModelsUseAuth(t *testing.T) {
 		Renderer: r,
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps); code != 0 || !strings.Contains(out.String(), "jeq v-test\nCommit: abc123\n") || len(r.values) != 0 {
-		t.Fatalf("version code=%d output=%q renderer-values=%d", code, out.String(), len(r.values))
-	}
-	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 0 || gotURL != "https://env-url" || client.call != 0 {
-		t.Fatalf("models code=%d url=%q errors=%v out=%q", code, gotURL, r.errors, out.String())
-	}
+	versionCode := cli.RunWithDeps([]string{"version"}, &out, &errOut, r, deps)
+	assert.Equal(t, 0, versionCode)
+	assert.Contains(t, out.String(), "jeq v-test\nCommit: abc123\n")
+	assert.Empty(t, r.values)
+	modelsCode := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps)
+	assert.Equal(t, 0, modelsCode)
+	assert.Equal(t, "https://env-url", gotURL)
+	assert.Zero(t, client.call)
 }
 
 func TestModelsMissingCredentialDoesNotCreateClient(t *testing.T) {
@@ -102,55 +103,58 @@ func TestModelsMissingCredentialDoesNotCreateClient(t *testing.T) {
 		Renderer: r,
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps); code != 1 {
-		t.Fatalf("exit=%d errors=%v out=%q", code, r.errors, out.String())
-	}
-	if created || len(r.errors) != 0 || !strings.Contains(errOut.String(), "JEQ_AUTH_MISSING") {
-		t.Fatalf("created=%v errors=%v stderr=%q", created, r.errors, errOut.String())
-	}
+	code := cli.RunWithDeps([]string{"models"}, &out, &errOut, r, deps)
+	assert.Equal(t, 1, code)
+	assert.False(t, created)
+	assert.Empty(t, r.errors)
+	assert.Contains(t, errOut.String(), "JEQ_AUTH_MISSING")
 }
 
 func TestValidateConflictsAndFailuresAreUsageErrors(t *testing.T) {
 	r := &valueRenderer{}
 	reads := 0
+	envReads := 0
 	deps := cli.AskDeps{
-		Getenv:    func(string) string { t.Fatal("validate conflict read environment"); return "" },
+		Getenv:    func(string) string { envReads++; return "" },
 		ReadFile:  func(string, int64) ([]byte, *jeq.Error) { reads++; return nil, nil },
 		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { reads++; return nil, nil },
 		Renderer:  r,
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"validate", "--request", "a", "--questions", "b"}, &out, &errOut, r, deps); code != 2 || reads != 0 {
-		t.Fatalf("code=%d reads=%d errors=%v", code, reads, r.errors)
-	}
+	code := cli.RunWithDeps([]string{"validate", "--request", "a", "--questions", "b"}, &out, &errOut, r, deps)
+	assert.Equal(t, 2, code)
+	assert.Zero(t, reads)
+	assert.Zero(t, envReads)
 
 	deps.Getenv = func(string) string { return "" }
 	deps.ReadFile = func(string, int64) ([]byte, *jeq.Error) {
 		reads++
 		return []byte(`{"state":"s","model":"m","questions":{}}`), nil
 	}
-	if code := cli.RunWithDeps([]string{"validate", "--request", "bad.json"}, &out, &errOut, r, deps); code != 2 || reads != 1 {
-		t.Fatalf("invalid code=%d reads=%d errors=%v", code, reads, r.errors)
-	}
+	code = cli.RunWithDeps([]string{"validate", "--request", "bad.json"}, &out, &errOut, r, deps)
+	assert.Equal(t, 2, code)
+	assert.Equal(t, 1, reads)
 }
 
 func TestValidateNeverCreatesClientAndDoesNotExposeState(t *testing.T) {
 	r := &valueRenderer{}
 	created := false
+	apiKeyReads := 0
+	stdinReads := 0
 	deps := cli.AskDeps{
 		Getenv: func(key string) string {
 			if key == "TYPESAFE_DEFAULT_MODEL" {
 				return "env-model"
 			}
 			if key == "TYPESAFE_API_KEY" {
-				t.Fatal("validate read credential")
+				apiKeyReads++
 			}
 			return ""
 		},
 		ReadFile: func(string, int64) ([]byte, *jeq.Error) {
 			return []byte(`{"questions":{"q":{"type":"noul","instructions":"i"}}}`), nil
 		},
-		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { t.Fatal("unexpected stdin"); return nil, nil },
+		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { stdinReads++; return nil, nil },
 		NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient {
 			created = true
 			return &fakeClient{}
@@ -159,10 +163,11 @@ func TestValidateNeverCreatesClientAndDoesNotExposeState(t *testing.T) {
 		Stdin:    strings.NewReader(""),
 	}
 	var out, errOut bytes.Buffer
-	if code := cli.RunWithDeps([]string{"validate", "--questions", "q.json", "--state", "SECRET STATE"}, &out, &errOut, r, deps); code != 0 || created || len(r.values) != 0 {
-		t.Fatalf("code=%d created=%v renderer-values=%d", code, created, len(r.values))
-	}
-	if strings.Contains(out.String(), "SECRET STATE") {
-		t.Fatal("validation output disclosed state")
-	}
+	code := cli.RunWithDeps([]string{"validate", "--questions", "q.json", "--state", "SECRET STATE"}, &out, &errOut, r, deps)
+	assert.Equal(t, 0, code)
+	assert.False(t, created)
+	assert.Empty(t, r.values)
+	assert.Zero(t, apiKeyReads)
+	assert.Zero(t, stdinReads)
+	assert.NotContains(t, out.String(), "SECRET STATE")
 }

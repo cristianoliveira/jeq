@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 )
 
@@ -18,15 +21,12 @@ func TestRootVersionAliasesMatchSubcommand(t *testing.T) {
 		cmd.SetOut(&out)
 		cmd.SetErr(&stderr)
 		cmd.SetArgs(args)
-		if err := cmd.Execute(); err != nil {
-			t.Fatalf("args=%v err=%v", args, err)
-		}
-		if stderr.Len() != 0 {
-			t.Fatalf("args=%v stderr=%q", args, stderr.String())
-		}
+		require.NoError(t, cmd.Execute(), "args=%v", args)
+		assert.Empty(t, stderr.String(), "args=%v", args)
 		outputs = append(outputs, out.String())
 	}
-	if outputs[0] != "jeq v-test\nCommit: abc123\n" || outputs[1] != outputs[0] || outputs[2] != outputs[0] {
-		t.Fatalf("outputs=%q", outputs)
-	}
+	require.Len(t, outputs, 3)
+	assert.Equal(t, "jeq v-test\nCommit: abc123\n", outputs[0])
+	assert.Equal(t, outputs[0], outputs[1])
+	assert.Equal(t, outputs[0], outputs[2])
 }

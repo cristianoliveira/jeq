@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -32,9 +34,11 @@ func TestRankOutputFailureHasTypedVerbosePhase(t *testing.T) {
 	deps := RankDeps(client, &out)
 	deps.Stdin = strings.NewReader(`{"id":"private-candidate","criteria":"private-criteria"}` + "\n")
 	code := cli.RunWithDeps([]string{"--verbose", "rank", "--as", "route", "--input", "ndjson", "--state", "private-state", "--instruction", "private-prompt", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, failingOutputRenderer{}, deps)
-	if code == 0 || out.Len() != 0 || !strings.Contains(errOut.String(), `"phase":"output_write"`) || strings.Contains(errOut.String(), "private-candidate") || strings.Contains(errOut.String(), "private-criteria") {
-		t.Fatalf("code=%d stderr=%q", code, errOut.String())
-	}
+	assert.NotEqual(t, 0, code)
+	assert.Empty(t, out.String())
+	assert.Contains(t, errOut.String(), `"phase":"output_write"`)
+	assert.NotContains(t, errOut.String(), "private-candidate")
+	assert.NotContains(t, errOut.String(), "private-criteria")
 }
 
 func TestReduceOutputFailureHasTypedVerbosePhase(t *testing.T) {
@@ -52,9 +56,11 @@ func TestReduceOutputFailureHasTypedVerbosePhase(t *testing.T) {
 		return []byte(`[{"private-state":"private-candidate"}]`), nil
 	}
 	code := cli.RunWithDeps([]string{"--verbose", "reduce", "--as", "aggregate", "--input", "json", "--questions-json", `{"questions":{"aggregate":{"type":"noul","instructions":"private-prompt"}}}`}, &out, &errOut, failingOutputRenderer{}, deps)
-	if code == 0 || out.Len() != 0 || !strings.Contains(errOut.String(), `"phase":"output_write"`) || strings.Contains(errOut.String(), "private-candidate") || strings.Contains(errOut.String(), "private-prompt") {
-		t.Fatalf("code=%d stderr=%q", code, errOut.String())
-	}
+	assert.NotEqual(t, 0, code)
+	assert.Empty(t, out.String())
+	assert.Contains(t, errOut.String(), `"phase":"output_write"`)
+	assert.NotContains(t, errOut.String(), "private-candidate")
+	assert.NotContains(t, errOut.String(), "private-prompt")
 }
 
 func TestAskOutputFailureHasTypedVerbosePhase(t *testing.T) {
@@ -67,7 +73,9 @@ func TestAskOutputFailureHasTypedVerbosePhase(t *testing.T) {
 	})
 	var out, errOut bytes.Buffer
 	code := cli.RunWithDeps([]string{"--verbose", "ask", "--state", "private-state", "--questions", "questions.json"}, &out, &errOut, failingOutputRenderer{}, deps)
-	if code == 0 || out.Len() != 0 || !strings.Contains(errOut.String(), `"phase":"output_write"`) || strings.Contains(errOut.String(), "private-candidate") || strings.Contains(errOut.String(), "private-criteria") {
-		t.Fatalf("code=%d stderr=%q", code, errOut.String())
-	}
+	assert.NotEqual(t, 0, code)
+	assert.Empty(t, out.String())
+	assert.Contains(t, errOut.String(), `"phase":"output_write"`)
+	assert.NotContains(t, errOut.String(), "private-candidate")
+	assert.NotContains(t, errOut.String(), "private-criteria")
 }
