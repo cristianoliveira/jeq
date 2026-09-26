@@ -5,10 +5,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
@@ -63,13 +65,9 @@ func validationFixture(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
-	if err := os.MkdirAll(filepath.Join(home, ".config", "jeq"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".config", "jeq"), 0o700))
 	questions := filepath.Join(root, "questions.json")
-	if err := os.WriteFile(questions, []byte(validationQuestions), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(questions, []byte(validationQuestions), 0o600))
 	return home, questions
 }
 
@@ -78,13 +76,9 @@ func TestValidateHelpExplainsModelResolutionAndProviderSupport(t *testing.T) {
 	var help bytes.Buffer
 	command.SetOut(&help)
 	command.SetErr(&help)
-	if err := command.Help(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, command.Help())
 	for _, phrase := range []string{"--model, JEQ_DEFAULT_MODEL", "config.default_model", "TYPESAFE_DEFAULT_MODEL", "without authentication or network access", "Passing validation does not show", "provider supports the", "rather than passing --model"} {
-		if !strings.Contains(help.String(), phrase) {
-			t.Errorf("validate help missing %q: %s", phrase, help.String())
-		}
+		assert.Contains(t, help.String(), phrase, "validate help")
 	}
 }
 
@@ -133,9 +127,7 @@ func TestValidateResolvesTheSameOutgoingModelAsAsk(t *testing.T) {
 			home, questions := validationFixture(t)
 			configPath := filepath.Join(home, ".config", "jeq", "config.json")
 			if tc.config != "" {
-				if err := os.WriteFile(configPath, []byte(tc.config), 0o600); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.WriteFile(configPath, []byte(tc.config), 0o600))
 			}
 			values := map[string]string{}
 			for key, value := range tc.env {
@@ -150,12 +142,9 @@ func TestValidateResolvesTheSameOutgoingModelAsAsk(t *testing.T) {
 				askArgs = append(askArgs, "--model", tc.flagModel)
 			}
 			askCode, _, _, askStderr := runAsk(t, askArgs, deps)
-			if askCode != 0 || client.call != 1 {
-				t.Fatalf("ask code=%d calls=%d stderr=%q", askCode, client.call, askStderr)
-			}
-			if client.request.Model != tc.wantModel {
-				t.Fatalf("ask request model=%q want=%q (response model=%q)", client.request.Model, tc.wantModel, client.resp.Model)
-			}
+			require.Equal(t, 0, askCode, "stderr=%q", askStderr)
+			require.Equal(t, 1, client.call)
+			assert.Equal(t, tc.wantModel, client.request.Model, "response model=%q", client.resp.Model)
 
 			client.call = 0
 			var out, stderr bytes.Buffer
@@ -172,9 +161,10 @@ func TestValidateResolvesTheSameOutgoingModelAsAsk(t *testing.T) {
 				created = true
 				return client
 			}
+			credentialReads := []string{}
 			validateDeps.Getenv = func(key string) string {
 				if key == "TYPESAFE_API_KEY" || key == "ACME_API_KEY" || key == "AI_GATEWAY_API_KEY" || key == "VERCEL_OIDC_TOKEN" || key == "JEQ_API_KEY" {
-					t.Fatalf("validate read credential %s", key)
+					credentialReads = append(credentialReads, key)
 				}
 				return validateValues[key]
 			}
@@ -183,20 +173,16 @@ func TestValidateResolvesTheSameOutgoingModelAsAsk(t *testing.T) {
 				validateArgs = append(validateArgs, "--model", tc.flagModel)
 			}
 			code := cli.RunWithDeps(validateArgs, &out, &stderr, &askRenderer{}, validateDeps)
-			if code != 0 || created || client.call != 0 {
-				t.Fatalf("validate code=%d created=%v calls=%d stderr=%q", code, created, client.call, stderr.String())
-			}
-			if !strings.Contains(out.String(), "model: "+tc.wantModel+"\n") || !strings.Contains(out.String(), "model_source: "+tc.wantSource+"\n") {
-				t.Fatalf("receipt=%q, want model=%q source=%q", out.String(), tc.wantModel, tc.wantSource)
-			}
+			assert.Equal(t, 0, code, "created=%v calls=%d stderr=%q", created, client.call, stderr.String())
+			assert.False(t, created)
+			assert.Zero(t, client.call)
+			assert.Empty(t, credentialReads)
+			assert.Contains(t, out.String(), "model: "+tc.wantModel+"\n")
+			assert.Contains(t, out.String(), "model_source: "+tc.wantSource+"\n")
 			for _, secret := range []string{"STATE_SECRET", "API_SECRET", "GATEWAY_SECRET", "ACME_API_KEY"} {
-				if strings.Contains(out.String(), secret) {
-					t.Errorf("receipt disclosed %q: %q", secret, out.String())
-				}
+				assert.NotContains(t, out.String(), secret, "receipt disclosed a secret")
 			}
-			if client.request.Model != tc.wantModel {
-				t.Errorf("ask request model=%q differs from validation receipt %q", client.request.Model, tc.wantModel)
-			}
+			assert.Equal(t, tc.wantModel, client.request.Model, "ask request and validation receipt differ")
 		})
 	}
 }
@@ -223,9 +209,7 @@ func snapshotHome(t *testing.T, home string) map[string]string {
 		contents[relative] = string(data)
 		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return contents
 }
 
@@ -235,9 +219,7 @@ func TestValidateUsesFreshEnvironmentAndConfigOnEachInvocation(t *testing.T) {
 	configA := filepath.Join(homeA, ".config", "jeq", "config.json")
 	configB := filepath.Join(homeB, ".config", "jeq", "config.json")
 	for path, model := range map[string]string{configA: "config-a", configB: "config-b"} {
-		if err := os.WriteFile(path, []byte(`{"default_model":"`+model+`"}`), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(path, []byte(`{"default_model":"`+model+`"}`), 0o600))
 	}
 	homeBeforeA := snapshotHome(t, homeA)
 	homeBeforeB := snapshotHome(t, homeB)
@@ -252,14 +234,13 @@ func TestValidateUsesFreshEnvironmentAndConfigOnEachInvocation(t *testing.T) {
 		deps := resolutionDeps(t, tc.home, values, &fakeClient{})
 		var out, stderr bytes.Buffer
 		code := cli.RunWithDeps([]string{"validate", "--questions", tc.questions, "--state", "state"}, &out, &stderr, &askRenderer{}, deps)
-		if code != 0 || !strings.Contains(out.String(), "model: "+tc.wantModel+"\n") || !strings.Contains(out.String(), "model_source: "+tc.wantSource+"\n") {
-			t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
-		}
+		assert.Equal(t, 0, code, "stderr=%q", stderr.String())
+		assert.Contains(t, out.String(), "model: "+tc.wantModel+"\n")
+		assert.Contains(t, out.String(), "model_source: "+tc.wantSource+"\n")
 	}
 	homeAfterA, homeAfterB := snapshotHome(t, homeA), snapshotHome(t, homeB)
-	if !reflect.DeepEqual(homeBeforeA, homeAfterA) || !reflect.DeepEqual(homeBeforeB, homeAfterB) {
-		t.Fatalf("validation changed HOME contents: before A=%v B=%v; after A=%v B=%v", homeBeforeA, homeBeforeB, homeAfterA, homeAfterB)
-	}
+	assert.Equal(t, homeBeforeA, homeAfterA, "validation changed home A")
+	assert.Equal(t, homeBeforeB, homeAfterB, "validation changed home B")
 }
 
 func TestMalformedOrMissingExplicitConfigFailsBeforeAuthentication(t *testing.T) {
@@ -275,9 +256,7 @@ func TestMalformedOrMissingExplicitConfigFailsBeforeAuthentication(t *testing.T)
 			home, questions := validationFixture(t)
 			configPath := filepath.Join(home, "explicit.json")
 			if !tc.missing {
-				if err := os.WriteFile(configPath, []byte(tc.contents), 0o600); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.WriteFile(configPath, []byte(tc.contents), 0o600))
 			}
 			for _, command := range []string{"ask", "validate"} {
 				t.Run(command, func(t *testing.T) {
@@ -288,7 +267,6 @@ func TestMalformedOrMissingExplicitConfigFailsBeforeAuthentication(t *testing.T)
 					deps.Getenv = func(key string) string {
 						if key == "TYPESAFE_API_KEY" {
 							credentialReads++
-							t.Fatal("credential read before invalid config rejection")
 						}
 						return values[key]
 					}
@@ -299,9 +277,11 @@ func TestMalformedOrMissingExplicitConfigFailsBeforeAuthentication(t *testing.T)
 					args := []string{command, "--questions", questions, "--state", "state", "--model", "override"}
 					var stdout, stderr bytes.Buffer
 					code := cli.RunWithDeps(args, &stdout, &stderr, &askRenderer{}, deps)
-					if code != 2 || !strings.Contains(stderr.String(), "JEQ_INPUT_INVALID") || credentialReads != 0 || clientCreates != 0 || client.call != 0 {
-						t.Fatalf("code=%d credentials=%d clients=%d evals=%d stderr=%q", code, credentialReads, clientCreates, client.call, stderr.String())
-					}
+					assert.Equal(t, 2, code, "stderr=%q", stderr.String())
+					assert.Contains(t, stderr.String(), "JEQ_INPUT_INVALID")
+					assert.Zero(t, credentialReads)
+					assert.Zero(t, clientCreates)
+					assert.Zero(t, client.call)
 				})
 			}
 		})
@@ -311,39 +291,38 @@ func TestMalformedOrMissingExplicitConfigFailsBeforeAuthentication(t *testing.T)
 func TestNativeRequestModelIsAuthoritativeAndExplicitModelConflictsBeforeIO(t *testing.T) {
 	home, _ := validationFixture(t)
 	request := filepath.Join(t.TempDir(), "native.json")
-	if err := os.WriteFile(request, []byte(`{"model":"native-model","state":{"s":"STATE_SECRET"},"questions":{"q":{"type":"noul","instructions":"i"}}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(request, []byte(`{"model":"native-model","state":{"s":"STATE_SECRET"},"questions":{"q":{"type":"noul","instructions":"i"}}}`), 0o600))
 	client := &fakeClient{resp: contract.Response{Model: "response-model"}}
 	askValues := map[string]string{"JEQ_DEFAULT_MODEL": "composed-model", "TYPESAFE_API_KEY": "API_SECRET"}
 	deps := resolutionDeps(t, home, askValues, client)
+	modelConfigReads := 0
 	deps.Getenv = func(key string) string {
 		if key == "JEQ_DEFAULT_MODEL" {
-			t.Fatal("native ask consulted composed-model configuration")
+			modelConfigReads++
 		}
 		return askValues[key]
 	}
 	code, renderer, out, stderr := runAsk(t, []string{"ask", "--request", request}, deps)
-	if code != 0 || client.call != 1 || client.request.Model != "native-model" {
-		t.Fatalf("ask code=%d calls=%d model=%q stderr=%q", code, client.call, client.request.Model, stderr)
-	}
-	if !renderer.response {
-		t.Fatal("native ask did not evaluate")
-	}
+	require.Equal(t, 0, code, "stderr=%q", stderr)
+	assert.Equal(t, 1, client.call)
+	assert.Equal(t, "native-model", client.request.Model)
+	assert.True(t, renderer.response, "native ask did not evaluate")
+	assert.Zero(t, modelConfigReads)
 
 	var validateOut, validateErr bytes.Buffer
 	validateDeps := resolutionDeps(t, home, map[string]string{"JEQ_DEFAULT_MODEL": "composed-model"}, client)
+	validateEnvReads := 0
 	validateDeps.Getenv = func(string) string {
-		t.Fatal("native validation consulted composed-model configuration")
+		validateEnvReads++
 		return ""
 	}
 	code = cli.RunWithDeps([]string{"validate", "--request", request}, &validateOut, &validateErr, &askRenderer{}, validateDeps)
-	if code != 0 || !strings.Contains(validateOut.String(), "model: native-model\n") || !strings.Contains(validateOut.String(), "model_source: native\n") {
-		t.Fatalf("native validation code=%d output=%q stderr=%q", code, validateOut.String(), validateErr.String())
-	}
-	if strings.Contains(out, "STATE_SECRET") || strings.Contains(validateOut.String(), "STATE_SECRET") {
-		t.Fatalf("receipt disclosed raw state: ask=%q validate=%q", out, validateOut.String())
-	}
+	assert.Equal(t, 0, code, "stderr=%q", validateErr.String())
+	assert.Contains(t, validateOut.String(), "model: native-model\n")
+	assert.Contains(t, validateOut.String(), "model_source: native\n")
+	assert.Zero(t, validateEnvReads)
+	assert.NotContains(t, out, "STATE_SECRET")
+	assert.NotContains(t, validateOut.String(), "STATE_SECRET")
 
 	for _, command := range []string{"ask", "validate"} {
 		t.Run(command+" conflict", func(t *testing.T) {
@@ -357,25 +336,29 @@ func TestNativeRequestModelIsAuthoritativeAndExplicitModelConflictsBeforeIO(t *t
 			args := []string{command, "--request", request, "--model", "override"}
 			var stdout, stderr bytes.Buffer
 			code := cli.RunWithDeps(args, &stdout, &stderr, &askRenderer{}, conflictDeps)
-			if code != 2 || reads != 0 || envReads != 0 || clients != 0 || !strings.Contains(stderr.String(), "edit the model in the request document") {
-				t.Fatalf("code=%d reads=%d env=%d clients=%d stderr=%q", code, reads, envReads, clients, stderr.String())
-			}
+			assert.Equal(t, 2, code)
+			assert.Zero(t, reads)
+			assert.Zero(t, envReads)
+			assert.Zero(t, clients)
+			assert.Contains(t, stderr.String(), "edit the model in the request document")
 		})
 	}
 }
 
 func TestValidateExamplesDiscoveryDoesNotResolveConfigOrCreateClient(t *testing.T) {
 	home, _ := validationFixture(t)
-	if err := os.WriteFile(filepath.Join(home, ".config", "jeq", "config.json"), []byte(`{"default_model":"configured-model"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".config", "jeq", "config.json"), []byte(`{"default_model":"configured-model"}`), 0o600))
 	before := snapshotHome(t, home)
 	optionalReads := 0
+	envReads, fileReads, stdinReads, clientCreates := 0, 0, 0, 0
 	deps := cli.AskDeps{
-		Getenv:   func(string) string { t.Fatal("example discovery read environment"); return "" },
-		ReadFile: func(string, int64) ([]byte, *jeq.Error) { t.Fatal("example discovery read a file"); return nil, nil },
+		Getenv: func(string) string { envReads++; return "" },
+		ReadFile: func(string, int64) ([]byte, *jeq.Error) {
+			fileReads++
+			return nil, nil
+		},
 		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) {
-			t.Fatal("example discovery read stdin")
+			stdinReads++
 			return nil, nil
 		},
 		ReadOptionalFile: func(string, int64) ([]byte, *jeq.Error, bool) {
@@ -383,16 +366,19 @@ func TestValidateExamplesDiscoveryDoesNotResolveConfigOrCreateClient(t *testing.
 			return nil, nil, false
 		},
 		NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient {
-			t.Fatal("example discovery created a client")
+			clientCreates++
 			return nil
 		},
 	}
 	var stdout, stderr bytes.Buffer
 	code := cli.RunWithDeps([]string{"examples", "validate"}, &stdout, &stderr, &askRenderer{}, deps)
-	if code != 0 || !strings.Contains(stdout.String(), "jeq validate") || stderr.Len() != 0 {
-		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
-	}
-	if optionalReads != 0 || !reflect.DeepEqual(before, snapshotHome(t, home)) {
-		t.Fatalf("discovery read config %d times or changed HOME", optionalReads)
-	}
+	assert.Equal(t, 0, code)
+	assert.Contains(t, stdout.String(), "jeq validate")
+	assert.Empty(t, stderr.String())
+	assert.Zero(t, envReads)
+	assert.Zero(t, fileReads)
+	assert.Zero(t, stdinReads)
+	assert.Zero(t, optionalReads)
+	assert.Zero(t, clientCreates)
+	assert.Equal(t, before, snapshotHome(t, home))
 }

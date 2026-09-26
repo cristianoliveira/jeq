@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
@@ -49,9 +52,9 @@ func TestResolveConfiguredModelPrecedenceAndSource(t *testing.T) {
 				configPath = "/cfg/config.json"
 			}
 			got, source, err := ResolveConfiguredModelWithSource(flag, configPath, getenv, read, nil)
-			if err != nil || got != tc.want || source != tc.source {
-				t.Fatalf("got=%q source=%q err=%v", got, source, err)
-			}
+			require.Nil(t, err)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.source, source)
 		})
 	}
 }
@@ -69,13 +72,13 @@ func TestConfigUsesXDGThenHomeAndIgnoresMissingDefault(t *testing.T) {
 		}
 		return ""
 	}, nil, readOptional)
-	if err != nil || model != "home-model" || source != "config" {
-		t.Fatalf("model=%q source=%q err=%v", model, source, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "home-model", model)
+	assert.Equal(t, "config", source)
 	model, source, err = ResolveConfiguredModelWithSource("", "", func(string) string { return "" }, nil, readOptional)
-	if err != nil || model != DefaultModel || source != "default" {
-		t.Fatalf("missing model=%q source=%q err=%v", model, source, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, DefaultModel, model)
+	assert.Equal(t, "default", source)
 }
 
 func TestExplicitConfigIsStrictAndMissingIsAnError(t *testing.T) {
@@ -83,18 +86,16 @@ func TestExplicitConfigIsStrictAndMissingIsAnError(t *testing.T) {
 		read := func(string, int64) ([]byte, *jeq.Error) {
 			return nil, jeq.NewError(jeq.CodeInputInvalid, "source missing.json: does not exist")
 		}
-		if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read); err == nil {
-			t.Fatal("missing explicit config must fail")
-		}
+		_, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read)
+		require.NotNil(t, err, "missing explicit config must fail")
 	})
 
 	t.Run("unknown explicit config fields are rejected", func(t *testing.T) {
 		read := func(string, int64) ([]byte, *jeq.Error) {
 			return []byte(`{"default_model":"m","credentials":"secret"}`), nil
 		}
-		if _, err := ResolveConfiguredModel("", "config.json", func(string) string { return "" }, read); err == nil {
-			t.Fatal("unknown config fields must fail")
-		}
+		_, err := ResolveConfiguredModel("", "config.json", func(string) string { return "" }, read)
+		require.NotNil(t, err, "unknown config fields must fail")
 	})
 }
 
@@ -108,22 +109,20 @@ func TestSharedQuestionSourceAcceptsFileOrInlineButNotBoth(t *testing.T) {
 		{"neither", questionSourceFlags{}, jeq.CodeSourceConflict},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := checkQuestionSource(tc.source); err == nil || err.Code != tc.wantCode {
-				t.Fatalf("err=%v", err)
-			}
+			err := checkQuestionSource(tc.source)
+			require.NotNil(t, err)
+			assert.Equal(t, tc.wantCode, err.Code)
 		})
 	}
 	deps := AskDeps{ReadFile: func(string, int64) ([]byte, *jeq.Error) {
 		return []byte(`{"questions":{"q":{"type":"noul","instructions":"ok"}}}`), nil
 	}}
 	questions, _, err := readQuestionSource(deps, questionSourceFlags{file: "q.json", fileSet: true})
-	if err != nil || questions["q"].Type != contract.TypeNoul {
-		t.Fatalf("questions=%v err=%v", questions, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, contract.TypeNoul, questions["q"].Type)
 	inline, _, err := readQuestionSource(deps, questionSourceFlags{inline: `{"questions":{"q":{"type":"noul","instructions":"ok"}}}`, inlineSet: true})
-	if err != nil || inline["q"].Type != contract.TypeNoul {
-		t.Fatalf("inline=%v err=%v", inline, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, contract.TypeNoul, inline["q"].Type)
 }
 
 type reduceTestClient struct {
@@ -148,16 +147,14 @@ func TestReduceJSONAndNDJSONMakeOneOrderedRequest(t *testing.T) {
 			deps := reduceDeps(client, input)
 			var out, stderr bytes.Buffer
 			args := []string{"reduce", "--as", "summary", "--input", framing, "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"summarize"}}}`, "--model", "reduce-model"}
-			if code := RunWithDeps(args, &out, &stderr, streamRenderer{}, deps); code != 0 {
-				t.Fatalf("code=%d out=%q err=%q", code, out.String(), stderr.String())
-			}
+			code := RunWithDeps(args, &out, &stderr, streamRenderer{}, deps)
+			require.Equal(t, 0, code, "stdout=%q stderr=%q", out.String(), stderr.String())
 			compact := strings.ReplaceAll(out.String(), " ", "")
-			if client.calls != 1 || client.request.Model != "reduce-model" || string(bytes.ReplaceAll(client.request.State, []byte(" "), nil)) != `[{"n":1},{"n":2}]` {
-				t.Fatalf("calls=%d model=%q state=%s", client.calls, client.request.Model, client.request.State)
-			}
-			if !strings.Contains(compact, `"items":[{"n":1},{"n":2}]`) || !strings.Contains(compact, `"server_extra":"kept"`) {
-				t.Fatalf("out=%q", out.String())
-			}
+			assert.Equal(t, 1, client.calls)
+			assert.Equal(t, "reduce-model", client.request.Model)
+			assert.Equal(t, `[{"n":1},{"n":2}]`, string(bytes.ReplaceAll(client.request.State, []byte(" "), nil)))
+			assert.Contains(t, compact, `"items":[{"n":1},{"n":2}]`)
+			assert.Contains(t, compact, `"server_extra":"kept"`)
 		})
 	}
 }
@@ -166,15 +163,11 @@ func TestMapAndReduceAcceptInlineQuestionSource(t *testing.T) {
 	client := &reduceTestClient{}
 	deps := reduceDeps(client, `{"state":"s"}`)
 	var out, stderr bytes.Buffer
-	if code := RunWithDeps([]string{"map", "--as", "mapped", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"judge"}}}`, "--model", "m"}, &out, &stderr, streamRenderer{}, deps); code != 0 {
-		t.Fatalf("map code=%d out=%q", code, out.String())
-	}
-	if code := RunWithDeps([]string{"reduce", "--as", "reduced", "--input", "ndjson", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"judge"}}}`, "--model", "m"}, &out, &stderr, streamRenderer{}, deps); code != 0 {
-		t.Fatalf("reduce code=%d out=%q", code, out.String())
-	}
-	if client.calls != 2 {
-		t.Fatalf("calls=%d", client.calls)
-	}
+	mapCode := RunWithDeps([]string{"map", "--as", "mapped", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"judge"}}}`, "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
+	require.Equal(t, 0, mapCode, "map output=%q", out.String())
+	reduceCode := RunWithDeps([]string{"reduce", "--as", "reduced", "--input", "ndjson", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"judge"}}}`, "--model", "m"}, &out, &stderr, streamRenderer{}, deps)
+	require.Equal(t, 0, reduceCode, "reduce output=%q", out.String())
+	assert.Equal(t, 2, client.calls)
 }
 
 func TestReduceInvalidConfigDoesNotCreateClient(t *testing.T) {
@@ -193,9 +186,9 @@ func TestReduceInvalidConfigDoesNotCreateClient(t *testing.T) {
 		return ""
 	}
 	var out, stderr bytes.Buffer
-	if code := RunWithDeps([]string{"reduce", "--as", "r", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"judge"}}}`}, &out, &stderr, streamRenderer{}, deps); code != 2 || client.calls != 0 {
-		t.Fatalf("code=%d calls=%d out=%q", code, client.calls, out.String())
-	}
+	code := RunWithDeps([]string{"reduce", "--as", "r", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"judge"}}}`}, &out, &stderr, streamRenderer{}, deps)
+	assert.Equal(t, 2, code)
+	assert.Zero(t, client.calls)
 }
 
 func reduceDeps(client APIClient, input string) AskDeps {

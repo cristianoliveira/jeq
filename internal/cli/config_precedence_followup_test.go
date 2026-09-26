@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -16,31 +19,34 @@ func TestConfiguredModelShortCircuitsLowerSources(t *testing.T) {
 		return ""
 	}
 	model, source, err := ResolveConfiguredModelWithSource("flag-model", "", panicEnv, nil, panicReader)
-	if err != nil || model != "flag-model" || source != "flag" {
-		t.Fatalf("model=%q source=%q err=%v", model, source, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "flag-model", model)
+	assert.Equal(t, "flag", source)
 	model, source, err = ResolveConfiguredModelWithSource("", "", panicEnv, nil, panicReader)
-	if err != nil || model != "env-model" || source != "environment" {
-		t.Fatalf("model=%q source=%q err=%v", model, source, err)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "env-model", model)
+	assert.Equal(t, "environment", source)
 }
 
 func TestOptionalConfigIsSkippedWhenHigherModelSourceWins(t *testing.T) {
+	reads := 0
 	readOptional := func(string, int64) ([]byte, *jeq.Error, bool) {
-		t.Fatal("optional config must not be read")
+		reads++
 		return nil, nil, false
 	}
-	if model, _, err := ResolveConfiguredModelWithSource("flag-model", "", func(string) string { return "" }, nil, readOptional); err != nil || model != "flag-model" {
-		t.Fatalf("model=%q err=%v", model, err)
-	}
-	if model, _, err := ResolveConfiguredModelWithSource("", "", func(key string) string {
+	model, _, err := ResolveConfiguredModelWithSource("flag-model", "", func(string) string { return "" }, nil, readOptional)
+	require.Nil(t, err)
+	assert.Equal(t, "flag-model", model)
+	assert.Zero(t, reads)
+	model, _, err = ResolveConfiguredModelWithSource("", "", func(key string) string {
 		if key == DefaultModelEnv {
 			return "env-model"
 		}
 		return ""
-	}, nil, readOptional); err != nil || model != "env-model" {
-		t.Fatalf("model=%q err=%v", model, err)
-	}
+	}, nil, readOptional)
+	require.Nil(t, err)
+	assert.Equal(t, "env-model", model)
+	assert.Zero(t, reads)
 }
 
 func TestExplicitConfigRejectsMissingUnreadableMalformedWrongTypeEmptyDuplicateAndOversize(t *testing.T) {
@@ -58,16 +64,14 @@ func TestExplicitConfigRejectsMissingUnreadableMalformedWrongTypeEmptyDuplicateA
 		read := func(string, int64) ([]byte, *jeq.Error) {
 			return nil, jeq.NewError(jeq.CodeInputInvalid, "permission denied")
 		}
-		if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read); err == nil {
-			t.Fatal("unreadable config accepted")
-		}
+		_, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read)
+		require.NotNil(t, err, "unreadable config accepted")
 	})
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			read := func(string, int64) ([]byte, *jeq.Error) { return []byte(tc.document), nil }
-			if _, err := ResolveConfiguredModel("", "explicit.json", func(string) string { return "" }, read); err == nil {
-				t.Fatal("invalid config accepted")
-			}
+			_, err := ResolveConfiguredModel("", "explicit.json", func(string) string { return "" }, read)
+			require.NotNil(t, err, "invalid config accepted")
 		})
 	}
 }

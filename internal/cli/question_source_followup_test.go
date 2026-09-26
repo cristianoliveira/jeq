@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -25,9 +27,9 @@ func TestMapAndReduceRejectQuestionSourceConflictBeforeReading(t *testing.T) {
 			if command == "map" {
 				args = append(args, "--model", "m")
 			}
-			if code := RunWithDeps(args, &bytes.Buffer{}, &bytes.Buffer{}, streamRenderer{}, deps); code != 2 || reads != 0 {
-				t.Fatalf("code=%d reads=%d", code, reads)
-			}
+			code := RunWithDeps(args, &bytes.Buffer{}, &bytes.Buffer{}, streamRenderer{}, deps)
+			assert.Equal(t, 2, code)
+			assert.Zero(t, reads)
 		})
 	}
 }
@@ -40,9 +42,8 @@ func TestMapAndReduceRejectOversizedInlineQuestions(t *testing.T) {
 			if command == "reduce" {
 				args = append(args, "--input", "ndjson")
 			}
-			if code := RunWithDeps(args, &bytes.Buffer{}, &bytes.Buffer{}, streamRenderer{}, reduceDeps(&reduceTestClient{}, `{"x":1}`)); code != 2 {
-				t.Fatalf("code=%d", code)
-			}
+			code := RunWithDeps(args, &bytes.Buffer{}, &bytes.Buffer{}, streamRenderer{}, reduceDeps(&reduceTestClient{}, `{"x":1}`))
+			assert.Equal(t, 2, code)
 		})
 	}
 }

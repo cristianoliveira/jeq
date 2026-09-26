@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
@@ -92,24 +93,23 @@ func TestAskNativeHappyPath(t *testing.T) {
 		}
 		return ""
 	})
+	gotPath := ""
 	deps.ReadFile = func(path string, _ int64) ([]byte, *jeq.Error) {
 		*reads++
-		if path != "native.json" {
-			t.Errorf("path = %q", path)
-		}
+		gotPath = path
 		return []byte(`{"state":"hello","model":"native","questions":{"q":{"type":"noul","instructions":"i"}},"x_unknown":{"a":1}}`), nil
 	}
 
 	code, renderer, stdout, stderr := runAsk(t, []string{"ask", "--request", "native.json"}, deps)
-	if code != 0 || !renderer.response || renderer.err != nil {
-		t.Fatalf("code=%d success=%v err=%v", code, renderer.response, renderer.err)
-	}
-	if stderr != "" || strings.Count(stdout, "\n") != 1 {
-		t.Errorf("stdout=%q stderr=%q", stdout, stderr)
-	}
-	if client.call != 1 || client.request.Model != "native" || client.request.Extra["x_unknown"] == nil {
-		t.Errorf("request not passed through: %+v calls=%d", client.request, client.call)
-	}
+	require.Equal(t, 0, code, "stderr=%q", stderr)
+	assert.True(t, renderer.response)
+	assert.Nil(t, renderer.err)
+	assert.Equal(t, "native.json", gotPath)
+	assert.Empty(t, stderr)
+	assert.Equal(t, 1, strings.Count(stdout, "\n"))
+	assert.Equal(t, 1, client.call)
+	assert.Equal(t, "native", client.request.Model)
+	assert.NotNil(t, client.request.Extra["x_unknown"], "request not passed through")
 }
 
 func TestAskComposedHappyPathAndPrecedence(t *testing.T) {
@@ -124,32 +124,34 @@ func TestAskComposedHappyPathAndPrecedence(t *testing.T) {
 		return ""
 	})
 	code, _, _, _ := runAsk(t, []string{"ask", "--questions", "q.json", "--state", "state", "--model", "flag-model"}, deps)
-	if code != 0 {
-		t.Fatalf("exit = %d", code)
-	}
-	if client.request.Model != "flag-model" || string(client.request.State) != `"state"` {
-		t.Errorf("request = %+v", client.request)
-	}
+	require.Equal(t, 0, code)
+	assert.Equal(t, "flag-model", client.request.Model)
+	assert.Equal(t, `"state"`, string(client.request.State))
 }
 
 func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 	client := &fakeClient{}
-	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
+	envReads := 0
+	deps, _, reads := testDeps(t, client, func(string) string { envReads++; return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--request", "a", "--questions", "b"}, deps)
 	assert.Equal(t, 2, code)
 	assert.Nil(t, renderer.err)
 	assert.Zero(t, *reads)
+	assert.Zero(t, envReads)
 	assert.Zero(t, client.call)
 	assert.Contains(t, stderr, "JEQ_SOURCE_CONFLICT")
 }
 
 func TestAskRejectsDualStdinBeforeRead(t *testing.T) {
 	client := &fakeClient{}
-	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
+	envReads := 0
+	deps, _, reads := testDeps(t, client, func(string) string { envReads++; return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "-", "--state-json-file", "-"}, deps)
-	if code != 2 || renderer.err != nil || !strings.Contains(stderr, "JEQ_SOURCE_CONFLICT") || *reads != 0 {
-		t.Fatalf("code=%d err=%v reads=%d", code, renderer.err, *reads)
-	}
+	assert.Equal(t, 2, code)
+	assert.Nil(t, renderer.err)
+	assert.Contains(t, stderr, "JEQ_SOURCE_CONFLICT")
+	assert.Zero(t, *reads)
+	assert.Zero(t, envReads)
 }
 
 func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
@@ -158,9 +160,10 @@ func TestAskMissingKeyDoesNotCreateClient(t *testing.T) {
 	created := false
 	deps.NewClient = func(string, time.Duration, string, int, func(string)) cli.APIClient { created = true; return client }
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "q", "--state", "s"}, deps)
-	if code != 1 || renderer.err != nil || !strings.Contains(stderr, "JEQ_AUTH_MISSING") || created {
-		t.Fatalf("code=%d err=%v created=%v", code, renderer.err, created)
-	}
+	assert.Equal(t, 1, code)
+	assert.Nil(t, renderer.err)
+	assert.Contains(t, stderr, "JEQ_AUTH_MISSING")
+	assert.False(t, created)
 }
 
 func TestAskMaxRetriesAndInputConfigErrors(t *testing.T) {
@@ -169,9 +172,9 @@ func TestAskMaxRetriesAndInputConfigErrors(t *testing.T) {
 			client := &fakeClient{}
 			deps, _, _ := testDeps(t, client, func(string) string { return "secret" })
 			code, renderer, _, stderr := runAsk(t, append([]string{"ask", "--questions", "q", "--state", "s"}, args...), deps)
-			if code != 2 || renderer.err != nil || !strings.Contains(stderr, "Error:") {
-				t.Fatalf("code=%d err=%v", code, renderer.err)
-			}
+			assert.Equal(t, 2, code)
+			assert.Nil(t, renderer.err)
+			assert.Contains(t, stderr, "Error:")
 		})
 	}
 }
@@ -195,9 +198,10 @@ func TestAskPassesBaseURLTimeoutAndRetryConfiguration(t *testing.T) {
 		return client
 	}
 	code, _, _, _ := runAsk(t, []string{"ask", "--questions", "q", "--state", "s", "--timeout", "3s", "--max-retries", "5"}, deps)
-	if code != 0 || gotURL != "http://127.0.0.1:18081" || gotTimeout != 3*time.Second || gotRetries != 5 {
-		t.Fatalf("code=%d url=%q timeout=%s retries=%d", code, gotURL, gotTimeout, gotRetries)
-	}
+	require.Equal(t, 0, code)
+	assert.Equal(t, "http://127.0.0.1:18081", gotURL)
+	assert.Equal(t, 3*time.Second, gotTimeout)
+	assert.Equal(t, 5, gotRetries)
 }
 
 func TestAskReadsExplicitStdinOnce(t *testing.T) {
@@ -213,9 +217,10 @@ func TestAskReadsExplicitStdinOnce(t *testing.T) {
 		return []byte(`{"state":"s","model":"m","questions":{"q":{"type":"noul","instructions":"i"}}}`), nil
 	}
 	code, renderer, _, _ := runAsk(t, []string{"ask", "--request", "-"}, deps)
-	if code != 0 || renderer.err != nil || *reads != 1 || client.call != 1 {
-		t.Fatalf("code=%d err=%v reads=%d calls=%d", code, renderer.err, *reads, client.call)
-	}
+	require.Equal(t, 0, code)
+	assert.Nil(t, renderer.err)
+	assert.Equal(t, 1, *reads)
+	assert.Equal(t, 1, client.call)
 }
 
 func TestAskFailureRendersStableDocumentAndRetryDiagnostics(t *testing.T) {
@@ -229,7 +234,9 @@ func TestAskFailureRendersStableDocumentAndRetryDiagnostics(t *testing.T) {
 	var out, errOut bytes.Buffer
 	r := &askRenderer{}
 	code := cli.RunWithDeps([]string{"ask", "--questions", "q", "--state", "s"}, &out, &errOut, r, deps)
-	if code != 1 || r.err != nil || !strings.Contains(errOut.String(), "JEQ_RATE_LIMITED") || strings.Contains(errOut.String(), "wrapped dependency secret") || out.Len() != 0 {
-		t.Fatalf("code=%d err=%v stdout=%q", code, r.err, out.String())
-	}
+	assert.Equal(t, 1, code)
+	assert.Nil(t, r.err)
+	assert.Contains(t, errOut.String(), "JEQ_RATE_LIMITED")
+	assert.NotContains(t, errOut.String(), "wrapped dependency secret")
+	assert.Empty(t, out.String())
 }
