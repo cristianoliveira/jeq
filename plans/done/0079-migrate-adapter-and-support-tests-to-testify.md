@@ -1,7 +1,7 @@
 ---
 id: TASK-0079
 title: Migrate adapter and support tests to Testify
-status: doing
+status: done
 depends_on: [TASK-0076]
 priority: normal
 tags: [testing, readability, infrastructure]
