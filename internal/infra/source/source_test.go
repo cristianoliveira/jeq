@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/infra/source"
 )
@@ -14,9 +17,7 @@ import (
 func TestReadFileExactBytesWithinLimit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.txt")
 	want := []byte("line one\nline two \xe2\x9c\x93\n")
-	if err := os.WriteFile(path, want, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, want, 0o644))
 
 	var opens int
 	open := func(string) (io.ReadCloser, error) {
@@ -25,27 +26,17 @@ func TestReadFileExactBytesWithinLimit(t *testing.T) {
 	}
 
 	got, err := source.ReadFile(path, 1024, open, false)
-	if err != nil {
-		t.Fatalf("read failed: %v", err)
-	}
-	if string(got) != string(want) {
-		t.Errorf("bytes not preserved exactly: %q", got)
-	}
-	if opens != 1 {
-		t.Errorf("opener called %d times, want exactly 1", opens)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, want, got)
+	assert.Equal(t, 1, opens)
 }
 
 func TestReadFileFailures(t *testing.T) {
 	dir := t.TempDir()
 	existing := filepath.Join(dir, "exists.txt")
-	if err := os.WriteFile(existing, []byte("xxx"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(existing, []byte("xxx"), 0o644))
 	empty := filepath.Join(dir, "empty.txt")
-	if err := os.WriteFile(empty, nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(empty, nil, 0o644))
 
 	tests := []struct {
 		name        string
@@ -85,18 +76,11 @@ func TestReadFileFailures(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := source.ReadFile(tt.path, tt.limit, source.OSOpen, tt.forbidEmpty)
-			if err == nil || err.Code != jeq.CodeInputInvalid {
-				t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
-			}
-			if !strings.Contains(err.Message, tt.path) {
-				t.Errorf("message %q does not name the offending source", err.Message)
-			}
-			if !strings.Contains(err.Message, tt.wantInMsg) {
-				t.Errorf("message %q missing %q", err.Message, tt.wantInMsg)
-			}
-			if err.Recovery == "" {
-				t.Error("failure carries no recovery instruction")
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, jeq.CodeInputInvalid, err.Code)
+			assert.Contains(t, err.Message, tt.path, "offending source")
+			assert.Contains(t, err.Message, tt.wantInMsg)
+			assert.NotEmpty(t, err.Recovery)
 		})
 	}
 }
@@ -106,17 +90,12 @@ func TestReadFileUnreadable(t *testing.T) {
 		t.Skip("running as root: permission bits are not enforced")
 	}
 	path := filepath.Join(t.TempDir(), "secret.txt")
-	if err := os.WriteFile(path, []byte("x"), 0o000); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, []byte("x"), 0o000))
 
 	_, err := source.ReadFile(path, 1024, source.OSOpen, false)
-	if err == nil || err.Code != jeq.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
-	}
-	if !strings.Contains(err.Message, "readable") {
-		t.Errorf("message %q does not describe the permission problem", err.Message)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeInputInvalid, err.Code)
+	assert.Contains(t, err.Message, "readable")
 }
 
 func TestReadStdinPiped(t *testing.T) {
@@ -124,51 +103,37 @@ func TestReadStdinPiped(t *testing.T) {
 	r := &countingReader{r: strings.NewReader(string(content))}
 
 	got, err := source.ReadStdin(r, 1024, func() bool { return false }, true)
-	if err != nil {
-		t.Fatalf("read failed: %v", err)
-	}
-	if string(got) != string(content) {
-		t.Errorf("bytes not preserved: %q", got)
-	}
-	if r.reads == 0 || r.total > 1024+1 {
-		t.Errorf("read count/bytes wrong: reads=%d total=%d", r.reads, r.total)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, content, got)
+	assert.Greater(t, r.reads, 0)
+	assert.LessOrEqual(t, r.total, 1024+1)
 }
 
 func TestReadStdinTTYFailsBeforeAnyRead(t *testing.T) {
 	r := &countingReader{r: strings.NewReader("data")}
 
 	_, err := source.ReadStdin(r, 1024, func() bool { return true }, true)
-	if err == nil || err.Code != jeq.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
-	}
-	if r.reads != 0 {
-		t.Errorf("TTY stdin was read %d times; must fail pre-read", r.reads)
-	}
-	if !strings.Contains(err.Message, "terminal") {
-		t.Errorf("message %q does not explain the TTY problem", err.Message)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeInputInvalid, err.Code)
+	assert.Zero(t, r.reads, "TTY must fail before reading stdin")
+	assert.Contains(t, err.Message, "terminal")
 }
 
 func TestReadStdinOversize(t *testing.T) {
 	r := &countingReader{r: strings.NewReader(strings.Repeat("x", 64))}
 
 	_, err := source.ReadStdin(r, 32, func() bool { return false }, false)
-	if err == nil || err.Code != jeq.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
-	}
-	if r.total > 33 {
-		t.Errorf("read %d bytes; must stop at limit+1", r.total)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeInputInvalid, err.Code)
+	assert.LessOrEqual(t, r.total, 33, "reader must stop at limit+1")
 }
 
 func TestReadStdinEmptyForbidden(t *testing.T) {
 	r := &countingReader{r: strings.NewReader("")}
 
 	_, err := source.ReadStdin(r, 32, func() bool { return false }, true)
-	if err == nil || err.Code != jeq.CodeInputInvalid {
-		t.Fatalf("expected %q, got %v", jeq.CodeInputInvalid, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeInputInvalid, err.Code)
 }
 
 func TestReadStdinExactlyAtLimitSucceeds(t *testing.T) {
@@ -176,12 +141,8 @@ func TestReadStdinExactlyAtLimitSucceeds(t *testing.T) {
 	r := &countingReader{r: strings.NewReader(content)}
 
 	got, err := source.ReadStdin(r, 32, func() bool { return false }, false)
-	if err != nil {
-		t.Fatalf("exactly-at-limit read failed: %v", err)
-	}
-	if string(got) != content {
-		t.Error("bytes not preserved at the limit boundary")
-	}
+	require.Nil(t, err)
+	assert.Equal(t, content, string(got))
 }
 
 type countingReader struct {
