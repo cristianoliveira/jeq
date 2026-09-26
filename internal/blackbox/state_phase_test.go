@@ -1,8 +1,10 @@
 package blackbox_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlackBoxVerboseStateSelectionFailuresAreTyped(t *testing.T) {
@@ -13,8 +15,9 @@ func TestBlackBoxVerboseStateSelectionFailuresAreTyped(t *testing.T) {
 			input = `[{"candidate-id":"secret-candidate","criteria":"private criteria"}]`
 		}
 		result := runBinary(t, input, map[string]string{"JEQ_TRACE_ID": "state", "TYPESAFE_API_KEY": "secret-key"}, append([]string{"--verbose"}, args...)...)
-		if result.exit == 0 || !strings.Contains(result.stderr, `"phase":"state_selection"`) || strings.Contains(result.stderr, "secret") || strings.Contains(result.stderr, "private") {
-			t.Fatalf("args=%v stderr=%s", args, result.stderr)
-		}
+		require.NotEqual(t, 0, result.exit, "args=%v", args)
+		assert.Contains(t, result.stderr, `"phase":"state_selection"`)
+		assert.NotContains(t, result.stderr, "secret")
+		assert.NotContains(t, result.stderr, "private")
 	}
 }

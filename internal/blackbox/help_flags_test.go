@@ -1,8 +1,10 @@
 package blackbox_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlackBoxHelpOmitsRemovedInfrastructureFlags(t *testing.T) {
@@ -13,13 +15,9 @@ func TestBlackBoxHelpOmitsRemovedInfrastructureFlags(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.command, func(t *testing.T) {
 			result := runBinary(t, "", nil, tc.command, "--help")
-			if result.exit != 0 {
-				t.Fatalf("exit=%d stderr=%q", result.exit, result.stderr)
-			}
+			require.Equal(t, 0, result.exit)
 			for _, flag := range tc.flags {
-				if strings.Contains(result.stdout, flag) {
-					t.Fatalf("help contains removed flag %q: %s", flag, result.stdout)
-				}
+				assert.NotContains(t, result.stdout, flag)
 			}
 		})
 	}

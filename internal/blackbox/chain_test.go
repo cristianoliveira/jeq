@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlackBoxEnvironmentChainMapRateReduce(t *testing.T) {
@@ -37,9 +40,7 @@ func TestBlackBoxEnvironmentChainMapRateReduce(t *testing.T) {
 	})
 	tmp := t.TempDir()
 	config := filepath.Join(tmp, "config.json")
-	if err := os.WriteFile(config, []byte(`{"default_model":"chain-model"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(config, []byte(`{"default_model":"chain-model"}`), 0o600))
 	env := mergedEnv(map[string]string{"TYPESAFE_API_KEY": "chain-key", "TYPESAFE_BASE_URL": api.server.URL, "JEQ_CONFIG": config, "JEQ_TRACE_ID": "chain-42"})
 	run := func(input string, args ...string) (string, string) {
 		cmd := exec.Command(jeqBin, args...)
@@ -49,31 +50,23 @@ func TestBlackBoxEnvironmentChainMapRateReduce(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("args=%v err=%v stdout=%q stderr=%q", args, err, stdout.String(), stderr.String())
-		}
+		require.NoError(t, cmd.Run(), "args=%v stdout=%q stderr=%q", args, stdout.String(), stderr.String())
 		return stdout.String(), stderr.String()
 	}
 	mapped, mapTrace := run(`{"description":"incident"}
 `, "--verbose", "map", "--as", "triage", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"triage":{"type":"noul","instructions":"Is this urgent?"}}}`)
 	rated, rateTrace := run(mapped, "--verbose", "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High")
 	reduced, reduceTrace := run(rated, "--verbose", "reduce", "--as", "aggregate", "--input", "ndjson", "--questions-json", `{"questions":{"aggregate":{"type":"noul","instructions":"Is this coherent?"}}}`)
-	if !strings.Contains(mapTrace, `"trace_id":"chain-42"`) || !strings.Contains(rateTrace, `"trace_id":"chain-42"`) || !strings.Contains(reduceTrace, `"trace_id":"chain-42"`) {
-		t.Fatalf("trace correlation missing")
-	}
-	if !strings.Contains(mapped, `"triage"`) || !strings.Contains(rated, `"severity"`) || !strings.Contains(reduced, `"aggregate"`) {
-		t.Fatalf("chain outputs missing evidence: mapped=%q rated=%q reduced=%q", mapped, rated, reduced)
-	}
-	if api.count() != 3 {
-		t.Fatalf("requests=%d want 3", api.count())
-	}
+	assert.Contains(t, mapTrace, `"trace_id":"chain-42"`)
+	assert.Contains(t, rateTrace, `"trace_id":"chain-42"`)
+	assert.Contains(t, reduceTrace, `"trace_id":"chain-42"`)
+	assert.Contains(t, mapped, `"triage"`)
+	assert.Contains(t, rated, `"severity"`)
+	assert.Contains(t, reduced, `"aggregate"`)
+	assert.Equal(t, 3, api.count())
 	for i := 0; i < 3; i++ {
 		var request map[string]any
-		if err := json.Unmarshal(api.bodyAt(i), &request); err != nil {
-			t.Fatal(err)
-		}
-		if request["model"] != "chain-model" {
-			t.Fatalf("request %d model=%v", i, request["model"])
-		}
+		require.NoError(t, json.Unmarshal(api.bodyAt(i), &request))
+		assert.Equal(t, "chain-model", request["model"], "request %d model", i)
 	}
 }
