@@ -51,8 +51,7 @@ func TestGateRejectsInvalidInputBeforeDecision(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy)
-			if err == nil || err.Code != jeq.CodeInputInvalid {
+			if _, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy); err == nil || err.Code != jeq.CodeInputInvalid {
 				t.Fatalf("err=%v", err)
 			}
 		})
