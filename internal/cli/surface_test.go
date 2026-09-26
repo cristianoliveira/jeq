@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
@@ -23,19 +26,16 @@ func TestBareActionsEqualNativeHelpWithoutDependencyWork(t *testing.T) {
 				NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient { clientCreates++; return nil },
 			}
 			var bare, help, stderr bytes.Buffer
-			if code := cli.RunWithDeps([]string{command}, &bare, &stderr, nil, deps); code != 0 {
-				t.Fatalf("bare exit=%d stderr=%q", code, stderr.String())
-			}
+			assert.Equal(t, 0, cli.RunWithDeps([]string{command}, &bare, &stderr, nil, deps), "bare stderr=%q", stderr.String())
 			stderr.Reset()
-			if code := cli.RunWithDeps([]string{command, "--help"}, &help, &stderr, nil, deps); code != 0 {
-				t.Fatalf("help exit=%d stderr=%q", code, stderr.String())
-			}
-			if bare.String() != help.String() || bare.Len() == 0 || stderr.Len() != 0 {
-				t.Fatalf("bare/help mismatch or stderr: bare=%q help=%q stderr=%q", bare.String(), help.String(), stderr.String())
-			}
-			if envReads != 0 || fileReads != 0 || clientCreates != 0 || stdinReads != 0 {
-				t.Fatalf("dependency work: env=%d files=%d clients=%d stdin=%d", envReads, fileReads, clientCreates, stdinReads)
-			}
+			assert.Equal(t, 0, cli.RunWithDeps([]string{command, "--help"}, &help, &stderr, nil, deps), "help stderr=%q", stderr.String())
+			assert.Equal(t, bare.String(), help.String())
+			assert.NotEmpty(t, bare.String())
+			assert.Empty(t, stderr.String())
+			assert.Zero(t, envReads)
+			assert.Zero(t, fileReads)
+			assert.Zero(t, clientCreates)
+			assert.Zero(t, stdinReads)
 		})
 	}
 }
@@ -50,12 +50,12 @@ func TestCommandsRejectUnexpectedArgumentsBeforeWork(t *testing.T) {
 				Getenv:    func(string) string { envReads++; return "secret" },
 				NewClient: func(string, time.Duration, string, int, func(string)) cli.APIClient { clientCreates++; return nil },
 			}
-			if code := cli.RunWithDeps([]string{command, "junk"}, &out, &errOut, nil, deps); code != 2 || out.Len() != 0 || !strings.HasPrefix(errOut.String(), "Error: ") {
-				t.Fatalf("exit=%d stdout=%q stderr=%q", code, out.String(), errOut.String())
-			}
-			if envReads != 0 || clientCreates != 0 {
-				t.Fatalf("dependency work: env=%d clients=%d", envReads, clientCreates)
-			}
+			code := cli.RunWithDeps([]string{command, "junk"}, &out, &errOut, nil, deps)
+			assert.Equal(t, 2, code)
+			assert.Empty(t, out.String())
+			assert.True(t, strings.HasPrefix(errOut.String(), "Error: "))
+			assert.Zero(t, envReads)
+			assert.Zero(t, clientCreates)
 		})
 	}
 }
@@ -66,14 +66,9 @@ func TestIncompleteRecipeInvocationUsesNativeHelp(t *testing.T) {
 		bare.Reset()
 		help.Reset()
 		stderr.Reset()
-		if code := cli.Run([]string{"examples", id}, &bare, &stderr, nil); code != 0 {
-			t.Fatalf("%s bare exit=%d stderr=%q", id, code, stderr.String())
-		}
-		if code := cli.Run([]string{"examples", id, "--help"}, &help, &stderr, nil); code != 0 || bare.String() != help.String() {
-			t.Fatalf("%s help mismatch: %q != %q", id, bare.String(), help.String())
-		}
-		if strings.Contains(bare.String(), "Next:") {
-			t.Fatalf("%s has obsolete navigation text", id)
-		}
+		require.Equal(t, 0, cli.Run([]string{"examples", id}, &bare, &stderr, nil), "%s bare stderr=%q", id, stderr.String())
+		require.Equal(t, 0, cli.Run([]string{"examples", id, "--help"}, &help, &stderr, nil), "%s help stderr=%q", id, stderr.String())
+		assert.Equal(t, bare.String(), help.String(), "%s help", id)
+		assert.NotContains(t, bare.String(), "Next:", "%s obsolete navigation", id)
 	}
 }

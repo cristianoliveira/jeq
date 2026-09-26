@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -131,12 +134,9 @@ func parseUsageSummary(t *testing.T, stderr string) usageSummaryDocument {
 	t.Helper()
 	var summary usageSummaryDocument
 	lines := strings.Split(strings.TrimSpace(stderr), "\n")
-	if len(lines) == 0 || !strings.Contains(lines[len(lines)-1], `"schema":"jeq.usage.v1"`) {
-		t.Fatalf("final stderr line is not the machine-readable usage summary: %q", stderr)
-	}
-	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &summary); err != nil {
-		t.Fatalf("decode usage summary: %v", err)
-	}
+	require.NotEmpty(t, lines)
+	assert.Contains(t, lines[len(lines)-1], `"schema":"jeq.usage.v1"`, "final stderr line must be the machine-readable usage summary")
+	require.NoError(t, json.Unmarshal([]byte(lines[len(lines)-1]), &summary))
 	return summary
 }
 
@@ -171,22 +171,25 @@ func TestUsageSummaryIsOptInAndKeepsAskStdoutUnchanged(t *testing.T) {
 	baseArgs := []string{"ask", "--questions-json", questions, "--state-json", state, "--model", "jev-latest"}
 	plainCode, plainOut, plainErr := runUsageCommand(t, baseArgs, "", makeClient())
 	measuredCode, measuredOut, measuredErr := runUsageCommand(t, append(baseArgs, "--usage-summary"), "", makeClient())
-	if plainCode != 0 || measuredCode != plainCode || measuredOut != plainOut {
-		t.Fatalf("opt-in changed ask result: codes=%d/%d stdout-equal=%t", plainCode, measuredCode, measuredOut == plainOut)
-	}
-	if plainErr != "" {
-		t.Fatalf("summary was not opt-in: stderr=%q", plainErr)
-	}
+	assert.Equal(t, 0, plainCode)
+	assert.Equal(t, plainCode, measuredCode)
+	assert.Equal(t, plainOut, measuredOut, "usage opt-in must not change ask stdout")
+	assert.Empty(t, plainErr, "summary is opt-in")
 	summary := parseUsageSummary(t, measuredErr)
-	if summary.Command != "jeq ask" || summary.AttemptedRequests != 2 || summary.SuccessfulRequests != 1 || summary.ProcessedRecords != 1 || summary.DecodedAnswers != 2 || summary.InputTokens != 0 || summary.OutputTokens != 7 || summary.AnswersPer1000InputToken != nil || summary.ElapsedMilliseconds < 0 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
-	if len(summary.ModelVersions) != 1 || summary.ModelVersions[0] != "jev-1.13.0" {
-		t.Fatalf("model versions = %#v", summary.ModelVersions)
-	}
-	if strings.Contains(measuredErr, "PRIVATE_PROMPT") || strings.Contains(measuredErr, "PRIVATE_STATE") || strings.Contains(measuredErr, "TYPESAFE_API_KEY") || strings.Contains(measuredErr, "API_SECRET") {
-		t.Fatalf("summary leaked request or credential material: %q", measuredErr)
-	}
+	assert.Equal(t, "jeq ask", summary.Command)
+	assert.Equal(t, int64(2), summary.AttemptedRequests)
+	assert.Equal(t, int64(1), summary.SuccessfulRequests)
+	assert.Equal(t, int64(1), summary.ProcessedRecords)
+	assert.Equal(t, int64(2), summary.DecodedAnswers)
+	assert.Zero(t, summary.InputTokens)
+	assert.Equal(t, int64(7), summary.OutputTokens)
+	assert.Nil(t, summary.AnswersPer1000InputToken)
+	assert.GreaterOrEqual(t, summary.ElapsedMilliseconds, int64(0))
+	assert.Equal(t, []string{"jev-1.13.0"}, summary.ModelVersions)
+	assert.NotContains(t, measuredErr, "PRIVATE_PROMPT")
+	assert.NotContains(t, measuredErr, "PRIVATE_STATE")
+	assert.NotContains(t, measuredErr, "TYPESAFE_API_KEY")
+	assert.NotContains(t, measuredErr, "API_SECRET")
 }
 
 func TestUsageSummaryCountsMapResponsesAcrossOrderedPrefixFailure(t *testing.T) {
@@ -212,16 +215,20 @@ func TestUsageSummaryCountsMapResponsesAcrossOrderedPrefixFailure(t *testing.T) 
 	}}
 	args := []string{"map", "--as", "risk", "--input", "ndjson", "--state-pointer", "/state", "--questions-json", `{"questions":{"risk":{"type":"noul","instructions":"risk"}}}`, "--model", "jev-latest", "--usage-summary"}
 	code, stdout, stderr := runUsageCommand(t, args, input, client)
-	if code != 1 || stdout != "" || client.callCount() != 4 {
-		t.Fatalf("code=%d calls=%d stdout=%q stderr=%q", code, client.callCount(), stdout, stderr)
-	}
+	assert.Equal(t, 1, code)
+	assert.Empty(t, stdout)
+	assert.Equal(t, 4, client.callCount())
 	summary := parseUsageSummary(t, stderr)
-	if summary.Command != "jeq map" || summary.AttemptedRequests != 4 || summary.SuccessfulRequests != 3 || summary.ProcessedRecords != 4 || summary.DecodedAnswers != 3 || summary.InputTokens != 10 || summary.OutputTokens != 6 || summary.AnswersPer1000InputToken == nil || *summary.AnswersPer1000InputToken != 300 {
-		t.Fatalf("unexpected summary: %+v", summary)
-	}
-	if strings.Join(summary.ModelVersions, ",") != "jev-one,jev-three,jev-two" {
-		t.Fatalf("model versions = %#v", summary.ModelVersions)
-	}
+	assert.Equal(t, "jeq map", summary.Command)
+	assert.Equal(t, int64(4), summary.AttemptedRequests)
+	assert.Equal(t, int64(3), summary.SuccessfulRequests)
+	assert.Equal(t, int64(4), summary.ProcessedRecords)
+	assert.Equal(t, int64(3), summary.DecodedAnswers)
+	assert.Equal(t, int64(10), summary.InputTokens)
+	assert.Equal(t, int64(6), summary.OutputTokens)
+	require.NotNil(t, summary.AnswersPer1000InputToken)
+	assert.Equal(t, float64(300), *summary.AnswersPer1000InputToken)
+	assert.Equal(t, []string{"jev-one", "jev-three", "jev-two"}, summary.ModelVersions)
 }
 
 func TestUsageSummaryCoversRateRankAndReduce(t *testing.T) {
@@ -254,13 +261,16 @@ func TestUsageSummaryCoversRateRankAndReduce(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &usageClient{evaluate: func(contract.Request) (contract.Response, *jeq.Error) { return tc.response, nil }}
 			code, _, stderr := runUsageCommand(t, tc.args, tc.input, client)
-			if code != 0 || int64(client.callCount()) != tc.requests {
-				t.Fatalf("code=%d calls=%d stderr=%q", code, client.callCount(), stderr)
-			}
+			assert.Equal(t, 0, code, "stderr=%q", stderr)
+			assert.Equal(t, tc.requests, int64(client.callCount()))
 			summary := parseUsageSummary(t, stderr)
-			if summary.AttemptedRequests != tc.requests || summary.SuccessfulRequests != tc.requests || summary.ProcessedRecords != tc.processed || summary.DecodedAnswers != tc.answers || summary.InputTokens != tc.response.Usage.InputTokens*tc.requests || summary.OutputTokens != tc.response.Usage.OutputTokens*tc.requests || summary.AnswersPer1000InputToken == nil {
-				t.Fatalf("unexpected summary: %+v", summary)
-			}
+			assert.Equal(t, tc.requests, summary.AttemptedRequests)
+			assert.Equal(t, tc.requests, summary.SuccessfulRequests)
+			assert.Equal(t, tc.processed, summary.ProcessedRecords)
+			assert.Equal(t, tc.answers, summary.DecodedAnswers)
+			assert.Equal(t, tc.response.Usage.InputTokens*tc.requests, summary.InputTokens)
+			assert.Equal(t, tc.response.Usage.OutputTokens*tc.requests, summary.OutputTokens)
+			assert.NotNil(t, summary.AnswersPer1000InputToken)
 		})
 	}
 }
@@ -270,13 +280,14 @@ func TestUsageSummaryFlagIsDocumentedAndIgnoredForNonPaidCommands(t *testing.T) 
 		return contract.Response{}, jeq.NewError(jeq.CodeResponseInvalid, "unexpected evaluation")
 	}}
 	code, help, stderr := runUsageCommand(t, []string{"ask", "--help"}, "", client)
-	if code != 0 || !strings.Contains(help, "--usage-summary") || stderr != "" {
-		t.Fatalf("help code=%d flag-present=%t stderr=%q", code, strings.Contains(help, "--usage-summary"), stderr)
-	}
+	assert.Equal(t, 0, code)
+	assert.Contains(t, help, "--usage-summary")
+	assert.Empty(t, stderr)
 	code, output, stderr := runUsageCommand(t, []string{"examples", "--usage-summary"}, "", client)
-	if code != 0 || output == "" || stderr != "" || client.callCount() != 0 {
-		t.Fatalf("non-paid command code=%d calls=%d stdout-empty=%t stderr=%q", code, client.callCount(), output == "", stderr)
-	}
+	assert.Equal(t, 0, code)
+	assert.NotEmpty(t, output)
+	assert.Empty(t, stderr)
+	assert.Zero(t, client.callCount())
 }
 
 func TestUsageSummaryExcludesFailedAndMalformedResponses(t *testing.T) {
@@ -295,13 +306,15 @@ func TestUsageSummaryExcludesFailedAndMalformedResponses(t *testing.T) {
 			args := []string{"ask", "--questions-json", `{"questions":{"risk":{"type":"noul","instructions":"risk"}}}`, "--state", "private", "--model", "jev-latest"}
 			plainCode, _, plainStderr := runUsageCommand(t, args, "", newClient())
 			code, _, stderr := runUsageCommand(t, append(args, "--usage-summary"), "", newClient())
-			if plainCode != tc.wantCode || code != plainCode {
-				t.Fatalf("exit codes plain=%d summary=%d, want %d; stderr=%q / %q", plainCode, code, tc.wantCode, plainStderr, stderr)
-			}
+			assert.Equal(t, tc.wantCode, plainCode, "plain stderr=%q", plainStderr)
+			assert.Equal(t, plainCode, code, "summary stderr=%q", stderr)
 			summary := parseUsageSummary(t, stderr)
-			if summary.AttemptedRequests != 1 || summary.SuccessfulRequests != 0 || summary.DecodedAnswers != 0 || summary.InputTokens != 0 || summary.OutputTokens != 0 || summary.AnswersPer1000InputToken != nil {
-				t.Fatalf("failed response contributed usage: %+v", summary)
-			}
+			assert.Equal(t, int64(1), summary.AttemptedRequests)
+			assert.Zero(t, summary.SuccessfulRequests)
+			assert.Zero(t, summary.DecodedAnswers)
+			assert.Zero(t, summary.InputTokens)
+			assert.Zero(t, summary.OutputTokens)
+			assert.Nil(t, summary.AnswersPer1000InputToken, "failed response must not contribute usage")
 		})
 	}
 }

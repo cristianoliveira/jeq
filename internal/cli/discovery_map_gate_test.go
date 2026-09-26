@@ -3,9 +3,10 @@ package cli
 import (
 	"bytes"
 	"io"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
@@ -28,9 +29,9 @@ func TestMapAndGateRejectUnknownOutputFlagBeforeDependencies(t *testing.T) {
 				args = append(args, "--value-pointer", "/value", "--pass-min", "0.8", "--reject-max", "0.2")
 			}
 			var out, stderr bytes.Buffer
-			if code := RunWithDeps(args, &out, &stderr, streamRenderer{}, deps); code != 2 || reads != 0 {
-				t.Fatalf("code=%d reads=%d out=%q stderr=%q", code, reads, out.String(), stderr.String())
-			}
+			code := RunWithDeps(args, &out, &stderr, streamRenderer{}, deps)
+			assert.Equal(t, 2, code)
+			assert.Zero(t, reads)
 		})
 	}
 }
@@ -44,10 +45,10 @@ func TestRootHelpIncludesAvailableMapAndGate(t *testing.T) {
 		Renderer:  streamRenderer{},
 	}
 	var out, stderr bytes.Buffer
-	if code := RunWithDeps(nil, &out, &stderr, streamRenderer{}, deps); code != 0 {
-		t.Fatalf("code=%d out=%q stderr=%q", code, out.String(), stderr.String())
-	}
-	if !strings.Contains(out.String(), "Available Commands:") || !strings.Contains(out.String(), "map") || !strings.Contains(out.String(), "reduce") || !strings.Contains(out.String(), "gate") {
-		t.Fatalf("root help=%q", out.String())
-	}
+	code := RunWithDeps(nil, &out, &stderr, streamRenderer{}, deps)
+	assert.Equal(t, 0, code)
+	assert.Contains(t, out.String(), "Available Commands:")
+	assert.Contains(t, out.String(), "map")
+	assert.Contains(t, out.String(), "reduce")
+	assert.Contains(t, out.String(), "gate")
 }
