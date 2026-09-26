@@ -6,6 +6,9 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -32,9 +35,7 @@ func TestStableErrorCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if string(tt.code) != tt.want {
-				t.Errorf("code = %q, want %q", tt.code, tt.want)
-			}
+			assert.Equal(t, tt.want, string(tt.code))
 		})
 	}
 }
@@ -44,9 +45,7 @@ func TestErrorCodeFormat(t *testing.T) {
 	re := regexp.MustCompile(`^JEQ_[A-Z0-9_]+$`)
 
 	for _, code := range jeq.Codes() {
-		if !re.MatchString(string(code)) {
-			t.Errorf("code %q violates the locked JEQ_<AREA>_<REASON> format", code)
-		}
+		assert.Regexp(t, re, string(code))
 	}
 }
 
@@ -68,14 +67,7 @@ func TestCodesRegistry(t *testing.T) {
 	}
 
 	got := jeq.Codes()
-	if len(got) != len(want) {
-		t.Fatalf("Codes() = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("Codes()[%d] = %q, want %q", i, got[i], want[i])
-		}
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestErrorRendering(t *testing.T) {
@@ -98,9 +90,7 @@ func TestErrorRendering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.err.Error(); got != tt.want {
-				t.Errorf("Error() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.err.Error())
 		})
 	}
 }
@@ -111,24 +101,17 @@ func TestErrorUnwrapping(t *testing.T) {
 	t.Run("errors.As finds the coded error through wrapping", func(t *testing.T) {
 		wrapped := fmt.Errorf("ask: %w", jeq.NewError(jeq.CodeRateLimited, "slow down"))
 		var coded *jeq.Error
-		if !errors.As(wrapped, &coded) {
-			t.Fatal("errors.As did not find the coded error")
-		}
-		if coded.Code != jeq.CodeRateLimited {
-			t.Errorf("code = %q, want %q", coded.Code, jeq.CodeRateLimited)
-		}
+		require.True(t, errors.As(wrapped, &coded))
+		require.NotNil(t, coded)
+		assert.Equal(t, jeq.CodeRateLimited, coded.Code)
 	})
 
 	t.Run("errors.Is finds the internal cause", func(t *testing.T) {
 		wrapped := jeq.WrapError(jeq.CodeRequestInvalid, cause, "bad payload")
-		if !errors.Is(wrapped, cause) {
-			t.Error("errors.Is did not find the internal cause")
-		}
+		assert.ErrorIs(t, wrapped, cause)
 	})
 
 	t.Run("error without cause unwraps to nil", func(t *testing.T) {
-		if unwrapped := errors.Unwrap(jeq.NewError(jeq.CodeInputInvalid, "x")); unwrapped != nil {
-			t.Errorf("Unwrap() = %v, want nil", unwrapped)
-		}
+		assert.Nil(t, errors.Unwrap(jeq.NewError(jeq.CodeInputInvalid, "x")))
 	})
 }

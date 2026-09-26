@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"math/rand"
 	"reflect"
-	"strings"
 	"testing"
 	"testing/quick"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -74,41 +76,25 @@ func TestDecodeRequestStrict(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := contract.DecodeRequest([]byte(tt.doc))
-			if err == nil {
-				t.Fatal("expected decode error, got nil")
-			}
-			if err.Code != tt.wantCode {
-				t.Errorf("code = %q, want %q (message: %s)", err.Code, tt.wantCode, err.Message)
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, tt.wantCode, err.Code, "message: %s", err.Message)
 		})
 	}
 }
 
 func TestDecodeRequestTypeMismatchNamesFieldPath(t *testing.T) {
 	_, err := contract.DecodeRequest([]byte(`{"state":"s","model":"m","questions":{"f":{"type":"score","instructions":"rate it","criteria":"Calm"}}}`))
-	if err == nil {
-		t.Fatal("expected decode error")
-	}
-	if !strings.Contains(err.Message, "questions.f.criteria") {
-		t.Errorf("message %q does not name the field path questions.f.criteria", err.Message)
-	}
+	require.NotNil(t, err)
+	assert.Contains(t, err.Message, "questions.f.criteria")
 }
 
 func TestDecodeRequestHappyPath(t *testing.T) {
 	raw := fixtures.MustContract(t, "request_full.json")
 	req, err := contract.DecodeRequest(raw)
-	if err != nil {
-		t.Fatalf("decode failed: %v", err)
-	}
-	if req.Model != "jev-latest" {
-		t.Errorf("model = %q", req.Model)
-	}
-	if len(req.Questions) != 3 {
-		t.Fatalf("questions = %d, want 3", len(req.Questions))
-	}
-	if req.Questions["frustration"].Type != contract.TypeScore {
-		t.Errorf("frustration type = %q", req.Questions["frustration"].Type)
-	}
+	require.Nil(t, err)
+	assert.Equal(t, "jev-latest", req.Model)
+	require.Len(t, req.Questions, 3)
+	assert.Equal(t, contract.TypeScore, req.Questions["frustration"].Type)
 }
 
 func TestUnknownFieldPassthrough(t *testing.T) {
@@ -117,65 +103,45 @@ func TestUnknownFieldPassthrough(t *testing.T) {
 
 	// When it decodes and re-encodes
 	req, decErr := contract.DecodeRequest(raw)
-	if decErr != nil {
-		t.Fatalf("unknown fields must never be rejected: %v", decErr)
-	}
+	require.Nil(t, decErr, "unknown fields must never be rejected")
 	out, encErr := req.Encode()
-	if encErr != nil {
-		t.Fatal(encErr)
-	}
+	require.NoError(t, encErr)
 
 	// Then the unknown fields survive byte-semantically
 	var round map[string]any
-	if err := json.Unmarshal(out, &round); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := round["x_extra"]; !ok {
-		t.Error("top-level unknown field x_extra was dropped")
-	}
-	questions, _ := round["questions"].(map[string]any)
-	q, _ := questions["is_urgent"].(map[string]any)
-	if _, ok := q["vendor_meta"]; !ok {
-		t.Error("unknown question field vendor_meta was dropped")
-	}
+	require.NoError(t, json.Unmarshal(out, &round))
+	require.Contains(t, round, "x_extra")
+	questions, ok := round["questions"].(map[string]any)
+	require.True(t, ok)
+	q, ok := questions["is_urgent"].(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, q, "vendor_meta")
 
 	// And re-decoding the output is an idempotent fixpoint
 	req2, decErr := contract.DecodeRequest(out)
-	if decErr != nil {
-		t.Fatalf("re-decode failed: %v", decErr)
-	}
+	require.Nil(t, decErr)
 	out2, _ := req2.Encode()
 	req3, _ := contract.DecodeRequest(out2)
-	if !reflect.DeepEqual(req2, req3) {
-		t.Error("decode→encode is not idempotent")
-	}
+	assert.Equal(t, req2, req3)
 }
 
 func TestLosslessResponse(t *testing.T) {
 	raw := fixtures.MustContract(t, "response_unknown_fields.json")
 
 	resp, err := contract.DecodeResponse(raw)
-	if err != nil {
-		t.Fatalf("response decode failed: %v", err)
-	}
+	require.Nil(t, err, "response decode failed")
 
 	out, encErr := resp.Encode()
-	if encErr != nil {
-		t.Fatal(encErr)
-	}
+	require.NoError(t, encErr)
 
 	var round map[string]any
-	if err := json.Unmarshal(out, &round); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := round["x_served_by"]; !ok {
-		t.Error("unknown top-level response field x_served_by was dropped")
-	}
-	answers, _ := round["answers"].(map[string]any)
-	dept, _ := answers["department"].(map[string]any)
-	if _, ok := dept["x_rank"]; !ok {
-		t.Error("unknown answer field x_rank was dropped")
-	}
+	require.NoError(t, json.Unmarshal(out, &round))
+	require.Contains(t, round, "x_served_by")
+	answers, ok := round["answers"].(map[string]any)
+	require.True(t, ok)
+	dept, ok := answers["department"].(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, dept, "x_rank")
 }
 
 func TestDecodeResponseMissingKnownFieldIsResponseInvalid(t *testing.T) {
@@ -193,9 +159,8 @@ func TestDecodeResponseMissingKnownFieldIsResponseInvalid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := contract.DecodeResponse([]byte(tt.doc))
-			if err == nil || err.Code != jeq.CodeResponseInvalid {
-				t.Errorf("expected %q, got %v", jeq.CodeResponseInvalid, err)
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, jeq.CodeResponseInvalid, err.Code)
 		})
 	}
 }
@@ -203,47 +168,28 @@ func TestDecodeResponseMissingKnownFieldIsResponseInvalid(t *testing.T) {
 func TestDecodeResponseHappyPath(t *testing.T) {
 	raw := fixtures.MustContract(t, "response_unknown_fields.json")
 	resp, err := contract.DecodeResponse(raw)
-	if err != nil {
-		t.Fatalf("decode failed: %v", err)
-	}
-	if resp.Model != "jev-1.13.0" {
-		t.Errorf("model = %q", resp.Model)
-	}
-	if len(resp.Answers) != 3 {
-		t.Errorf("answers = %d, want 3", len(resp.Answers))
-	}
-	if resp.Usage.InputTokens != 312 || resp.Usage.OutputTokens != 48 {
-		t.Errorf("usage = %d/%d", resp.Usage.InputTokens, resp.Usage.OutputTokens)
-	}
-	if got := resp.Answers["is_urgent"].Noul; got == nil || *got != 0.92 {
-		t.Errorf("noul answer = %v", resp.Answers["is_urgent"].Noul)
-	}
-	if got := resp.Answers["department"].Confidence; got == nil || *got != 0.82 {
-		t.Errorf("choice confidence = %v", resp.Answers["department"].Confidence)
-	}
+	require.Nil(t, err, "decode failed")
+	assert.Equal(t, "jev-1.13.0", resp.Model)
+	assert.Len(t, resp.Answers, 3)
+	assert.Equal(t, int64(312), resp.Usage.InputTokens)
+	assert.Equal(t, int64(48), resp.Usage.OutputTokens)
+	require.NotNil(t, resp.Answers["is_urgent"].Noul)
+	assert.Equal(t, 0.92, *resp.Answers["is_urgent"].Noul)
+	require.NotNil(t, resp.Answers["department"].Confidence)
+	assert.Equal(t, 0.82, *resp.Answers["department"].Confidence)
 }
 
 func TestDecodeModels(t *testing.T) {
 	raw := fixtures.MustContract(t, "models.json")
 	models, err := contract.DecodeModels(raw)
-	if err != nil {
-		t.Fatalf("decode failed: %v", err)
-	}
-	if len(models.Models) != 2 {
-		t.Fatalf("models = %d, want 2", len(models.Models))
-	}
-	if models.Models[0].Name != "jev-latest" {
-		t.Errorf("name = %q", models.Models[0].Name)
-	}
+	require.Nil(t, err, "decode failed")
+	require.Len(t, models.Models, 2)
+	assert.Equal(t, "jev-latest", models.Models[0].Name)
 
 	// Unknown top-level fields survive the round trip.
 	out, encErr := models.Encode()
-	if encErr != nil {
-		t.Fatal(encErr)
-	}
-	if !strings.Contains(string(out), "x_account") {
-		t.Error("unknown models field x_account was dropped")
-	}
+	require.NoError(t, encErr)
+	assert.Contains(t, string(out), "x_account")
 }
 
 // jsonValue generates valid JSON values for the round-trip property.
@@ -263,24 +209,14 @@ func TestRoundTripProperty(t *testing.T) {
 	for _, name := range []string{"request_full.json", "unknown_field.json"} {
 		raw := fixtures.MustContract(t, name)
 		req, err := contract.DecodeRequest(raw)
-		if err != nil {
-			t.Fatalf("%s: decode failed: %v", name, err)
-		}
+		require.Nil(t, err, "%s: decode failed", name)
 		out1, encErr := req.Encode()
-		if encErr != nil {
-			t.Fatalf("%s: encode failed: %v", name, encErr)
-		}
+		require.NoError(t, encErr, "%s: encode failed", name)
 		out2, _ := req.Encode()
-		if string(out1) != string(out2) {
-			t.Errorf("%s: encode is not deterministic", name)
-		}
+		assert.Equal(t, string(out1), string(out2), "%s: encode is not deterministic", name)
 		req2, err := contract.DecodeRequest(out1)
-		if err != nil {
-			t.Fatalf("%s: re-decode failed: %v", name, err)
-		}
-		if !reflect.DeepEqual(req, req2) {
-			t.Errorf("%s: round trip changed the document", name)
-		}
+		require.Nil(t, err, "%s: re-decode failed", name)
+		assert.Equal(t, req, req2, "%s: round trip changed the document", name)
 	}
 
 	property := func(value jsonValue) bool {
@@ -300,7 +236,5 @@ func TestRoundTripProperty(t *testing.T) {
 		return reflect.DeepEqual(req, req2)
 	}
 	cfg := &quick.Config{MaxCount: 200, Rand: rand.New(rand.NewSource(1))}
-	if err := quick.Check(property, cfg); err != nil {
-		t.Errorf("round-trip property failed: %v", err)
-	}
+	assert.NoError(t, quick.Check(property, cfg), "round-trip property")
 }

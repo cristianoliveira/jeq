@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/fixtures"
@@ -50,17 +52,11 @@ func TestModeConflictMatrix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := jeq.CheckSources(tt.sources)
 			if tt.wantCode == "" {
-				if err != nil {
-					t.Fatalf("expected success, got %v", err)
-				}
+				assert.Nil(t, err)
 				return
 			}
-			if err == nil {
-				t.Fatalf("expected %q, got success", tt.wantCode)
-			}
-			if err.Code != tt.wantCode {
-				t.Errorf("code = %q, want %q", err.Code, tt.wantCode)
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, tt.wantCode, err.Code)
 		})
 	}
 }
@@ -74,20 +70,12 @@ func TestComposeComposedMode(t *testing.T) {
 		State:        jeq.StateInput{Kind: jeq.SourceStateText, Text: "Help! My payouts have been failing."},
 		Model:        "jev-1.13.0",
 	})
-	if err != nil {
-		t.Fatalf("compose failed: %v", err)
-	}
+	require.Nil(t, err, "compose failed")
 
 	// Then the request carries the explicit model and the state as a JSON string
-	if out.Model != "jev-1.13.0" {
-		t.Errorf("model = %q, want the explicit model", out.Model)
-	}
-	if string(out.State) != `"Help! My payouts have been failing."` {
-		t.Errorf("state = %s, want a JSON string", out.State)
-	}
-	if len(out.Questions) != 1 {
-		t.Errorf("questions = %d, want 1", len(out.Questions))
-	}
+	assert.Equal(t, "jev-1.13.0", out.Model)
+	assert.Equal(t, `"Help! My payouts have been failing."`, string(out.State))
+	assert.Len(t, out.Questions, 1)
 }
 
 func TestComposeStateJSONSource(t *testing.T) {
@@ -96,13 +84,9 @@ func TestComposeStateJSONSource(t *testing.T) {
 		State:        jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: []byte(`{"messages":[{"role":"user"}]}`)},
 		Model:        "jev-latest",
 	})
-	if err != nil {
-		t.Fatalf("compose failed: %v", err)
-	}
+	require.Nil(t, err, "compose failed")
 	var state map[string]any
-	if err := json.Unmarshal(out.State, &state); err != nil {
-		t.Fatalf("state is not structured JSON: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(out.State, &state))
 }
 
 func TestComposeStateJSONSourceRejectsScalars(t *testing.T) {
@@ -111,9 +95,8 @@ func TestComposeStateJSONSourceRejectsScalars(t *testing.T) {
 		State:        jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: []byte(`42`)},
 		Model:        "jev-latest",
 	})
-	if err == nil || err.Code != jeq.CodeRequestInvalid {
-		t.Errorf("expected %q for scalar state JSON, got %v", jeq.CodeRequestInvalid, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeRequestInvalid, err.Code)
 }
 
 func TestComposeQuestionsDocUnknownFieldsPassThrough(t *testing.T) {
@@ -126,18 +109,12 @@ func TestComposeQuestionsDocUnknownFieldsPassThrough(t *testing.T) {
 		State:        jeq.StateInput{Kind: jeq.SourceStateText, Text: "s"},
 		Model:        "jev-latest",
 	})
-	if err != nil {
-		t.Fatalf("compose failed: %v", err)
-	}
+	require.Nil(t, err, "compose failed")
 
 	// Then the unknown field rides into the outgoing request
 	encoded, encErr := out.Encode()
-	if encErr != nil {
-		t.Fatal(encErr)
-	}
-	if !strings.Contains(string(encoded), "x_profile") {
-		t.Errorf("unknown questions-doc field x_profile was dropped: %s", encoded)
-	}
+	require.NoError(t, encErr)
+	assert.Contains(t, string(encoded), "x_profile")
 }
 
 func TestComposeComposedEmptyStateFailsBeforeIO(t *testing.T) {
@@ -146,9 +123,8 @@ func TestComposeComposedEmptyStateFailsBeforeIO(t *testing.T) {
 		State:        jeq.StateInput{Kind: jeq.SourceStateText, Text: "   "},
 		Model:        "jev-latest",
 	})
-	if err == nil || err.Code != jeq.CodeInputInvalid {
-		t.Errorf("expected %q for empty resolved state, got %v", jeq.CodeInputInvalid, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeInputInvalid, err.Code)
 }
 
 func TestComposeEmptyModelFails(t *testing.T) {
@@ -156,9 +132,8 @@ func TestComposeEmptyModelFails(t *testing.T) {
 		QuestionsDoc: []byte(questionsDoc),
 		State:        jeq.StateInput{Kind: jeq.SourceStateText, Text: "s"},
 	})
-	if err == nil || err.Code != jeq.CodeInputInvalid {
-		t.Errorf("expected %q for missing model, got %v", jeq.CodeInputInvalid, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeInputInvalid, err.Code)
 }
 
 func TestComposeInvalidQuestionsDocFailsLocally(t *testing.T) {
@@ -170,37 +145,26 @@ func TestComposeInvalidQuestionsDocFailsLocally(t *testing.T) {
 		State:        jeq.StateInput{Kind: jeq.SourceStateText, Text: "s"},
 		Model:        "jev-latest",
 	})
-	if err == nil {
-		t.Fatal("expected a local failure for a malformed questions document")
-	}
+	require.NotNil(t, err, "expected a local failure for a malformed questions document")
 }
 
 func TestComposeNativeMode(t *testing.T) {
 	raw := fixtures.MustContract(t, "request_full.json")
 	out, err := jeq.Compose(jeq.ComposeInput{RequestDoc: raw})
-	if err != nil {
-		t.Fatalf("compose failed: %v", err)
-	}
-	if out.Model != "jev-latest" {
-		t.Errorf("model = %q, want the document's model", out.Model)
-	}
+	require.Nil(t, err, "compose failed")
+	assert.Equal(t, "jev-latest", out.Model)
 
 	// Unknown fields survive the native passthrough.
 	encoded, encErr := out.Encode()
-	if encErr != nil {
-		t.Fatal(encErr)
-	}
-	if !strings.Contains(string(encoded), "x_trace") {
-		t.Error("native unknown field x_trace was dropped")
-	}
+	require.NoError(t, encErr)
+	assert.Contains(t, string(encoded), "x_trace")
 }
 
 func TestComposeNativeModeInvalidDocumentFailsLocally(t *testing.T) {
 	raw := fixtures.MustContract(t, "dup_key.json")
 	_, err := jeq.Compose(jeq.ComposeInput{RequestDoc: raw})
-	if err == nil || err.Code != jeq.CodeRequestInvalid {
-		t.Errorf("expected %q, got %v", jeq.CodeRequestInvalid, err)
-	}
+	require.NotNil(t, err)
+	assert.Equal(t, jeq.CodeRequestInvalid, err.Code)
 }
 
 func TestComposeNeverTouchesNetwork(t *testing.T) {
@@ -219,9 +183,7 @@ func TestComposeNeverTouchesNetwork(t *testing.T) {
 	for _, in := range inputs {
 		_, _ = jeq.Compose(in)
 	}
-	if hits.Load() != 0 {
-		t.Errorf("composition made %d network requests; it must be pure", hits.Load())
-	}
+	assert.Zero(t, hits.Load(), "composition must be pure")
 }
 
 func TestComposeComposedPrettyEmptyStateJSONFails(t *testing.T) {
@@ -233,8 +195,6 @@ func TestComposeComposedPrettyEmptyStateJSONFails(t *testing.T) {
 			State:        jeq.StateInput{Kind: jeq.SourceStateJSON, JSON: []byte(state)},
 			Model:        "jev-latest",
 		})
-		if err == nil {
-			t.Errorf("pretty state %q must fail as semantically empty", state)
-		}
+		assert.NotNil(t, err, "pretty state %q must fail as semantically empty", state)
 	}
 }

@@ -6,6 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/fixtures"
 )
@@ -14,28 +17,23 @@ func TestValidateLocalRules(t *testing.T) {
 	// Every failing fixture must fail locally with exactly the rule and
 	// stable code declared in invalid_manifest.json.
 	manifest, err := fixtures.InvalidManifest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	for _, entry := range manifest {
 		t.Run(entry.Fixture, func(t *testing.T) {
 			raw := fixtures.MustContract(t, entry.Fixture)
 
 			violations := contract.Validate(raw)
-			if len(violations) == 0 {
-				t.Fatalf("expected a violation of rule %q, got none", entry.Rule)
-			}
+			ruleIDs := ruleNames(violations)
+			require.NotEmpty(t, violations, "expected rule %q, got no violations", entry.Rule)
+			require.Contains(t, ruleIDs, entry.Rule, "actual rules: %v", ruleIDs)
 
 			for _, v := range violations {
 				if v.Rule == entry.Rule {
-					if string(v.Error.Code) != entry.Code {
-						t.Errorf("rule %q produced code %q, want %q", entry.Rule, v.Error.Code, entry.Code)
-					}
+					assert.Equal(t, entry.Code, string(v.Error.Code), "rule %q", entry.Rule)
 					return
 				}
 			}
-			t.Errorf("expected a violation of rule %q, got rules %v", entry.Rule, ruleNames(violations))
 		})
 	}
 }
@@ -44,18 +42,14 @@ func TestValidateAcceptsValidDocuments(t *testing.T) {
 	for _, name := range []string{"request_full.json", "unknown_field.json"} {
 		t.Run(name, func(t *testing.T) {
 			raw := fixtures.MustContract(t, name)
-			if violations := contract.Validate(raw); len(violations) != 0 {
-				t.Errorf("valid document rejected: %v", ruleNames(violations))
-			}
+			assert.Empty(t, contract.Validate(raw), "valid document rejected")
 		})
 	}
 }
 
 func TestValidateEveryRuleHasRecoveryText(t *testing.T) {
 	for _, rule := range contract.Rules() {
-		if rule.Recovery == "" {
-			t.Errorf("rule %q has no recovery instruction", rule.Name)
-		}
+		assert.NotEmpty(t, rule.Recovery, "rule %q has no recovery instruction", rule.Name)
 	}
 }
 
@@ -69,21 +63,15 @@ func TestValidatePreNetwork(t *testing.T) {
 	defer srv.Close()
 
 	names, err := fixtures.ContractFixtures()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, name := range names {
 		raw, err := fixtures.Contract(name)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		_ = contract.Validate(raw)
 		_, _ = contract.DecodeRequest(raw)
 	}
 
-	if hits.Load() != 0 {
-		t.Errorf("validation made %d network requests; the local gate must run pre-network", hits.Load())
-	}
+	assert.Zero(t, hits.Load(), "the local validation gate must run before network access")
 }
 
 func ruleNames(vs []contract.Violation) []string {

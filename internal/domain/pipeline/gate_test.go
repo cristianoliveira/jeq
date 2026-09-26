@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -18,22 +21,15 @@ func TestGateAppendsDecisionAndPreservesEvidence(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out, decision, err := Gate([]byte(tc.record), "policy", tc.pointer, GatePolicy{PassMin: 0.8, RejectMax: 0.2})
-			if err != nil || decision != tc.want {
-				t.Fatalf("decision=%s err=%v", decision, err)
-			}
+			require.Nil(t, err)
+			assert.Equal(t, tc.want, decision)
 			var doc map[string]json.RawMessage
-			if err := json.Unmarshal(out, &doc); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, json.Unmarshal(out, &doc))
 			var evidence map[string]json.RawMessage
-			if err := json.Unmarshal(doc["_jeq"], &evidence); err != nil {
-				t.Fatal(err)
-			}
-			if evidence["policy"] == nil {
-				t.Fatal("missing policy evidence")
-			}
-			if tc.name == "pass" && evidence["first"] == nil {
-				t.Fatal("existing evidence was dropped")
+			require.NoError(t, json.Unmarshal(doc["_jeq"], &evidence))
+			assert.Contains(t, evidence, "policy")
+			if tc.name == "pass" {
+				assert.Contains(t, evidence, "first")
 			}
 		})
 	}
@@ -51,9 +47,9 @@ func TestGateRejectsInvalidInputBeforeDecision(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy); err == nil || err.Code != jeq.CodeInputInvalid {
-				t.Fatalf("err=%v", err)
-			}
+			_, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy)
+			require.NotNil(t, err)
+			assert.Equal(t, jeq.CodeInputInvalid, err.Code)
 		})
 	}
 }

@@ -34,6 +34,10 @@ nix develop -c make check
 Funzzy checks, a full build, `golangci-lint`, and all Go tests. A successful
 `make check` prints only `true`.
 
+Domain production packages remain standard-library-only. Domain tests may use
+Testify `assert` and `require` for diagnostics; keep those imports in `_test.go`
+files and keep all checks on the test goroutine.
+
 CI and the normal gate must stay offline and deterministic. Do not add paid or
 production-network tests to either one.
 
