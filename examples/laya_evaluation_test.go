@@ -1,10 +1,14 @@
 package examples_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestLayaEvaluationHarnessUsesControlledLocalResponses(t *testing.T) {
 	result := runScript(t, "examples/laya-evaluation/test.sh", "", "", nil)
-	if result.exit != 0 || result.stdout != "PASS laya evaluation harness\n" || result.stderr != "" {
-		t.Fatalf("exit=%d stdout=%q stderr=%q", result.exit, result.stdout, result.stderr)
-	}
+	assert.Equal(t, 0, result.exit)
+	assert.Equal(t, "PASS laya evaluation harness\n", result.stdout)
+	assert.Empty(t, result.stderr)
 }
