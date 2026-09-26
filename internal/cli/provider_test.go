@@ -66,36 +66,41 @@ func TestResolveProviderUsesVercelOIDCFallback(t *testing.T) {
 }
 
 func TestResolveProviderRejectsRemoteUnauthenticatedHTTPAndHTTPS(t *testing.T) {
-	getenv := func(key string) string {
-		if key == "JEQ_PROVIDER" {
-			return "custom"
+	t.Run("unauthenticated remote HTTP is rejected", func(t *testing.T) {
+		getenv := func(key string) string {
+			if key == "JEQ_PROVIDER" {
+				return "custom"
+			}
+			if key == "JEQ_BASE_URL" {
+				return "http://example.test"
+			}
+			if key == "JEQ_AUTH" {
+				return "none"
+			}
+			return ""
 		}
-		if key == "JEQ_BASE_URL" {
-			return "http://example.test"
+		_, err := cli.ResolveProvider(getenv, nil, nil)
+		if err == nil || !strings.Contains(err.Message, "invalid base_url") {
+			t.Fatalf("err=%v", err)
 		}
-		if key == "JEQ_AUTH" {
-			return "none"
+	})
+
+	t.Run("unauthenticated remote HTTPS is rejected", func(t *testing.T) {
+		getenv := func(key string) string {
+			if key == "JEQ_PROVIDER" {
+				return "custom"
+			}
+			if key == "JEQ_BASE_URL" {
+				return "https://example.test"
+			}
+			if key == "JEQ_AUTH" {
+				return "none"
+			}
+			return ""
 		}
-		return ""
-	}
-	_, err := cli.ResolveProvider(getenv, nil, nil)
-	if err == nil || !strings.Contains(err.Message, "invalid base_url") {
-		t.Fatalf("err=%v", err)
-	}
-	getenv = func(key string) string {
-		if key == "JEQ_PROVIDER" {
-			return "custom"
+		_, err := cli.ResolveProvider(getenv, nil, nil)
+		if err == nil || !strings.Contains(err.Message, "invalid base_url") {
+			t.Fatalf("err=%v", err)
 		}
-		if key == "JEQ_BASE_URL" {
-			return "https://example.test"
-		}
-		if key == "JEQ_AUTH" {
-			return "none"
-		}
-		return ""
-	}
-	_, err = cli.ResolveProvider(getenv, nil, nil)
-	if err == nil || !strings.Contains(err.Message, "invalid base_url") {
-		t.Fatalf("err=%v", err)
-	}
+	})
 }
