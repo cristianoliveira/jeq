@@ -15,9 +15,9 @@ import (
 
 func TestReadOptionalFileMissingAndReadsOneBoundedStream(t *testing.T) {
 	data, err, found := source.ReadOptionalFile("/definitely/missing/jeq-config.json", 32)
-	if err != nil || found || data != nil {
-		t.Fatalf("data=%q err=%v found=%v", data, err, found)
-	}
+	require.Nil(t, err)
+	assert.False(t, found)
+	assert.Nil(t, data)
 
 	var opens int
 	open := func(string) (io.ReadCloser, error) { opens++; return io.NopCloser(strings.NewReader("abc")), nil }
