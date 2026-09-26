@@ -25,22 +25,34 @@ func TestReadOptionalFileMissingAndReadsOneBoundedStream(t *testing.T) {
 }
 
 func TestReadOptionalFileReportsOversizeAndReadFailure(t *testing.T) {
-	t.Run("oversized file returns input error and is found", func(t *testing.T) {
-		open := func(string) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("abcd")), nil }
-		_, err, found := source.ReadOptionalFileWithOpener("config.json", 3, open)
-		if err == nil || err.Code != jeq.CodeInputInvalid || !found {
-			t.Fatalf("err=%v found=%v", err, found)
-		}
-	})
-
-	t.Run("read failure returns input error and is found", func(t *testing.T) {
-		readErr := errors.New("boom")
-		bad := func(string) (io.ReadCloser, error) { return &failingCloser{err: readErr}, nil }
-		_, err, found := source.ReadOptionalFileWithOpener("config.json", 32, bad)
-		if err == nil || err.Code != jeq.CodeInputInvalid || !found {
-			t.Fatalf("read err=%v found=%v", err, found)
-		}
-	})
+	cases := []struct {
+		name     string
+		maxBytes int64
+		open     func(string) (io.ReadCloser, error)
+	}{
+		{
+			name:     "oversized file returns input error and is found",
+			maxBytes: 3,
+			open: func(string) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader("abcd")), nil
+			},
+		},
+		{
+			name:     "read failure returns input error and is found",
+			maxBytes: 32,
+			open: func(string) (io.ReadCloser, error) {
+				return &failingCloser{err: errors.New("boom")}, nil
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err, found := source.ReadOptionalFileWithOpener("config.json", tc.maxBytes, tc.open)
+			if err == nil || err.Code != jeq.CodeInputInvalid || !found {
+				t.Fatalf("err=%v found=%v", err, found)
+			}
+		})
+	}
 }
 
 type failingCloser struct{ err error }
