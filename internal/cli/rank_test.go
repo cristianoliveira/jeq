@@ -36,27 +36,26 @@ func TestRankSelectsOriginalCandidateAndAttachesCompleteEvidence(t *testing.T) {
 	code := cli.RunWithDeps([]string{"rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description"}, &out, &errOut, RankRenderer{}, deps)
 	require.Equal(t, 0, code, "stderr=%q", errOut.String())
 	assert.Empty(t, errOut.String())
-	var ranking struct {
-		Items []struct {
-			ID string `json:"id"`
-		} `json:"items"`
-		Evidence struct {
-			Route struct {
-				Model   string `json:"model"`
-				Answers struct {
-					Route struct {
-						Choice string `json:"choice"`
-					} `json:"route"`
-				} `json:"answers"`
-			} `json:"route"`
-		} `json:"_jeq"`
-	}
+	var ranking map[string]any
 	require.NoError(t, json.Unmarshal(out.Bytes(), &ranking))
-	require.Len(t, ranking.Items, 2)
-	assert.Equal(t, "b", ranking.Items[0].ID)
-	assert.Equal(t, "a", ranking.Items[1].ID)
-	assert.Equal(t, "jev-latest", ranking.Evidence.Route.Model)
-	assert.Equal(t, "b", ranking.Evidence.Route.Answers.Route.Choice)
+	asJSONObject := func(value any) map[string]any {
+		object, ok := value.(map[string]any)
+		require.True(t, ok, "want JSON object, got %T", value)
+		return object
+	}
+	items, ok := ranking["items"].([]any)
+	require.True(t, ok, "want items array, got %T", ranking["items"])
+	require.Len(t, items, 2)
+	firstCandidate := asJSONObject(items[0])
+	secondCandidate := asJSONObject(items[1])
+	assert.Equal(t, "b", firstCandidate["id"])
+	assert.Equal(t, "a", secondCandidate["id"])
+
+	route := asJSONObject(asJSONObject(ranking["_jeq"])["route"])
+	answers := asJSONObject(route["answers"])
+	routeAnswer := asJSONObject(answers["route"])
+	assert.Equal(t, "jev-latest", route["model"])
+	assert.Equal(t, "b", routeAnswer["choice"])
 	assert.Equal(t, 1, client.call)
 }
 
