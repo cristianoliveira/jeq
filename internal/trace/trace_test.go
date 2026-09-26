@@ -6,6 +6,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTraceIsVersionedBoundedAndEphemeral(t *testing.T) {
@@ -14,13 +17,10 @@ func TestTraceIsVersionedBoundedAndEphemeral(t *testing.T) {
 	cfg.Emit("jeq map", "run.started", "preflight", "started", "")
 	line := strings.TrimSpace(out.String())
 	for _, forbidden := range []string{"secret", "prompt", "Authorization"} {
-		if strings.Contains(line, forbidden) {
-			t.Fatalf("trace leaked %q: %s", forbidden, line)
-		}
+		assert.NotContains(t, line, forbidden)
 	}
-	if !strings.Contains(line, `"schema":"jeq.trace.v1"`) || !strings.Contains(line, `"sequence":1`) {
-		t.Fatalf("unexpected event: %s", line)
-	}
+	assert.Contains(t, line, `"schema":"jeq.trace.v1"`)
+	assert.Contains(t, line, `"sequence":1`)
 }
 
 func TestTraceConcurrentObserversKeepOrderedCompleteLines(t *testing.T) {
@@ -43,9 +43,8 @@ func TestTraceConcurrentObserversKeepOrderedCompleteLines(t *testing.T) {
 	close(start)
 	wg.Wait()
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) < 65 || len(lines) > 257 {
-		t.Fatalf("event count=%d", len(lines))
-	}
+	require.GreaterOrEqual(t, len(lines), 65)
+	require.LessOrEqual(t, len(lines), 257)
 	previous, suppressed := uint64(0), 0
 	for _, line := range lines {
 		var event struct {
@@ -53,38 +52,29 @@ func TestTraceConcurrentObserversKeepOrderedCompleteLines(t *testing.T) {
 			Sequence uint64 `json:"sequence"`
 			Event    string `json:"event"`
 		}
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			t.Fatalf("invalid line: %v", err)
-		}
-		if event.Schema != Schema || event.Sequence <= previous {
-			t.Fatalf("sequence order: previous=%d current=%d", previous, event.Sequence)
-		}
+		require.NoError(t, json.Unmarshal([]byte(line), &event))
+		assert.Equal(t, Schema, event.Schema)
+		require.Greater(t, event.Sequence, previous, "trace sequences must increase")
 		previous = event.Sequence
 		if event.Event == "events.suppressed" {
 			suppressed++
 		}
 	}
-	if suppressed != 1 {
-		t.Fatalf("suppression events=%d", suppressed)
-	}
+	require.Equal(t, 1, suppressed)
 }
 
 func TestTraceIDValidationAndPrecedence(t *testing.T) {
-	if id, ok := ResolveID("flag", "env"); !ok || id != "flag" {
-		t.Fatal("flag precedence failed")
-	}
-	if _, ok := ResolveID(strings.Repeat("x", 129), ""); ok {
-		t.Fatal("oversized id accepted")
-	}
-	if _, ok := ResolveID("bad space", ""); ok {
-		t.Fatal("unsafe id accepted")
-	}
+	id, ok := ResolveID("flag", "env")
+	require.True(t, ok)
+	assert.Equal(t, "flag", id)
+	_, ok = ResolveID(strings.Repeat("x", 129), "")
+	assert.False(t, ok, "oversized id must be rejected")
+	_, ok = ResolveID("bad space", "")
+	assert.False(t, ok, "unsafe id must be rejected")
 }
 
 func TestNoopTraceEmitsNothing(t *testing.T) {
 	var out bytes.Buffer
 	New(false, "", &out).Emit("jeq", "run.started", "", "", "")
-	if out.Len() != 0 {
-		t.Fatal("no-op trace emitted output")
-	}
+	assert.Zero(t, out.Len(), "no-op trace must not emit output")
 }

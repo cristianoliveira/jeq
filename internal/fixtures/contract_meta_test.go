@@ -3,6 +3,9 @@ package fixtures_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/fixtures"
@@ -13,9 +16,7 @@ import (
 // registry, and every non-declared fixture document must validate clean.
 func TestFixtureCodeCoverage(t *testing.T) {
 	manifest, err := fixtures.InvalidManifest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	registered := map[string]bool{}
 	for _, code := range jeq.Codes() {
@@ -24,20 +25,16 @@ func TestFixtureCodeCoverage(t *testing.T) {
 
 	declared := map[string]string{} // fixture -> code
 	for _, entry := range manifest {
-		if !registered[entry.Code] {
-			t.Errorf("fixture %s: code %q is not in the D0 registry", entry.Fixture, entry.Code)
+		if !assert.True(t, registered[entry.Code], "fixture %s: code %q is not in the D0 registry", entry.Fixture, entry.Code) {
 			continue
 		}
-		if prev, dup := declared[entry.Fixture]; dup {
-			t.Errorf("fixture %s declared twice (%s, %s)", entry.Fixture, prev, entry.Code)
-		}
+		prev, dup := declared[entry.Fixture]
+		assert.False(t, dup, "fixture %s declared twice (%s, %s)", entry.Fixture, prev, entry.Code)
 		declared[entry.Fixture] = entry.Code
 	}
 
 	names, err := fixtures.ContractFixtures()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	// Non-request documents (server responses, model lists) are not inputs
 	// to the local request gate.
 	nonRequest := map[string]bool{
@@ -57,16 +54,11 @@ func TestFixtureCodeCoverage(t *testing.T) {
 		if !isFailure {
 			// Valid documents must stay valid; otherwise the corpus lies.
 			raw, err := fixtures.Contract(name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if vs := contract.Validate(raw); len(vs) != 0 {
-				t.Errorf("fixture %s is not declared as failing but violates: %v", name, vs[0].Rule)
-			}
+			require.NoError(t, err)
+			vs := contract.Validate(raw)
+			assert.Empty(t, vs, "fixture %s is not declared as failing but violates a rule", name)
 			continue
 		}
-		if code == "" {
-			t.Errorf("fixture %s declares no stable code", name)
-		}
+		assert.NotEmpty(t, code, "fixture %s declares no stable code", name)
 	}
 }

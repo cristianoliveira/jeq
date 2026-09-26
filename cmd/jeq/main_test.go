@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/infra/render"
 )
@@ -30,12 +33,9 @@ func TestBinaryUsageDocuments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			code, stdout, stderr := runCLI(tt.args...)
-			if code != 2 {
-				t.Fatalf("exit = %d, want 2", code)
-			}
-			if stdout != "" || !strings.HasPrefix(stderr, "Error: ") {
-				t.Errorf("stdout=%q stderr=%q", stdout, stderr)
-			}
+			require.Equal(t, 2, code)
+			assert.Empty(t, stdout)
+			assert.True(t, strings.HasPrefix(stderr, "Error: "), "stderr=%q", stderr)
 		})
 	}
 }
@@ -43,14 +43,8 @@ func TestBinaryUsageDocuments(t *testing.T) {
 func TestHelpExitsZero(t *testing.T) {
 	for _, args := range [][]string{{"--help"}, {"help"}} {
 		code, stdout, stderr := runCLI(args...)
-		if code != 0 {
-			t.Errorf("args %q: exit = %d, want 0", args, code)
-		}
-		if strings.TrimSpace(stdout) == "" {
-			t.Errorf("args %q: help must print to stdout", args)
-		}
-		if strings.TrimSpace(stderr) != "" {
-			t.Errorf("args %q: help must not write stderr, got %q", args, stderr)
-		}
+		assert.Equal(t, 0, code, "args %q", args)
+		assert.NotEmpty(t, strings.TrimSpace(stdout), "args %q: help must print to stdout", args)
+		assert.Empty(t, strings.TrimSpace(stderr), "args %q: help must not write stderr", args)
 	}
 }

@@ -13,6 +13,9 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const modulePath = "github.com/cristianoliveira/jeq"
@@ -169,13 +172,9 @@ func TestImportRules(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := violations(tt.graph)
-			if len(got) != len(tt.want) {
-				t.Fatalf("expected %d violation(s) %v, got %d: %v", len(tt.want), tt.want, len(got), got)
-			}
+			require.Len(t, got, len(tt.want), "expected violations %v, got %v", tt.want, got)
 			for i, want := range tt.want {
-				if !strings.Contains(got[i], want) {
-					t.Errorf("violation %d = %q, want it to contain %q", i, got[i], want)
-				}
+				assert.Contains(t, got[i], want, "violation %d", i)
 			}
 		})
 	}
@@ -185,9 +184,7 @@ func TestImportRules(t *testing.T) {
 // module graph reported by `go list -json ./...`.
 func TestModuleGraphRespectsImportRules(t *testing.T) {
 	out, err := exec.Command("go", "list", "-json", "./...").Output()
-	if err != nil {
-		t.Fatalf("go list failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	g := graph{}
 	dec := json.NewDecoder(strings.NewReader(string(out)))
@@ -197,16 +194,10 @@ func TestModuleGraphRespectsImportRules(t *testing.T) {
 	}
 	for dec.More() {
 		var p listPkg
-		if err := dec.Decode(&p); err != nil {
-			t.Fatalf("decoding go list output: %v", err)
-		}
+		require.NoError(t, dec.Decode(&p))
 		g[p.ImportPath] = p.Imports
 	}
-	if len(g) == 0 {
-		t.Fatal("go list reported no packages; the module graph must not be empty")
-	}
-
-	if bad := violations(g); len(bad) > 0 {
-		t.Errorf("module graph violates ADR 0002:\n%s", strings.Join(bad, "\n"))
-	}
+	require.NotEmpty(t, g, "go list must report a non-empty module graph")
+	bad := violations(g)
+	assert.Empty(t, bad, "module graph violates ADR 0002:\n%s", strings.Join(bad, "\n"))
 }

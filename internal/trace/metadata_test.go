@@ -2,8 +2,9 @@ package trace
 
 import (
 	"bytes"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetadataEmissionIsAllowlistedAndDeterministic(t *testing.T) {
@@ -11,7 +12,6 @@ func TestMetadataEmissionIsAllowlistedAndDeterministic(t *testing.T) {
 	c := New(true, "id", &out)
 	c.EmitMetadata("jeq map", "m", "config", "ndjson", "/state", []string{"a", "b"}, []string{"noul", "score"})
 	line := out.String()
-	if !strings.Contains(line, `"question_names":["a","b"]`) || strings.Contains(line, "prompt") {
-		t.Fatal(line)
-	}
+	assert.Contains(t, line, `"question_names":["a","b"]`)
+	assert.NotContains(t, line, "prompt")
 }
