@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -134,9 +136,11 @@ func TestAskConflictHappensBeforeReadersAndEnvironment(t *testing.T) {
 	client := &fakeClient{}
 	deps, _, reads := testDeps(t, client, func(string) string { t.Fatal("environment read before conflict"); return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--request", "a", "--questions", "b"}, deps)
-	if code != 2 || renderer.err != nil || *reads != 0 || client.call != 0 || !strings.Contains(stderr, "JEQ_SOURCE_CONFLICT") {
-		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, *reads, client.call, stderr)
-	}
+	assert.Equal(t, 2, code)
+	assert.Nil(t, renderer.err)
+	assert.Zero(t, *reads)
+	assert.Zero(t, client.call)
+	assert.Contains(t, stderr, "JEQ_SOURCE_CONFLICT")
 }
 
 func TestAskRejectsDualStdinBeforeRead(t *testing.T) {

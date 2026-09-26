@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/infra/source"
 )
@@ -19,9 +22,10 @@ func TestReadOptionalFileMissingAndReadsOneBoundedStream(t *testing.T) {
 	var opens int
 	open := func(string) (io.ReadCloser, error) { opens++; return io.NopCloser(strings.NewReader("abc")), nil }
 	data, coded, found := source.ReadOptionalFileWithOpener("config.json", 32, open)
-	if coded != nil || !found || string(data) != "abc" || opens != 1 {
-		t.Fatalf("data=%q err=%v found=%v opens=%d", data, coded, found, opens)
-	}
+	require.Nil(t, coded)
+	assert.True(t, found)
+	assert.Equal(t, "abc", string(data))
+	assert.Equal(t, 1, opens)
 }
 
 func TestReadOptionalFileReportsOversizeAndReadFailure(t *testing.T) {
@@ -48,9 +52,9 @@ func TestReadOptionalFileReportsOversizeAndReadFailure(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err, found := source.ReadOptionalFileWithOpener("config.json", tc.maxBytes, tc.open)
-			if err == nil || err.Code != jeq.CodeInputInvalid || !found {
-				t.Fatalf("err=%v found=%v", err, found)
-			}
+			require.NotNil(t, err)
+			assert.Equal(t, jeq.CodeInputInvalid, err.Code)
+			assert.True(t, found)
 		})
 	}
 }
