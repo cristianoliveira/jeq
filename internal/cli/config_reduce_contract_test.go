@@ -79,18 +79,23 @@ func TestConfigUsesXDGThenHomeAndIgnoresMissingDefault(t *testing.T) {
 }
 
 func TestExplicitConfigIsStrictAndMissingIsAnError(t *testing.T) {
-	read := func(path string, _ int64) ([]byte, *jeq.Error) {
-		if path == "missing.json" {
+	t.Run("missing explicit config is rejected", func(t *testing.T) {
+		read := func(string, int64) ([]byte, *jeq.Error) {
 			return nil, jeq.NewError(jeq.CodeInputInvalid, "source missing.json: does not exist")
 		}
-		return []byte(`{"default_model":"m","credentials":"secret"}`), nil
-	}
-	if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read); err == nil {
-		t.Fatal("missing explicit config must fail")
-	}
-	if _, err := ResolveConfiguredModel("", "config.json", func(string) string { return "" }, read); err == nil {
-		t.Fatal("unknown config fields must fail")
-	}
+		if _, err := ResolveConfiguredModel("", "missing.json", func(string) string { return "" }, read); err == nil {
+			t.Fatal("missing explicit config must fail")
+		}
+	})
+
+	t.Run("unknown explicit config fields are rejected", func(t *testing.T) {
+		read := func(string, int64) ([]byte, *jeq.Error) {
+			return []byte(`{"default_model":"m","credentials":"secret"}`), nil
+		}
+		if _, err := ResolveConfiguredModel("", "config.json", func(string) string { return "" }, read); err == nil {
+			t.Fatal("unknown config fields must fail")
+		}
+	})
 }
 
 func TestSharedQuestionSourceAcceptsFileOrInlineButNotBoth(t *testing.T) {

@@ -143,7 +143,7 @@ func TestCodeSmellReviewCleansTemporaryBundleAfterSuccessAndFailure(t *testing.T
 		t.Fatal(err)
 	}
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("successful review removes temporary bundle", func(t *testing.T) {
 		tmpdir := t.TempDir()
 		api := newFakeAPI(t, func(int) (int, []byte) { return 200, codeSmellResponse() })
 		result := runScript(t, "examples/code-smell-review/review.sh", "", api.server.URL, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TMPDIR": tmpdir}, source)
@@ -153,7 +153,7 @@ func TestCodeSmellReviewCleansTemporaryBundleAfterSuccessAndFailure(t *testing.T
 		assertNoCodeSmellBundles(t, tmpdir)
 	})
 
-	t.Run("api failure", func(t *testing.T) {
+	t.Run("API failure removes temporary bundle", func(t *testing.T) {
 		tmpdir := t.TempDir()
 		api := newFakeAPI(t, func(int) (int, []byte) { return 500, []byte(`{"error":"failed"}`) })
 		result := runScript(t, "examples/code-smell-review/review.sh", "", api.server.URL, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TMPDIR": tmpdir}, source)
@@ -183,8 +183,8 @@ func TestCodeSmellReviewRejectsInvalidInputsWithoutAPI(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"none", nil},
-		{"missing", []string{"does not exist.go"}},
+		{"no source files is rejected", nil},
+		{"missing source file is rejected", []string{"does not exist.go"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
