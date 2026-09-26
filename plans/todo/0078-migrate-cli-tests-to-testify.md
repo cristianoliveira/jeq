@@ -1,7 +1,7 @@
 ---
 id: TASK-0078
 title: Migrate CLI tests to Testify
-status: todo
+status: doing
 depends_on: [TASK-0076]
 priority: normal
 tags: [testing, readability, cli]
