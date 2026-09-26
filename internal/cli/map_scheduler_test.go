@@ -207,13 +207,16 @@ func TestMapSchedulerLaterFailurePreservesPrefixWithinDispatchBound(t *testing.T
 	for id := 0; id < 4; id++ {
 		assert.Equal(t, 1, calls[fmt.Sprint(id)])
 	}
-	// Job 3 can complete before job 2's concurrent failure reaches the coordinator.
-	// One replacement can therefore be dispatched speculatively within the worker bound.
+	// Job 3 can complete before job 2's failure reaches the coordinator, allowing
+	// one speculative read-ahead and replacement dispatch for candidate 4.
+	const initialReadAheadRecords = 3
 	reads := reader.Reads()
-	assert.LessOrEqual(t, calls["4"], 1)
-	assert.GreaterOrEqual(t, reads, 3)
-	assert.LessOrEqual(t, reads, 4)
-	assert.Equal(t, calls["4"], reads-3)
+	speculativeReadAhead := reads - initialReadAheadRecords
+	replacementCalls := calls["4"]
+	assert.LessOrEqual(t, replacementCalls, 1, "candidate 4 may be dispatched at most once")
+	assert.GreaterOrEqual(t, reads, initialReadAheadRecords, "the initial dispatch must read candidates 1 through 3")
+	assert.LessOrEqual(t, reads, initialReadAheadRecords+1, "failure may allow at most one speculative read-ahead")
+	assert.Equal(t, replacementCalls, speculativeReadAhead, "each speculative read-ahead record must have one replacement call")
 }
 
 func TestMapSchedulerCancellationDrainsWorkersWithoutDispatchingMore(t *testing.T) {
