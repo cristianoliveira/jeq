@@ -1,6 +1,5 @@
 # jeq
 
-
 <div align="center">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/jeq-logo.svg">
@@ -35,6 +34,13 @@ case "$policy_status" in
 esac
 exit "$policy_status"
 ```
+
+## Agent friendly
+
+jeq cli explains itself. Run `jeq --help` to list every command,
+`jeq <command> --help` to see its flags and examples, and `jeq examples` for
+complete workflows. You do not need to install a jeq-specific skill for an
+agent to use it.
 
 ## Install it
 
@@ -74,13 +80,6 @@ cover the rest:
 - [Providers](docs/guides/providers.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Examples](examples/README.md)
-
-## Learn it from the CLI
-
-jeq explains itself. Run `jeq --help` to list every command,
-`jeq <command> --help` to see its flags and examples, and `jeq examples` for
-complete workflows. You do not need to install a jeq-specific skill for an
-agent to use it.
 
 ## Before you run it
 
