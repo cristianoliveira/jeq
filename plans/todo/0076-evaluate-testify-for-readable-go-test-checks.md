@@ -1,7 +1,7 @@
 ---
 id: TASK-0076
 title: Evaluate Testify for readable Go test checks
-status: todo
+status: doing
 depends_on: []
 priority: normal
 tags: [testing, readability, dependencies]
