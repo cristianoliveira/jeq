@@ -1,13 +1,15 @@
 package blackbox_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type successCase struct {
@@ -19,9 +21,7 @@ type successCase struct {
 
 func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) {
 	requestPath := filepath.Join(t.TempDir(), "request.json")
-	if err := os.WriteFile(requestPath, []byte(`{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(requestPath, []byte(`{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`), 0o600))
 	cases := []successCase{
 		{"ask", "", []string{"ask", "--request", requestPath}, true, 0, 1},
 		{"validate", `{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`, []string{"validate", "--request", "-"}, false, 0, 0},
@@ -75,14 +75,15 @@ func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) 
 			}
 			plain, pcount := run(false)
 			verbose, vcount := run(true)
-			if plain.exit != tc.expectedExit || verbose.exit != tc.expectedExit || pcount != tc.expectedRequests || vcount != tc.expectedRequests || plain.stdout != verbose.stdout {
-				t.Fatalf("default contract changed: plain=%#v verbose=%#v counts=%d/%d", plain, verbose, pcount, vcount)
-			}
-			if strings.Contains(verbose.stderr, "matrix-secret") || strings.Contains(verbose.stderr, "safe") {
-				t.Fatalf("payload or credential leaked: %s", verbose.stderr)
-			}
-			if verbose.exit == 0 && !bytes.Contains([]byte(verbose.stderr), []byte(`"event":"operation.started"`)) {
-				t.Fatalf("lifecycle missing: %s", verbose.stderr)
+			require.Equal(t, tc.expectedExit, plain.exit, "plain=%#v", plain)
+			require.Equal(t, tc.expectedExit, verbose.exit, "verbose=%#v", verbose)
+			require.Equal(t, tc.expectedRequests, pcount)
+			require.Equal(t, tc.expectedRequests, vcount)
+			assert.Equal(t, plain.stdout, verbose.stdout, "default output contract must be unchanged")
+			assert.NotContains(t, verbose.stderr, "matrix-secret")
+			assert.NotContains(t, verbose.stderr, "safe")
+			if verbose.exit == 0 {
+				assert.Contains(t, verbose.stderr, `"event":"operation.started"`)
 			}
 		})
 	}

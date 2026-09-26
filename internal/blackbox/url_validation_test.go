@@ -4,17 +4,17 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlackBoxInvalidBaseURLPrecedesAuthAcrossCommands(t *testing.T) {
 	api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) { w.WriteHeader(500) })
 	tmp := t.TempDir()
 	request := filepath.Join(tmp, "request.json")
-	if err := os.WriteFile(request, []byte(`{"model":"m","state":"s","questions":{"q":{"type":"noul","instructions":"Is this?"}}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(request, []byte(`{"model":"m","state":"s","questions":{"q":{"type":"noul","instructions":"Is this?"}}}`), 0o600))
 	cases := [][]string{
 		{"ask", "--request", request},
 		{"map", "--as", "q", "--input", "ndjson", "--state-pointer", "/state", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"Is this?"}}}`},
@@ -31,11 +31,9 @@ func TestBlackBoxInvalidBaseURLPrecedesAuthAcrossCommands(t *testing.T) {
 			}
 		}
 		result := runBinary(t, input, map[string]string{"TYPESAFE_BASE_URL": "not-a-url", "TYPESAFE_API_KEY": ""}, args...)
-		if result.exit != 2 || result.stdout != "" || !strings.Contains(result.stderr, "TYPESAFE_BASE_URL") {
-			t.Fatalf("args=%v result=%#v", args, result)
-		}
+		require.Equal(t, 2, result.exit, "args=%v", args)
+		assert.Empty(t, result.stdout)
+		assert.Contains(t, result.stderr, "TYPESAFE_BASE_URL")
 	}
-	if api.count() != 0 {
-		t.Fatalf("requests=%d", api.count())
-	}
+	assert.Zero(t, api.count())
 }

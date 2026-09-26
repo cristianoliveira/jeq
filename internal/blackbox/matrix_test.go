@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlackBoxVerboseContractMatrixKeepsStdoutExitAndRequests(t *testing.T) {
@@ -14,21 +17,16 @@ func TestBlackBoxVerboseContractMatrixKeepsStdoutExitAndRequests(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			plain := runBinary(t, "", nil, command, "--help")
 			verbose := runBinary(t, "", map[string]string{"JEQ_TRACE_ID": "matrix"}, "--verbose", command, "--help")
-			if plain.exit != verbose.exit || plain.stdout != verbose.stdout {
-				t.Fatalf("default contract changed: plain=%#v verbose=%#v", plain, verbose)
-			}
-			if strings.Contains(verbose.stdout, "jeq.trace.v1") {
-				t.Fatal("trace entered stdout")
-			}
+			require.Equal(t, plain.exit, verbose.exit, "plain=%#v verbose=%#v", plain, verbose)
+			require.Equal(t, plain.stdout, verbose.stdout, "plain=%#v verbose=%#v", plain, verbose)
+			assert.NotContains(t, verbose.stdout, "jeq.trace.v1")
 		})
 	}
 }
 
 func TestBlackBoxVerboseFailureMatrix(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "request.json")
-	if err := os.WriteFile(path, fixture(t, "request_full.json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(path, fixture(t, "request_full.json"), 0o600))
 	cases := []struct {
 		name    string
 		handler func(http.ResponseWriter, *http.Request, int)
@@ -43,9 +41,10 @@ func TestBlackBoxVerboseFailureMatrix(t *testing.T) {
 			args := []string{"--verbose", "ask", "--request", path}
 			args = append(args, tc.args...)
 			result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "matrix-secret", "JEQ_TRACE_ID": "failure-matrix"}, args...)
-			if result.exit == 0 || !strings.Contains(result.stderr, `"event":"run.failed"`) || strings.Contains(result.stderr, "matrix-secret") || strings.Contains(result.stderr, "provider-private-body") {
-				t.Fatalf("result=%#v", result)
-			}
+			require.NotEqual(t, 0, result.exit)
+			assert.Contains(t, result.stderr, `"event":"run.failed"`)
+			assert.NotContains(t, result.stderr, "matrix-secret")
+			assert.NotContains(t, result.stderr, "provider-private-body")
 		})
 	}
 }
@@ -55,8 +54,6 @@ func TestBlackBoxVerbosePrivacyAdversarialInputs(t *testing.T) {
 	request := `{"state":"private-state","questions":{"q":{"type":"noul","instructions":"private-instruction"}},"extra":"candidate-id"}`
 	result := runBinary(t, request, map[string]string{"JEQ_TRACE_ID": "safe-chain", "TYPESAFE_API_KEY": "credential-secret", "TYPESAFE_BASE_URL": strings.Replace(api.server.URL, "://", "://user:pass@", 1) + "/?token=secret#fragment"}, "--verbose", "ask", "--request", "-")
 	for _, secret := range []string{"credential-secret", "user:pass", "token=secret", "fragment", "private-state", "private-instruction", "candidate-id", "provider-private-body"} {
-		if strings.Contains(result.stderr, secret) {
-			t.Fatalf("trace leaked %q: %s", secret, result.stderr)
-		}
+		assert.NotContains(t, result.stderr, secret)
 	}
 }

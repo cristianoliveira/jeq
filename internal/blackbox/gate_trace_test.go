@@ -1,8 +1,9 @@
 package blackbox_test
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBlackBoxVerboseGatePolicySummaryCountsAndExit(t *testing.T) {
@@ -15,9 +16,9 @@ func TestBlackBoxVerboseGatePolicySummaryCountsAndExit(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runBinary(t, `{"score":`+formatFloat(tc.value)+"}\n", nil, "--verbose", "gate", "--as", "policy", "--input", "ndjson", "--value-pointer", "/score", "--pass-min", "0.8", "--reject-max", "0.2")
-			if result.exit != tc.exit || !strings.Contains(result.stderr, `"phase":"offline_policy"`) || !strings.Contains(result.stderr, tc.summary) {
-				t.Fatalf("result=%#v", result)
-			}
+			assert.Equal(t, tc.exit, result.exit)
+			assert.Contains(t, result.stderr, `"phase":"offline_policy"`)
+			assert.Contains(t, result.stderr, tc.summary)
 		})
 	}
 }

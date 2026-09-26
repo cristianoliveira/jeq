@@ -18,6 +18,9 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -70,7 +73,7 @@ func runBinary(t *testing.T, stdin string, env map[string]string, args ...string
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if ctx.Err() != nil {
-		t.Fatalf("%v timed out: stdout=%q stderr=%q", strings.Join(args, " "), stdout.String(), stderr.String())
+		require.FailNow(t, fmt.Sprintf("%v timed out: stdout=%q stderr=%q", strings.Join(args, " "), stdout.String(), stderr.String()))
 	}
 	return processResult{stdout: stdout.String(), stderr: stderr.String(), exit: exitCode(cmd, err), err: err}
 }
@@ -106,36 +109,29 @@ func exitCode(cmd *exec.Cmd, err error) int {
 func fixture(t *testing.T, name string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(repoRoot, "internal", "fixtures", "contract", name))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return data
 }
 
 func assertJSON(t *testing.T, output string) map[string]any {
 	t.Helper()
-	if !strings.HasSuffix(output, "\n") || strings.Count(output, "\n") != 1 {
-		t.Fatalf("want one JSON document and one trailing newline, got %q", output)
-	}
+	require.True(t, strings.HasSuffix(output, "\n") && strings.Count(output, "\n") == 1,
+		"want one JSON document and one trailing newline, got %q", output)
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimSuffix(output, "\n")), &doc); err != nil {
-		t.Fatalf("stdout is not JSON: %v (%q)", err, output)
-	}
+	require.NoError(t, json.Unmarshal([]byte(strings.TrimSuffix(output, "\n")), &doc), "stdout=%q", output)
 	return doc
 }
 
 func assertCleanMachineOutput(t *testing.T, result processResult, wantExit int, secret string) map[string]any {
 	t.Helper()
-	if result.exit != wantExit {
-		t.Fatalf("exit=%d want=%d stdout=%q stderr=%q err=%v", result.exit, wantExit, result.stdout, result.stderr, result.err)
-	}
-	if secret != "" && (strings.Contains(result.stdout, secret) || strings.Contains(result.stderr, secret)) {
-		t.Fatalf("secret leaked in stdout/stderr: stdout=%q stderr=%q", result.stdout, result.stderr)
+	require.Equal(t, wantExit, result.exit, "stdout=%q stderr=%q err=%v", result.stdout, result.stderr, result.err)
+	if secret != "" {
+		assert.NotContains(t, result.stdout, secret, "secret leaked to stdout")
+		assert.NotContains(t, result.stderr, secret, "secret leaked to stderr")
 	}
 	if wantExit != 0 {
-		if result.stdout != "" || !strings.HasPrefix(result.stderr, "Error: ") {
-			t.Fatalf("want standard stderr error: stdout=%q stderr=%q", result.stdout, result.stderr)
-		}
+		require.Empty(t, result.stdout, "failed commands must not write stdout")
+		assert.True(t, strings.HasPrefix(result.stderr, "Error: "), "want standard stderr error, got %q", result.stderr)
 		return map[string]any{"error": strings.TrimSpace(result.stderr)}
 	}
 	if strings.HasPrefix(result.stdout, "{") {
@@ -221,9 +217,9 @@ func TestBlackBoxDiscoveryAndProseExceptions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": ""}, tc.args...)
 			if tc.prose {
-				if result.exit != 0 || result.stdout == "" || strings.HasSuffix(result.stdout, "\n\n") {
-					t.Fatalf("prose command exit=%d stdout=%q stderr=%q", result.exit, result.stdout, result.stderr)
-				}
+				require.Equal(t, 0, result.exit, "stdout=%q stderr=%q", result.stdout, result.stderr)
+				assert.NotEmpty(t, result.stdout)
+				assert.False(t, strings.HasSuffix(result.stdout, "\n\n"), "prose output must not end with a blank line")
 				return
 			}
 			assertCleanMachineOutput(t, result, 0, "")
@@ -237,15 +233,9 @@ func TestBlackBoxValidateSourcesAndNoStateEcho(t *testing.T) {
 	requestPath := filepath.Join(tmp, "request.json")
 	questionsPath := filepath.Join(tmp, "questions.json")
 	statePath := filepath.Join(tmp, "state.json")
-	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(questionsPath, []byte(`{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(statePath, []byte(`{"customer":"do not echo this state"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600))
+	require.NoError(t, os.WriteFile(questionsPath, []byte(`{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`), 0o600))
+	require.NoError(t, os.WriteFile(statePath, []byte(`{"customer":"do not echo this state"}`), 0o600))
 	cases := []struct {
 		name  string
 		args  []string
@@ -260,9 +250,9 @@ func TestBlackBoxValidateSourcesAndNoStateEcho(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runBinary(t, tc.input, map[string]string{"TYPESAFE_API_KEY": "should-not-be-read"}, tc.args...)
 			doc := assertCleanMachineOutput(t, result, 0, "should-not-be-read")
-			if doc["valid"] != true || strings.Contains(result.stdout, "do not echo this state") || strings.Contains(result.stdout, "literal state") {
-				t.Fatalf("unexpected validation document: %q", result.stdout)
-			}
+			assert.Equal(t, true, doc["valid"])
+			assert.NotContains(t, result.stdout, "do not echo this state")
+			assert.NotContains(t, result.stdout, "literal state")
 		})
 	}
 }
@@ -273,12 +263,8 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 	tmp := t.TempDir()
 	requestPath := filepath.Join(tmp, "request.json")
 	questionsPath := filepath.Join(tmp, "questions.json")
-	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(questionsPath, []byte(`{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600))
+	require.NoError(t, os.WriteFile(questionsPath, []byte(`{"questions":{"q":{"type":"noul","instructions":"Is this urgent?"}}}`), 0o600))
 	cases := []struct {
 		name  string
 		args  func(string) []string
@@ -307,13 +293,11 @@ func TestBlackBoxAskNativeComposedFileStdinAndJSONModes(t *testing.T) {
 			})
 			result := runBinary(t, tc.input, map[string]string{"TYPESAFE_API_KEY": "blackbox-secret", "TYPESAFE_BASE_URL": api.server.URL}, tc.args(api.server.URL)...)
 			assertCleanMachineOutput(t, result, 0, "blackbox-secret")
-			if api.count() != 1 {
-				t.Fatalf("request count=%d want=1", api.count())
-			}
+			assert.Equal(t, 1, api.count())
 			var request map[string]any
-			if err := json.Unmarshal(api.body(), &request); err != nil || request["model"] == nil || request["questions"] == nil {
-				t.Fatalf("server received invalid request %q: %v", api.body(), err)
-			}
+			require.NoError(t, json.Unmarshal(api.body(), &request), "server request=%q", api.body())
+			assert.NotNil(t, request["model"])
+			assert.NotNil(t, request["questions"])
 		})
 	}
 }
@@ -326,13 +310,11 @@ func TestBlackBoxInfrastructureFlagsAreRemoved(t *testing.T) {
 	cases := [][]string{{"ask", "--base-url"}, {"map", "--base-url"}, {"reduce", "--base-url"}, {"rank", "--base-url"}, {"rate", "--base-url"}, {"models", "--base-url"}, {"map", "--config"}, {"reduce", "--config"}, {"rank", "--config"}, {"rate", "--config"}}
 	for _, args := range cases {
 		result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": "must-not-read", "TYPESAFE_BASE_URL": api.server.URL}, append(args, "value")...)
-		if result.exit != 2 || result.stdout != "" || !strings.Contains(result.stderr, "unknown flag") {
-			t.Fatalf("args=%v result=%#v", args, result)
-		}
+		require.Equal(t, 2, result.exit, "args=%v result=%#v", args, result)
+		assert.Empty(t, result.stdout)
+		assert.Contains(t, result.stderr, "unknown flag")
 	}
-	if api.count() != 0 {
-		t.Fatalf("requests=%d", api.count())
-	}
+	assert.Zero(t, api.count())
 }
 
 func TestBlackBoxVersionAliases(t *testing.T) {
@@ -340,14 +322,14 @@ func TestBlackBoxVersionAliases(t *testing.T) {
 	var outputs []string
 	for _, args := range [][]string{{"version"}, {"--version"}, {"-v"}} {
 		result := runBinary(t, "stdin must not be read", map[string]string{"TYPESAFE_API_KEY": ""}, args...)
-		if result.exit != 0 || result.stderr != "" {
-			t.Fatalf("args=%v exit=%d stderr=%q", args, result.exit, result.stderr)
-		}
+		require.Equal(t, 0, result.exit, "args=%v", args)
+		assert.Empty(t, result.stderr, "args=%v", args)
 		outputs = append(outputs, result.stdout)
 	}
-	if outputs[0] != outputs[1] || outputs[0] != outputs[2] || outputs[0] == "" {
-		t.Fatalf("outputs=%q", outputs)
-	}
+	require.Len(t, outputs, 3)
+	assert.NotEmpty(t, outputs[0])
+	assert.Equal(t, outputs[0], outputs[1])
+	assert.Equal(t, outputs[0], outputs[2])
 }
 
 func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
@@ -361,26 +343,25 @@ func TestBlackBoxRankUsesOneRequestAndReturnsAllCandidates(t *testing.T) {
 	})
 	input := "{\"name\":\"a\",\"description\":\"first\"}\n{\"name\":\"b\",\"description\":\"second\"}\n"
 	result := runBinary(t, input, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "rank-secret"}, "rank", "--as", "route", "--input", "ndjson", "--state", "request", "--instruction", "Which?", "--id-pointer", "/name", "--criteria-pointer", "/description")
-	if result.exit != 0 || result.stderr != "" || api.count() != 1 {
-		t.Fatalf("exit=%d stderr=%q requests=%d stdout=%q", result.exit, result.stderr, api.count(), result.stdout)
-	}
+	require.Equal(t, 0, result.exit, "stdout=%q stderr=%q", result.stdout, result.stderr)
+	assert.Empty(t, result.stderr)
+	assert.Equal(t, 1, api.count())
 	var doc map[string]any
-	if err := json.Unmarshal([]byte(result.stdout), &doc); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, json.Unmarshal([]byte(result.stdout), &doc))
+	require.IsType(t, []any{}, doc["items"])
 	items := doc["items"].([]any)
-	if items[0].(map[string]any)["id"] != "b" || len(items) != 2 {
-		t.Fatalf("items=%#v", items)
-	}
-	if doc["_jeq"].(map[string]any)["route"].(map[string]any)["trace_id"] != "trace-1" {
-		t.Fatalf("unknown response field was not preserved: %#v", doc)
-	}
+	require.Len(t, items, 2)
+	require.IsType(t, map[string]any{}, items[0])
+	assert.Equal(t, "b", items[0].(map[string]any)["id"])
+	require.IsType(t, map[string]any{}, doc["_jeq"])
+	jeqEvidence := doc["_jeq"].(map[string]any)
+	require.IsType(t, map[string]any{}, jeqEvidence["route"])
+	assert.Equal(t, "trace-1", jeqEvidence["route"].(map[string]any)["trace_id"])
 	jq := exec.Command("jq", "-c", ".items[:1] | map(.candidate)")
 	jq.Stdin = strings.NewReader(result.stdout)
 	topK, err := jq.Output()
-	if err != nil || !strings.Contains(string(topK), `"name":"b"`) {
-		t.Fatalf("jq top-k=%q err=%v", topK, err)
-	}
+	require.NoError(t, err, "jq output=%q", topK)
+	assert.Contains(t, string(topK), `"name":"b"`)
 }
 
 func TestBlackBoxRateUsesScoreAndComposesWithJQ(t *testing.T) {
@@ -394,49 +375,43 @@ func TestBlackBoxRateUsesScoreAndComposesWithJQ(t *testing.T) {
 	})
 	input := "{\"description\":\"minor\"}\n{\"description\":\"outage\"}\n"
 	result := runBinary(t, input, map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "rate-secret"}, "rate", "--as", "severity", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "How severe?", "--level", "Low", "--level", "High")
-	if result.exit != 0 || result.stderr != "" || api.count() != 2 {
-		t.Fatalf("exit=%d stderr=%q requests=%d", result.exit, result.stderr, api.count())
-	}
+	require.Equal(t, 0, result.exit, "stderr=%q", result.stderr)
+	assert.Empty(t, result.stderr)
+	assert.Equal(t, 2, api.count())
 	for i, wantState := range []string{"minor", "outage"} {
 		var request map[string]any
-		if err := json.Unmarshal(api.bodyAt(i), &request); err != nil {
-			t.Fatal(err)
-		}
-		if request["state"] != wantState {
-			t.Fatalf("request %d state=%v", i, request["state"])
-		}
-		question := request["questions"].(map[string]any)["severity"].(map[string]any)
-		if question["type"] != "score" || question["instructions"] != "How severe?" {
-			t.Fatalf("request %d question=%#v", i, question)
-		}
-		criteria := question["criteria"].([]any)
-		if len(criteria) != 2 || criteria[0] != "Low" || criteria[1] != "High" {
-			t.Fatalf("request %d criteria=%#v", i, criteria)
-		}
+		require.NoError(t, json.Unmarshal(api.bodyAt(i), &request))
+		assert.Equal(t, wantState, request["state"], "request %d state", i)
+		require.IsType(t, map[string]any{}, request["questions"])
+		questions := request["questions"].(map[string]any)
+		require.IsType(t, map[string]any{}, questions["severity"])
+		question := questions["severity"].(map[string]any)
+		assert.Equal(t, "score", question["type"], "request %d", i)
+		assert.Equal(t, "How severe?", question["instructions"], "request %d", i)
+		require.IsType(t, []any{}, question["criteria"])
+		assert.Equal(t, []any{"Low", "High"}, question["criteria"], "request %d criteria", i)
 	}
 	jq := exec.Command("jq", "-s", "sort_by(._jeq.severity.answers.severity.score) | reverse | length")
 	jq.Stdin = strings.NewReader(result.stdout)
 	top, err := jq.Output()
-	if err != nil || strings.TrimSpace(string(top)) != "2" {
-		t.Fatalf("jq=%q err=%v stdout=%q", top, err, result.stdout)
-	}
+	require.NoError(t, err, "jq output=%q", top)
+	assert.Equal(t, "2", strings.TrimSpace(string(top)))
 }
 
 func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 	t.Parallel()
 	t.Run("models success", func(t *testing.T) {
+		modelsBody := fixture(t, "models.json")
 		api := newFakeAPI(t, func(w http.ResponseWriter, r *http.Request, _ int) {
 			if r.Method != http.MethodGet || r.URL.Path != "/v1/models" {
 				http.Error(w, "wrong endpoint", http.StatusBadRequest)
 				return
 			}
-			_, _ = w.Write(fixture(t, "models.json"))
+			_, _ = w.Write(modelsBody)
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "models-secret"}, "models")
 		assertCleanMachineOutput(t, result, 0, "models-secret")
-		if api.count() != 1 {
-			t.Fatalf("request count=%d", api.count())
-		}
+		assert.Equal(t, 1, api.count())
 	})
 	t.Run("missing key is pre-network", func(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
@@ -444,9 +419,8 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": ""}, "models")
 		doc := assertCleanMachineOutput(t, result, 1, "")
-		if doc["error"] == "" || api.count() != 0 {
-			t.Fatalf("doc=%v requests=%d", doc, api.count())
-		}
+		assert.NotEmpty(t, doc["error"])
+		assert.Zero(t, api.count())
 	})
 	t.Run("auth rejection", func(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
@@ -454,9 +428,8 @@ func TestBlackBoxModelsAuthAndStatuses(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "auth-secret"}, "models")
 		doc := assertCleanMachineOutput(t, result, 1, "auth-secret")
-		if doc["error"] == "" || api.count() != 1 {
-			t.Fatalf("doc=%v requests=%d", doc, api.count())
-		}
+		assert.NotEmpty(t, doc["error"])
+		assert.Equal(t, 1, api.count())
 	})
 }
 
@@ -465,9 +438,7 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 	response := fixture(t, "response_200_full.json")
 	tmp := t.TempDir()
 	requestPath := filepath.Join(tmp, "request.json")
-	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600))
 	t.Run("retry", func(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, count int) {
 			if count == 1 {
@@ -479,12 +450,12 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "retry-secret", "JEQ_TRACE_ID": "retry-test"}, "--verbose", "ask", "--request", requestPath)
 		assertCleanMachineOutput(t, result, 0, "retry-secret")
-		if !strings.Contains(result.stderr, `"event":"request.attempted"`) || !strings.Contains(result.stderr, `"http_status":429`) || !strings.Contains(result.stderr, `"event":"request.retrying"`) || strings.Contains(result.stderr, "retry-secret") {
-			t.Fatalf("unsafe/incomplete trace: %s", result.stderr)
-		}
-		if api.count() != 2 || !strings.Contains(result.stderr, "retry 1/2") {
-			t.Fatalf("requests=%d stderr=%q", api.count(), result.stderr)
-		}
+		assert.Contains(t, result.stderr, `"event":"request.attempted"`)
+		assert.Contains(t, result.stderr, `"http_status":429`)
+		assert.Contains(t, result.stderr, `"event":"request.retrying"`)
+		assert.NotContains(t, result.stderr, "retry-secret")
+		assert.Equal(t, 2, api.count())
+		assert.Contains(t, result.stderr, "retry 1/2")
 	})
 	t.Run("server status failure", func(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
@@ -493,25 +464,23 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "status-secret"}, "ask", "--request", requestPath)
 		doc := assertCleanMachineOutput(t, result, 1, "status-secret")
-		if doc["error"] == "" || api.count() != 1 || strings.Contains(result.stdout, "dependency stack") {
-			t.Fatalf("doc=%v requests=%d stdout=%q", doc, api.count(), result.stdout)
-		}
+		assert.NotEmpty(t, doc["error"])
+		assert.Equal(t, 1, api.count())
+		assert.NotContains(t, result.stdout, "dependency stack")
 	})
 	t.Run("malformed response", func(t *testing.T) {
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) { _, _ = w.Write([]byte("not-json")) })
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "malformed-secret"}, "ask", "--request", requestPath)
 		doc := assertCleanMachineOutput(t, result, 1, "malformed-secret")
-		if doc["error"] == "" || api.count() != 1 {
-			t.Fatalf("doc=%v requests=%d", doc, api.count())
-		}
+		assert.NotEmpty(t, doc["error"])
+		assert.Equal(t, 1, api.count())
 	})
 	t.Run("timeout", func(t *testing.T) {
 		api := newFakeAPI(t, func(_ http.ResponseWriter, r *http.Request, _ int) { <-r.Context().Done() })
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "timeout-secret"}, "ask", "--request", requestPath, "--timeout", "50ms")
 		doc := assertCleanMachineOutput(t, result, 1, "timeout-secret")
-		if doc["error"] == "" || api.count() != 1 {
-			t.Fatalf("doc=%v requests=%d", doc, api.count())
-		}
+		assert.NotEmpty(t, doc["error"])
+		assert.Equal(t, 1, api.count())
 	})
 	t.Run("low confidence is success", func(t *testing.T) {
 		low := bytes.Replace(response, []byte(`"confidence": 1.0`), []byte(`"confidence": 0.01`), 1)
@@ -520,25 +489,28 @@ func TestBlackBoxRetriesMalformedTimeoutLowConfidenceAndDrop(t *testing.T) {
 		assertCleanMachineOutput(t, result, 0, "confidence-secret")
 	})
 	t.Run("connection drop is never replayed", func(t *testing.T) {
+		hijackResult := make(chan error, 1)
 		api := newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
 			hijacker, ok := w.(http.Hijacker)
 			if !ok {
-				t.Fatal("server does not support hijacking")
+				hijackResult <- fmt.Errorf("server does not support hijacking")
+				return
 			}
 			conn, _, err := hijacker.Hijack()
 			if err != nil {
-				t.Fatal(err)
+				hijackResult <- err
+				return
 			}
 			_ = conn.Close()
+			hijackResult <- nil
 		})
 		result := runBinary(t, "", map[string]string{"TYPESAFE_BASE_URL": api.server.URL, "TYPESAFE_API_KEY": "drop-secret"}, "ask", "--request", requestPath)
+		require.Equal(t, 1, api.count())
+		require.NoError(t, <-hijackResult)
 		doc := assertCleanMachineOutput(t, result, 1, "drop-secret")
-		if doc["error"] == "" || api.count() != 1 {
-			t.Fatalf("doc=%v requests=%d", doc, api.count())
-		}
-		if strings.Contains(result.stderr, "EOF") || strings.Contains(result.stderr, "connection reset") {
-			t.Fatalf("raw transport detail leaked: stdout=%q stderr=%q", result.stdout, result.stderr)
-		}
+		assert.NotEmpty(t, doc["error"])
+		assert.NotContains(t, result.stderr, "EOF")
+		assert.NotContains(t, result.stderr, "connection reset")
 	})
 }
 
@@ -557,9 +529,8 @@ func TestBlackBoxUsageAndFailureSeparation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := runBinary(t, "", map[string]string{"TYPESAFE_API_KEY": ""}, tc.args...)
 			doc := assertCleanMachineOutput(t, result, 2, "")
-			if !strings.HasPrefix(result.stderr, "Error: ") || doc["error"] == "" {
-				t.Fatalf("standard usage error missing: %q", result.stderr)
-			}
+			assert.True(t, strings.HasPrefix(result.stderr, "Error: "), "standard usage error missing: %q", result.stderr)
+			assert.NotEmpty(t, doc["error"])
 		})
 	}
 }
@@ -568,39 +539,33 @@ func TestBlackBoxInterruptBlockedAsk(t *testing.T) {
 	api := newFakeAPI(t, func(_ http.ResponseWriter, r *http.Request, _ int) { <-r.Context().Done() })
 	tmp := t.TempDir()
 	requestPath := filepath.Join(tmp, "request.json")
-	if err := os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(requestPath, fixture(t, "request_full.json"), 0o600))
 	cmd := exec.Command(jeqBin, "--verbose", "ask", "--request", requestPath, "--timeout", "10s")
 	cmd.Dir = repoRoot
 	cmd.Env = mergedEnv(map[string]string{"TYPESAFE_API_KEY": "interrupt-secret", "TYPESAFE_BASE_URL": api.server.URL})
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, cmd.Start())
 	select {
 	case <-api.firstReq:
 	case <-time.After(5 * time.Second):
 		_ = cmd.Process.Kill()
-		t.Fatal("blocked ask did not reach fake server")
+		require.FailNow(t, "blocked ask did not reach fake server")
 	}
-	if err := cmd.Process.Signal(os.Interrupt); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, cmd.Process.Signal(os.Interrupt))
 	wait := make(chan error, 1)
 	go func() { wait <- cmd.Wait() }()
 	select {
 	case err := <-wait:
-		if code := exitCode(cmd, err); code != 130 {
-			t.Fatalf("interrupt exit=%d want=130 stdout=%q stderr=%q err=%v", code, stdout.String(), stderr.String(), err)
-		}
-		if stdout.Len() != 0 || !strings.Contains(stderr.String(), "JEQ_INTERRUPTED") || strings.Contains(stderr.String(), "interrupt-secret") || !strings.Contains(stderr.String(), `"phase":"transport"`) || !strings.Contains(stderr.String(), `"event":"run.failed"`) {
-			t.Fatalf("interrupt output stdout=%q stderr=%q", stdout.String(), stderr.String())
-		}
+		require.Equal(t, 130, exitCode(cmd, err), "stdout=%q stderr=%q err=%v", stdout.String(), stderr.String(), err)
+		assert.Empty(t, stdout.String())
+		assert.Contains(t, stderr.String(), "JEQ_INTERRUPTED")
+		assert.NotContains(t, stderr.String(), "interrupt-secret")
+		assert.Contains(t, stderr.String(), `"phase":"transport"`)
+		assert.Contains(t, stderr.String(), `"event":"run.failed"`)
 	case <-time.After(5 * time.Second):
 		_ = cmd.Process.Kill()
-		t.Fatal("interrupted ask did not exit by deadline")
+		require.FailNow(t, "interrupted ask did not exit by deadline")
 	}
 }
