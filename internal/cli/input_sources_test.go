@@ -76,11 +76,7 @@ func TestAskEquivalentQuestionAndStateSources(t *testing.T) {
 				expected = client.request
 				return
 			}
-			assert.Equal(t, expected.State, client.request.State, "request differs from inline source request")
-			assert.Equal(t, expected.Model, client.request.Model)
-			assert.Len(t, client.request.Questions, len(expected.Questions))
-			assert.Equal(t, expected.Questions["q"].Type, client.request.Questions["q"].Type)
-			assert.Equal(t, string(expected.Questions["q"].Instructions), string(client.request.Questions["q"].Instructions))
+			assert.Equal(t, expected, client.request, "request differs from inline source request")
 		})
 	}
 }
