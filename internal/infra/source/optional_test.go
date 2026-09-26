@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 	"github.com/cristianoliveira/jeq/internal/infra/source"
 )
@@ -48,9 +51,9 @@ func TestReadOptionalFileReportsOversizeAndReadFailure(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err, found := source.ReadOptionalFileWithOpener("config.json", tc.maxBytes, tc.open)
-			if err == nil || err.Code != jeq.CodeInputInvalid || !found {
-				t.Fatalf("err=%v found=%v", err, found)
-			}
+			require.Error(t, err)
+			assert.Equal(t, jeq.CodeInputInvalid, err.Code)
+			assert.True(t, found)
 		})
 	}
 }

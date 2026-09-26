@@ -35,7 +35,7 @@
             pname = "jeq";
             inherit version;
             src = ./.;
-            vendorHash = "sha256-7K17JaXFsjf163g5PXCb5ng2gYdotnZ2IDKk8KFjNj0=";
+            vendorHash = "sha256-ObM5Xn5Bp0h4+Zvk1II2RAXR9JVE6ftoOrP6VE7B2ds=";
             subPackages = [ "cmd/jeq" ];
             env.CGO_ENABLED = "0";
             meta = {

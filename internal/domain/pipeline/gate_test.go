@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
 
@@ -51,9 +54,9 @@ func TestGateRejectsInvalidInputBeforeDecision(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy); err == nil || err.Code != jeq.CodeInputInvalid {
-				t.Fatalf("err=%v", err)
-			}
+			_, _, err := Gate([]byte(tc.record), "policy", tc.pointer, tc.policy)
+			require.Error(t, err)
+			assert.Equal(t, jeq.CodeInputInvalid, err.Code)
 		})
 	}
 }
