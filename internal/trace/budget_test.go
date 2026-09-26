@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDetailBudgetSuppressesTenThousandOperations(t *testing.T) {
@@ -14,10 +17,6 @@ func TestDetailBudgetSuppressesTenThousandOperations(t *testing.T) {
 		cfg.EmitOperation("jeq map", "operation.completed", "evaluation", "success", "", i+1, 10000)
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) > 260 {
-		t.Fatalf("events=%d", len(lines))
-	}
-	if !strings.Contains(out.String(), `"event":"events.suppressed"`) {
-		t.Fatal("suppression event missing")
-	}
+	require.LessOrEqual(t, len(lines), 260)
+	assert.Contains(t, out.String(), `"event":"events.suppressed"`)
 }

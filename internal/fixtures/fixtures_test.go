@@ -5,30 +5,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/fixtures"
 )
 
 func TestContractFixturesLoad(t *testing.T) {
 	names, err := fixtures.ContractFixtures()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(names) < 10 {
-		t.Fatalf("expected the contract corpus, got %d files: %v", len(names), names)
-	}
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(names), 10, "expected the contract corpus, got %d files: %v", len(names), names)
 }
 
 func TestInvalidManifestParses(t *testing.T) {
 	manifest, err := fixtures.InvalidManifest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	for _, entry := range manifest {
-		if !strings.HasPrefix(entry.Code, "JEQ_") {
-			t.Errorf("fixture %s: code %q is not a jeq code", entry.Fixture, entry.Code)
-		}
-		if entry.Rule == "" {
-			t.Errorf("fixture %s: missing rule", entry.Fixture)
-		}
+		assert.True(t, strings.HasPrefix(entry.Code, "JEQ_"), "fixture %s: code %q is not a jeq code", entry.Fixture, entry.Code)
+		assert.NotEmpty(t, entry.Rule, "fixture %s: missing rule", entry.Fixture)
 	}
 }

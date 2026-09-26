@@ -50,11 +50,23 @@ linters:
         main-wires-cli-and-infra:
           files:
             - "**/cmd/**"
+            - "!**/*_test.go"
           list-mode: strict
           allow:
             - $gostd
             - github.com/cristianoliveira/jeq/internal/cli
             - github.com/cristianoliveira/jeq/internal/infra
+        # Command tests may use Testify without weakening production wiring rules.
+        main-tests-testify-allowed:
+          files:
+            - "**/cmd/**/*_test.go"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/cristianoliveira/jeq/internal/cli
+            - github.com/cristianoliveira/jeq/internal/infra
+            - github.com/stretchr/testify/assert
+            - github.com/stretchr/testify/require
         # ADR 0002: no package imports the composition root.
         nobody-imports-main:
           files:
