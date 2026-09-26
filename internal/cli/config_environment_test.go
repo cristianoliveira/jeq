@@ -3,6 +3,9 @@ package cli_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
 )
@@ -15,9 +18,12 @@ func TestResolveBaseURLUsesOnlyEnvironmentAndValidatesHTTP(t *testing.T) {
 	}{{"default", "", cli.DefaultBaseURL, false}, {"http", "http://localhost:8080/", "http://localhost:8080", false}, {"ftp", "ftp://host", "", true}, {"relative", "not-a-url", "", true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := cli.ResolveBaseURL(func(string) string { return tc.value })
-			if (err != nil) != tc.fail || got != tc.want {
-				t.Fatalf("got=%q err=%v", got, err)
+			if tc.fail {
+				require.NotNil(t, err)
+			} else {
+				require.Nil(t, err)
 			}
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -30,7 +36,5 @@ func TestExplicitConfigIsValidatedBeforeModelPrecedence(t *testing.T) {
 		}
 		return ""
 	}, read, nil)
-	if err == nil {
-		t.Fatal("invalid explicit config must fail even when flag model wins")
-	}
+	require.NotNil(t, err, "invalid explicit config must fail even when flag model wins")
 }

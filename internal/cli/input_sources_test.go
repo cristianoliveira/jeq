@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cristianoliveira/jeq/internal/cli"
 	"github.com/cristianoliveira/jeq/internal/domain/contract"
 	"github.com/cristianoliveira/jeq/internal/domain/jeq"
@@ -66,16 +69,14 @@ func TestAskEquivalentQuestionAndStateSources(t *testing.T) {
 			})
 			args := append([]string{"ask", "--model", "m"}, tc.args...)
 			code, renderer, _, stderr := runAsk(t, args, deps)
-			if code != 0 || renderer.err != nil || client.call != 1 {
-				t.Fatalf("code=%d err=%v calls=%d stderr=%q", code, renderer.err, client.call, stderr)
-			}
+			require.Equal(t, 0, code, "stderr=%q", stderr)
+			assert.Nil(t, renderer.err)
+			assert.Equal(t, 1, client.call)
 			if i == 0 {
 				expected = client.request
 				return
 			}
-			if !bytes.Equal(client.request.State, expected.State) || client.request.Model != expected.Model || len(client.request.Questions) != len(expected.Questions) || client.request.Questions["q"].Type != expected.Questions["q"].Type || string(client.request.Questions["q"].Instructions) != string(expected.Questions["q"].Instructions) {
-				t.Fatalf("request differs from inline source request: got=%s want=%s", mustEncodeRequest(t, client.request), mustEncodeRequest(t, expected))
-			}
+			assert.Equal(t, expected, client.request, "request differs from inline source request")
 		})
 	}
 }
@@ -92,6 +93,7 @@ func TestValidateAcceptsInlineAndFileSourceContract(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			stdin := strings.NewReader("")
+			unexpectedEnv := []string{}
 			deps := cli.AskDeps{
 				ReadFile: func(path string, _ int64) ([]byte, *jeq.Error) { return files[path], nil },
 				ReadStdin: func(r io.Reader, limit int64, _ bool) ([]byte, *jeq.Error) {
@@ -106,7 +108,7 @@ func TestValidateAcceptsInlineAndFileSourceContract(t *testing.T) {
 					case "JEQ_CONFIG", "JEQ_PROVIDER", "TYPESAFE_BASE_URL":
 						return ""
 					default:
-						t.Fatalf("explicit model consulted lower-priority environment value %s", key)
+						unexpectedEnv = append(unexpectedEnv, key)
 						return ""
 					}
 				},
@@ -115,9 +117,10 @@ func TestValidateAcceptsInlineAndFileSourceContract(t *testing.T) {
 			args := append([]string{"validate"}, tc.args...)
 			args = append(args, "--model", "m")
 			var out, stderr bytes.Buffer
-			if code := cli.RunWithDeps(args, &out, &stderr, nil, deps); code != 0 || !strings.Contains(out.String(), "valid: true") {
-				t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), stderr.String())
-			}
+			code := cli.RunWithDeps(args, &out, &stderr, nil, deps)
+			assert.Equal(t, 0, code, "stdout=%q stderr=%q", out.String(), stderr.String())
+			assert.Contains(t, out.String(), "valid: true")
+			assert.Empty(t, unexpectedEnv)
 		})
 	}
 }
@@ -125,33 +128,47 @@ func TestValidateAcceptsInlineAndFileSourceContract(t *testing.T) {
 func TestOversizedInlineQuestionsFailBeforeReadingState(t *testing.T) {
 	client := &fakeClient{}
 	reads := 0
-	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { t.Fatal("environment read for oversized input"); return "" })
+	envReads := 0
+	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { envReads++; return "" })
 	large := strings.Repeat("x", cli.SourceLimit+1)
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions-json", large, "--state", "state"}, deps)
-	if code != 2 || renderer.err != nil || reads != 0 || client.call != 0 || !strings.Contains(stderr, "exceeds the") || strings.Contains(stderr, large[:32]) {
-		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, reads, client.call, stderr)
-	}
+	assert.Equal(t, 2, code)
+	assert.Nil(t, renderer.err)
+	assert.Zero(t, reads)
+	assert.Zero(t, envReads)
+	assert.Zero(t, client.call)
+	assert.Contains(t, stderr, "exceeds the")
+	assert.NotContains(t, stderr, large[:32])
 }
 
 func TestQuestionSourceConflictDoesNotOpenFiles(t *testing.T) {
 	client := &fakeClient{}
 	reads := 0
-	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { t.Fatal("environment read before conflict"); return "" })
+	envReads := 0
+	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { envReads++; return "" })
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions", "private.json", "--questions-json", sourceQuestions, "--state", "state"}, deps)
-	if code != 2 || renderer.err != nil || reads != 0 || client.call != 0 || strings.Contains(stderr, "private.json") {
-		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, reads, client.call, stderr)
-	}
+	assert.Equal(t, 2, code)
+	assert.Nil(t, renderer.err)
+	assert.Zero(t, reads)
+	assert.Zero(t, envReads)
+	assert.Zero(t, client.call)
+	assert.NotContains(t, stderr, "private.json")
 }
 
 func TestMalformedInlineQuestionsDoNotOpenOtherSources(t *testing.T) {
 	client := &fakeClient{}
 	reads := 0
-	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { t.Fatal("environment read for malformed inline source"); return "" })
+	envReads := 0
+	deps := inputSourceDeps(client, nil, "", &reads, func(string) string { envReads++; return "" })
 	inline := `{"questions":{"private-secret":{"type":"noul","instructions":"x"},"private-secret":{"type":"noul","instructions":"x"}}}`
 	code, renderer, _, stderr := runAsk(t, []string{"ask", "--questions-json", inline, "--state-file", "private-state.txt"}, deps)
-	if code != 2 || renderer.err != nil || reads != 0 || client.call != 0 || strings.Contains(stderr, "private-state") || strings.Contains(stderr, "private-secret") {
-		t.Fatalf("code=%d err=%v reads=%d calls=%d stderr=%q", code, renderer.err, reads, client.call, stderr)
-	}
+	assert.Equal(t, 2, code)
+	assert.Nil(t, renderer.err)
+	assert.Zero(t, reads)
+	assert.Zero(t, envReads)
+	assert.Zero(t, client.call)
+	assert.NotContains(t, stderr, "private-state")
+	assert.NotContains(t, stderr, "private-secret")
 }
 
 func TestMalformedStateJSONDoesNotOpenQuestionFile(t *testing.T) {
@@ -163,21 +180,15 @@ func TestMalformedStateJSONDoesNotOpenQuestionFile(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &fakeClient{}
-			reads := 0
-			deps := inputSourceDeps(client, nil, "", &reads, func(string) string { t.Fatal("environment read for malformed inline JSON"); return "" })
+			reads, envReads := 0, 0
+			deps := inputSourceDeps(client, nil, "", &reads, func(string) string { envReads++; return "" })
 			code, _, _, stderr := runAsk(t, []string{"ask", "--questions", "questions.json", "--state-json", tc.value}, deps)
-			if code != 2 || reads != 0 || client.call != 0 || !strings.Contains(stderr, tc.want) || strings.Contains(stderr, "private-key") {
-				t.Fatalf("code=%d reads=%d calls=%d stderr=%q", code, reads, client.call, stderr)
-			}
+			assert.Equal(t, 2, code)
+			assert.Zero(t, reads)
+			assert.Zero(t, envReads)
+			assert.Zero(t, client.call)
+			assert.Contains(t, stderr, tc.want)
+			assert.NotContains(t, stderr, "private-key")
 		})
 	}
-}
-
-func mustEncodeRequest(t *testing.T, request contract.Request) []byte {
-	t.Helper()
-	data, err := request.Encode()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }
