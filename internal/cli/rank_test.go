@@ -83,7 +83,7 @@ func TestRankRejectsInvalidProbabilityResponses(t *testing.T) {
 			deps.Stdin = strings.NewReader("[{\"id\":\"a\",\"criteria\":null},{\"id\":\"b\",\"criteria\":\"B\"}]")
 			code := cli.RunWithDeps([]string{"rank", "--as", "route", "--state", "request", "--instruction", "Which?", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, &out, &errOut, RankRenderer{}, deps)
 			if tc.wantError {
-				assert.NotEqual(t, 0, code, "stderr=%q", errOut.String())
+				assert.Equal(t, 1, code, "stderr=%q", errOut.String())
 				assert.Empty(t, out.String())
 				return
 			}
