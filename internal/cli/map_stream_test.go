@@ -88,19 +88,33 @@ func (r *blockedPipeReader) Read(p []byte) (int, error) {
 	return r.PipeReader.Read(p)
 }
 
+func mapStreamTestDeps(stdin io.Reader, client APIClient) AskDeps {
+	return AskDeps{
+		Stdin: stdin,
+		ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) {
+			return nil, nil
+		},
+		ReadFile: func(string, int64) ([]byte, *jeq.Error) {
+			return []byte(`{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`), nil
+		},
+		NewClient: func(string, time.Duration, string, int, func(string)) APIClient {
+			return client
+		},
+		Getenv: func(key string) string {
+			if key == "TYPESAFE_API_KEY" {
+				return "test"
+			}
+			return ""
+		},
+	}
+}
+
 func TestRunMapCancellationClosesBlockedPipe(t *testing.T) {
 	pipeReader, pipeWriter := io.Pipe()
 	reader := &blockedPipeReader{PipeReader: pipeReader, blocked: make(chan struct{})}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	deps := AskDeps{Stdin: reader, ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { return nil, nil }, ReadFile: func(string, int64) ([]byte, *jeq.Error) {
-		return []byte(`{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`), nil
-	}, NewClient: func(string, time.Duration, string, int, func(string)) APIClient { return &streamClient{} }, Getenv: func(key string) string {
-		if key == "TYPESAFE_API_KEY" {
-			return "test"
-		}
-		return ""
-	}}
+	deps := mapStreamTestDeps(reader, &streamClient{})
 	cmd := NewMapCmd(deps)
 	cmd.SetArgs([]string{"--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"})
 	done := make(chan error, 1)
@@ -118,14 +132,7 @@ func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
 	var output bytes.Buffer
 	reader := &orderedReader{written: written}
 	client := &streamClient{}
-	deps := AskDeps{Stdin: reader, ReadStdin: func(io.Reader, int64, bool) ([]byte, *jeq.Error) { return nil, nil }, ReadFile: func(string, int64) ([]byte, *jeq.Error) {
-		return []byte(`{"questions":{"q":{"type":"noul","instructions":"is it?"}}}`), nil
-	}, NewClient: func(string, time.Duration, string, int, func(string)) APIClient { return client }, Getenv: func(key string) string {
-		if key == "TYPESAFE_API_KEY" {
-			return "test"
-		}
-		return ""
-	}}
+	deps := mapStreamTestDeps(reader, client)
 	code := RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, &orderedWriter{output: &output, written: written}, io.Discard, streamRenderer{}, deps)
 	assert.Equal(t, 0, code)
 	assert.Equal(t, 2, client.calls)
