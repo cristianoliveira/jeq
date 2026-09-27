@@ -84,6 +84,9 @@ func (e *schedulerEvaluator) Evaluate(ctx context.Context, request contract.Requ
 		e.observer.Attempt(2, 200)
 	}
 	if failure := e.fail[id]; failure != nil {
+		if e.completed != nil {
+			e.completed <- id
+		}
 		return contract.Response{}, failure
 	}
 	if e.wait[id] {
@@ -133,7 +136,7 @@ func runScheduler(ctx context.Context, out io.Writer, reader *schedulerReader, f
 		done <- processMapStream(ctx, cmd, streamRenderer{}, bufio.NewReader(reader), first,
 			mapFlags{input: "ndjson", name: "risk", statePointer: "/state"},
 			map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}},
-			nil, "m", evaluator)
+			nil, "m", evaluator, func() {})
 	}()
 	return done
 }
@@ -152,6 +155,36 @@ func TestMapSchedulerRunsBoundedWorkersAndCommitsOrder(t *testing.T) {
 	close(release)
 	require.NoError(t, <-done)
 	assert.Len(t, evaluator.Calls(), 8)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	require.Len(t, lines, 8)
+	for i, line := range lines {
+		assert.Contains(t, line, fmt.Sprintf(`"state":"%d"`, i), "line %d", i)
+	}
+}
+
+func TestMapSchedulerBoundsUncommittedRecordsBehindSlowFirstResult(t *testing.T) {
+	first, reader := schedulerRecords(8)
+	release := make(chan struct{})
+	started := make(chan string, 16)
+	completed := make(chan string, 16)
+	evaluator := &schedulerEvaluator{
+		started: started, release: release, wait: map[string]bool{"0": true},
+		completed: completed, calls: map[string]int{},
+	}
+	var out bytes.Buffer
+	done := runScheduler(context.Background(), &out, reader, first, evaluator)
+	startedIDs := map[string]bool{}
+	for range mapWorkerLimit {
+		startedIDs[<-started] = true
+	}
+	for range mapWorkerLimit - 1 {
+		<-completed
+	}
+	assert.Equal(t, map[string]bool{"0": true, "1": true, "2": true, "3": true}, startedIDs)
+	assert.Equal(t, mapWorkerLimit-1, reader.Reads(), "do not read past the uncommitted window")
+	assert.Len(t, evaluator.Calls(), mapWorkerLimit)
+	close(release)
+	require.NoError(t, <-done)
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	require.Len(t, lines, 8)
 	for i, line := range lines {
@@ -219,6 +252,37 @@ func TestMapSchedulerLaterFailurePreservesPrefixWithinDispatchBound(t *testing.T
 	assert.Equal(t, replacementCalls, speculativeReadAhead, "each speculative read-ahead record must have one replacement call")
 }
 
+func TestMapSchedulerEarlierFailureWaitsForEarlierIndex(t *testing.T) {
+	first, reader := schedulerRecords(4)
+	release := make(chan struct{})
+	completed := make(chan string, 4)
+	evaluator := &schedulerEvaluator{
+		started: make(chan string, 8), release: release,
+		wait:      map[string]bool{"0": true},
+		fail:      map[string]*jeq.Error{"1": jeq.NewError(jeq.CodeServerError, "index one failed")},
+		completed: completed, calls: map[string]int{},
+	}
+	var out bytes.Buffer
+	done := runScheduler(context.Background(), &out, reader, first, evaluator)
+	for range 4 {
+		<-evaluator.started
+	}
+	completedIDs := map[string]bool{}
+	for range 3 {
+		completedIDs[<-completed] = true
+	}
+	assert.Equal(t, map[string]bool{"1": true, "2": true, "3": true}, completedIDs)
+	assert.Empty(t, out.String(), "later results cannot pass the blocked first index")
+	close(release)
+	err := <-done
+	var coded *jeq.Error
+	require.ErrorAs(t, err, &coded)
+	assert.Equal(t, jeq.CodeServerError, coded.Code)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	require.Len(t, lines, 1)
+	assert.Contains(t, lines[0], `"state":"0"`)
+}
+
 func TestMapSchedulerCancellationDrainsWorkersWithoutDispatchingMore(t *testing.T) {
 	first, reader := schedulerRecords(8)
 	release := make(chan struct{})
@@ -261,11 +325,13 @@ func TestMapSchedulerOutputFailureStopsAtDispatchBound(t *testing.T) {
 		cmd := &cobra.Command{}
 		done <- processMapStream(context.Background(), cmd, schedulerFailingRenderer{}, bufio.NewReader(reader), first,
 			mapFlags{input: "ndjson", name: "risk", statePointer: "/state"},
-			map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}, nil, "m", evaluator)
+			map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"judge"`)}}, nil, "m", evaluator, func() {})
 	}()
 	require.Error(t, <-done, "output failure was swallowed")
-	assert.Len(t, evaluator.Calls(), mapWorkerLimit)
-	assert.Equal(t, mapWorkerLimit-1, reader.Reads())
+	calls := len(evaluator.Calls())
+	assert.GreaterOrEqual(t, calls, 1)
+	assert.LessOrEqual(t, calls, mapWorkerLimit, "output failure must stay within the worker bound")
+	assert.LessOrEqual(t, reader.Reads(), mapWorkerLimit-1, "output failure must stay within the initial input window")
 }
 
 func TestMapSchedulerEmitsOneFinalTraceSummary(t *testing.T) {
