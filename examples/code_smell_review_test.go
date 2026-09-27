@@ -33,8 +33,7 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 	require.IsType(t, []any{}, request["state"])
 	state := request["state"].([]any)
 	require.Len(t, state, 2)
-	require.IsType(t, map[string]any{}, request["questions"])
-	questions := request["questions"].(map[string]any)
+	questions := requireJSONObject(t, request["questions"])
 	criteriaBoundaries := map[string][2]string{
 		"responsibilities_focused":  {"one clear responsibility", "unrelated reasons to change"},
 		"policy_centralized":        {"one authoritative definition", "policy rules are duplicated"},
@@ -47,8 +46,7 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 		"abstractions_encapsulated": "if no abstraction boundary exists, the condition is true",
 	}
 	for id, boundaries := range criteriaBoundaries {
-		require.IsType(t, map[string]any{}, questions[id], "question %q", id)
-		question := questions[id].(map[string]any)
+		question := requireJSONObject(t, questions[id], "question %q", id)
 		assert.Equal(t, "noul", question["type"], "question %q", id)
 		require.IsType(t, "", question["instructions"], "question %q", id)
 		instruction := question["instructions"].(string)
@@ -57,8 +55,7 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 		if boundary := notApplicableBoundaries[id]; boundary != "" {
 			assert.Contains(t, instruction, boundary, "question %q not-applicable boundary", id)
 		}
-		require.IsType(t, map[string]any{}, question["criteria"], "question %q", id)
-		criteria := question["criteria"].(map[string]any)
+		criteria := requireJSONObject(t, question["criteria"], "question %q", id)
 		require.Len(t, criteria, 2)
 		require.IsType(t, "", criteria["true"])
 		require.IsType(t, "", criteria["false"])
@@ -71,19 +68,16 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 	for i, want := range []struct {
 		path, content string
 	}{{first, firstContent}, {second, "package second\n"}} {
-		require.IsType(t, map[string]any{}, state[i])
-		item := state[i].(map[string]any)
+		item := requireJSONObject(t, state[i])
 		assert.Equal(t, want.path, item["path"], "state[%d] path", i)
 		assert.Equal(t, want.content, item["content"], "state[%d] content", i)
 	}
 	resultDoc := oneJSON(t, result.stdout)
-	require.IsType(t, map[string]any{}, resultDoc["_jeq"])
-	jeqEvidence := resultDoc["_jeq"].(map[string]any)
-	require.IsType(t, map[string]any{}, jeqEvidence["code_smells"])
-	evidence := jeqEvidence["code_smells"].(map[string]any)
+	jeqEvidence := requireJSONObject(t, resultDoc["_jeq"])
+	evidence := requireJSONObject(t, jeqEvidence["code_smells"])
 	assert.Equal(t, "kept", evidence["server_response_extra"])
-	require.IsType(t, map[string]any{}, evidence["usage"])
-	assert.Equal(t, "kept", evidence["usage"].(map[string]any)["server_usage_extra"])
+	usage := requireJSONObject(t, evidence["usage"])
+	assert.Equal(t, "kept", usage["server_usage_extra"])
 	projection := runJQ(t, result.stdout)
 	var projected map[string]any
 	require.NoError(t, json.Unmarshal([]byte(projection), &projected))
@@ -93,10 +87,10 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 	require.IsType(t, []any{}, projected["dimensions"])
 	dimensions := projected["dimensions"].([]any)
 	require.Len(t, dimensions, 5)
-	require.IsType(t, map[string]any{}, dimensions[0])
-	require.IsType(t, map[string]any{}, dimensions[4])
-	assert.Equal(t, "complexity_justified", dimensions[0].(map[string]any)["id"])
-	assert.Equal(t, "responsibilities_focused", dimensions[4].(map[string]any)["id"])
+	firstDimension := requireJSONObject(t, dimensions[0])
+	lastDimension := requireJSONObject(t, dimensions[4])
+	assert.Equal(t, "complexity_justified", firstDimension["id"])
+	assert.Equal(t, "responsibilities_focused", lastDimension["id"])
 	assert.Equal(t, 1, api.count(), "review should make exactly one API request")
 }
 
@@ -117,10 +111,8 @@ func TestCodeSmellQualityFloorGateRunsOffline(t *testing.T) {
 			gate := runJeq(t, `{"quality_floor":`+tc.floor+`}`, api.server.URL, []string{"gate", "--as", "code_smell_quality", "--value-pointer", "/quality_floor", "--pass-min", "0.80", "--reject-max", "0.40"})
 			require.Equal(t, tc.exit, gate.exit, "stdout=%q stderr=%q", gate.stdout, gate.stderr)
 			doc := oneJSON(t, gate.stdout)
-			require.IsType(t, map[string]any{}, doc["_jeq"])
-			jeqEvidence := doc["_jeq"].(map[string]any)
-			require.IsType(t, map[string]any{}, jeqEvidence["code_smell_quality"])
-			receipt := jeqEvidence["code_smell_quality"].(map[string]any)
+			jeqEvidence := requireJSONObject(t, doc["_jeq"])
+			receipt := requireJSONObject(t, jeqEvidence["code_smell_quality"])
 			assert.Equal(t, tc.decision, receipt["decision"])
 		})
 	}
