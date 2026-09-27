@@ -53,19 +53,16 @@ curl -fsSL https://raw.githubusercontent.com/cristianoliveira/jeq/main/scripts/i
 bash /tmp/install-jeq-linux.sh
 ```
 
-On macOS, Homebrew is simpler:
-
-```sh
-brew tap cristianoliveira/tap
-brew install cristianoliveira/tap/jeq
-jeq version
-```
+On macOS, download the matching archive and `checksums.txt` from the
+[v0.1.0 release](https://github.com/cristianoliveira/jeq/releases/tag/v0.1.0),
+verify its SHA-256, then run `jeq version`. The Homebrew tap may lag a new
+release; check its formula version before installing from it.
 
 If you use Nix, pin the release:
 
 ```sh
-nix run github:cristianoliveira/jeq/v0.1.0-rc.2 -- version
-nix profile install github:cristianoliveira/jeq/v0.1.0-rc.2
+nix run github:cristianoliveira/jeq/v0.1.0 -- version
+nix profile install github:cristianoliveira/jeq/v0.1.0
 ```
 
 Set `TYPESAFE_API_KEY` when you are ready to make an API call. These guides
@@ -103,5 +100,5 @@ cover the rest:
 ## More documentation
 
 - [Development](docs/DEVELOPMENT.md)
-- [Release candidate notes](docs/releases/v0.1.0-rc.2.md)
+- [v0.1.0 release notes](docs/releases/v0.1.0.md)
 - [MIT License](LICENSE)

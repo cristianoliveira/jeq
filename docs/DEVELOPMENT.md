@@ -93,10 +93,14 @@ cat dist/checksums.txt
 
 Inspect all four target archives and checksums. Extract the host-compatible
 archive and run `jeq version`; it must report the snapshot version and commit
-injected by GoReleaser. Snapshot builds never publish. To publish, commit and
-push an approved `v*` tag; the tag workflow runs the normal gate, then lets
-GoReleaser create one GitHub release. Tags such as `v0.1.0-rc.1` are published
-as prereleases. Keep `dist` outside the repository or remove it before
+injected by GoReleaser. Snapshot builds never publish. `VERSION` controls the
+Nix package's displayed version; set it to the intended tag version before
+verifying a pinned flake, then bump it to the next development version on
+`main` after tagging. GoReleaser gets its version from the tag instead. To
+publish, commit and push an approved `v*` tag; the tag workflow runs the
+normal gate, then lets GoReleaser create one GitHub release. Prerelease tags
+must appear as prereleases on GitHub; verify the release metadata as well as
+the artifacts. Keep `dist` outside the repository or remove it before
 committing.
 
 
