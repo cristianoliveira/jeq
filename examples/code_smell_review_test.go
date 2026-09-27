@@ -97,6 +97,11 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 	require.IsType(t, map[string]any{}, dimensions[4])
 	assert.Equal(t, "complexity_justified", dimensions[0].(map[string]any)["id"])
 	assert.Equal(t, "responsibilities_focused", dimensions[4].(map[string]any)["id"])
+	assert.Equal(t, 1, api.count(), "review should make exactly one API request")
+}
+
+func TestCodeSmellQualityFloorGateRunsOffline(t *testing.T) {
+	api := newFakeAPI(t, func(int) (int, []byte) { return 200, codeSmellResponse() })
 	gateCases := []struct {
 		name     string
 		floor    string
@@ -119,7 +124,7 @@ func TestCodeSmellReviewOneOrderedRequestAndTypedExtras(t *testing.T) {
 			assert.Equal(t, tc.decision, receipt["decision"])
 		})
 	}
-	assert.Equal(t, 1, api.count(), "gate should not make additional API requests")
+	assert.Zero(t, api.count(), "offline quality gate must not make API requests")
 }
 
 func TestCodeSmellReviewCleansTemporaryBundleAfterSuccessAndFailure(t *testing.T) {
