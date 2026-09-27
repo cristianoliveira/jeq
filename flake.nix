@@ -23,7 +23,7 @@
         "x86_64-linux"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      version = "0-unstable-${builtins.substring 0 8 self.lastModifiedDate}";
+      version = builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile ./VERSION);
       commit = if self ? shortRev then self.shortRev else "dirty";
     in
     let
