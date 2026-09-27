@@ -211,6 +211,18 @@ func TestInterruptibleInputCloseRecognizesOSFile(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestInterruptibleInputCloseRejectsNonPollableFile(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "input")
+	require.NoError(t, err)
+	defer func() { _ = file.Close() }()
+	deadlineErr := file.SetReadDeadline(time.Now())
+	if deadlineErr == nil {
+		require.NoError(t, file.SetReadDeadline(time.Time{}))
+	}
+	closeInput := interruptibleInputClose(file)
+	assert.Equal(t, deadlineErr == nil, closeInput != nil)
+}
+
 func TestRunMapCancellationClosesBlockedPipe(t *testing.T) {
 	pipeReader, pipeWriter := io.Pipe()
 	reader := &blockedPipeReader{PipeReader: pipeReader, blocked: make(chan struct{})}

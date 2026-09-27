@@ -71,8 +71,8 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 }
 
 // InterruptibleReadCloser marks an input whose Close guarantees that any
-// concurrent Read returns. The map command recognizes *os.File and
-// *io.PipeReader directly; other closers need this marker because io.Closer
+// concurrent Read returns. The map command recognizes pollable *os.File values
+// and *io.PipeReader directly; other closers need this marker because io.Closer
 // alone does not promise to interrupt Read.
 type InterruptibleReadCloser interface {
 	io.Reader
@@ -84,6 +84,12 @@ func interruptibleInputClose(input io.Reader) func() {
 	var closer io.Closer
 	switch input := input.(type) {
 	case *os.File:
+		if input == nil || input.SetReadDeadline(time.Now()) != nil {
+			return nil
+		}
+		if input.SetReadDeadline(time.Time{}) != nil {
+			return nil
+		}
 		closer = input
 	case *io.PipeReader:
 		closer = input
