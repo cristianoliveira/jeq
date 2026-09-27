@@ -240,6 +240,12 @@ func writeWrapper(t *testing.T, body string) string {
 	return path
 }
 
+func requireJSONObject(t *testing.T, value any, msgAndArgs ...any) map[string]any {
+	t.Helper()
+	require.IsType(t, map[string]any{}, value, msgAndArgs...)
+	return value.(map[string]any)
+}
+
 func assertQuestions(t *testing.T, body map[string]any, names ...string) {
 	t.Helper()
 	require.IsType(t, map[string]any{}, body["questions"])
