@@ -32,6 +32,17 @@ type cancelClient struct {
 	cancel context.CancelFunc
 }
 
+type releaseStreamClient struct{ release <-chan struct{} }
+
+func (c releaseStreamClient) Evaluate(ctx context.Context, _ contract.Request) (contract.Response, *jeq.Error) {
+	select {
+	case <-c.release:
+		return contract.Response{Model: "m"}, nil
+	case <-ctx.Done():
+		return contract.Response{}, jeq.NewError(jeq.CodeInterrupted, "stream evaluation cancelled")
+	}
+}
+
 func (c *cancelClient) Evaluate(ctx context.Context, _ contract.Request) (contract.Response, *jeq.Error) {
 	c.calls++
 	if c.cancel != nil {
@@ -335,11 +346,13 @@ func TestMapStreamClosesBlockedReadOnWorkerFailure(t *testing.T) {
 
 func TestMapStreamClosesBlockedReadOnOutputFailure(t *testing.T) {
 	reader := &closeableBlockedReader{blocked: make(chan struct{}), closed: make(chan struct{})}
+	release := make(chan struct{})
 	done := make(chan error, 1)
 	go func() {
-		done <- processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &streamClient{}, func() { _ = reader.Close() })
+		done <- processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", releaseStreamClient{release: release}, func() { _ = reader.Close() })
 	}()
 	<-reader.blocked
+	close(release)
 	require.Error(t, <-done)
 	select {
 	case <-reader.closed:
