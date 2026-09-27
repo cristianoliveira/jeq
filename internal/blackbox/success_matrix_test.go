@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,16 +19,49 @@ type successCase struct {
 }
 
 func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) {
+	requestJSON := `{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`
+	descriptionNDJSON := `{"description":"a"}
+{"description":"b"}
+`
+	scoreNDJSON := `{"score":0.9}
+{"score":0.1}
+`
 	requestPath := filepath.Join(t.TempDir(), "request.json")
-	require.NoError(t, os.WriteFile(requestPath, []byte(`{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`), 0o600))
+	require.NoError(t, os.WriteFile(requestPath, []byte(requestJSON), 0o600))
 	cases := []successCase{
-		{"ask", "", []string{"ask", "--request", requestPath}, true, 0, 1},
-		{"validate", `{"model":"matrix","state":"hello","questions":{"q":{"type":"noul","instructions":"safe"}}}`, []string{"validate", "--request", "-"}, false, 0, 0},
-		{"map", `{"description":"a"}\n{"description":"b"}\n`, []string{"map", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`}, true, 0, 2},
-		{"rate", `{"description":"a"}\n{"description":"b"}\n`, []string{"rate", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "safe", "--level", "Low", "--level", "High"}, true, 0, 2},
-		{"reduce", `{"description":"a"}\n{"description":"b"}\n`, []string{"reduce", "--as", "q", "--input", "ndjson", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`}, true, 0, 1},
-		{"rank", `[{"id":"a","criteria":"A"},{"id":"b","criteria":"B"}]`, []string{"rank", "--as", "q", "--input", "json", "--state", "safe", "--instruction", "safe", "--id-pointer", "/id", "--criteria-pointer", "/criteria"}, true, 0, 1},
-		{"gate", `{"score":0.9}\n{"score":0.1}\n`, []string{"gate", "--as", "policy", "--input", "ndjson", "--value-pointer", "/score", "--pass-min", "0.8", "--reject-max", "0.2"}, false, 10, 0},
+		{
+			name: "ask", input: "", args: []string{"ask", "--request", requestPath}, network: true,
+			expectedExit: 0, expectedRequests: 1,
+		},
+		{
+			name: "validate", input: requestJSON, args: []string{"validate", "--request", "-"},
+			expectedExit: 0, expectedRequests: 0,
+		},
+		{
+			name: "map", input: descriptionNDJSON,
+			args:    []string{"map", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`},
+			network: true, expectedExit: 0, expectedRequests: 2,
+		},
+		{
+			name: "rate", input: descriptionNDJSON,
+			args:    []string{"rate", "--as", "q", "--input", "ndjson", "--state-pointer", "/description", "--instruction", "safe", "--level", "Low", "--level", "High"},
+			network: true, expectedExit: 0, expectedRequests: 2,
+		},
+		{
+			name: "reduce", input: descriptionNDJSON,
+			args:    []string{"reduce", "--as", "q", "--input", "ndjson", "--questions-json", `{"questions":{"q":{"type":"noul","instructions":"safe"}}}`},
+			network: true, expectedExit: 0, expectedRequests: 1,
+		},
+		{
+			name: "rank", input: `[{"id":"a","criteria":"A"},{"id":"b","criteria":"B"}]`,
+			args:    []string{"rank", "--as", "q", "--input", "json", "--state", "safe", "--instruction", "safe", "--id-pointer", "/id", "--criteria-pointer", "/criteria"},
+			network: true, expectedExit: 0, expectedRequests: 1,
+		},
+		{
+			name: "gate", input: scoreNDJSON,
+			args:         []string{"gate", "--as", "policy", "--input", "ndjson", "--value-pointer", "/score", "--pass-min", "0.8", "--reject-max", "0.2"},
+			expectedExit: 10, expectedRequests: 0,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -65,13 +97,12 @@ func TestBlackBoxVerboseSuccessMatrixPreservesEvidenceAndRequests(t *testing.T) 
 				if verbose {
 					args = append([]string{"--verbose", "--trace-id", "matrix"}, args...)
 				}
-				input := strings.ReplaceAll(tc.input, `\n`, "\n")
-				return runBinary(t, input, env, args...), func() int {
-					if api != nil {
-						return api.count()
-					}
-					return 0
-				}()
+				result := runBinary(t, tc.input, env, args...)
+				count := 0
+				if api != nil {
+					count = api.count()
+				}
+				return result, count
 			}
 			plain, pcount := run(false)
 			verbose, vcount := run(true)
