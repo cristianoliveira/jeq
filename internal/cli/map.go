@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +70,32 @@ func NewMapCmd(deps AskDeps) *cobra.Command {
 	return cmd
 }
 
+// InterruptibleReadCloser marks an input whose Close guarantees that any
+// concurrent Read returns. The map command recognizes *os.File and
+// *io.PipeReader directly; other closers need this marker because io.Closer
+// alone does not promise to interrupt Read.
+type InterruptibleReadCloser interface {
+	io.Reader
+	io.Closer
+	InterruptsReadOnClose()
+}
+
+func interruptibleInputClose(input io.Reader) func() {
+	var closer io.Closer
+	switch input := input.(type) {
+	case *os.File:
+		closer = input
+	case *io.PipeReader:
+		closer = input
+	case InterruptibleReadCloser:
+		closer = input
+	default:
+		return nil
+	}
+	var closeOnce sync.Once
+	return func() { closeOnce.Do(func() { _ = closer.Close() }) }
+}
+
 type mapFlags struct {
 	name, input, statePointer, requestPointer, model, timeout string
 	source                                                    questionSourceFlags
@@ -123,9 +150,8 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	if f.input == "ndjson" {
 		stream = bufio.NewReader(deps.Stdin)
 		stopClose := make(chan struct{})
-		if closer, ok := deps.Stdin.(io.Closer); ok {
-			var closeOnce sync.Once
-			closeInput = func() { closeOnce.Do(func() { _ = closer.Close() }) }
+		closeInput = interruptibleInputClose(deps.Stdin)
+		if closeInput != nil {
 			go func() {
 				select {
 				case <-cmd.Context().Done():
@@ -394,9 +420,9 @@ type mapReadResult struct {
 	err    *jeq.Error
 }
 
-// processMapStream overlaps one input read with bounded evaluation. If a read
-// can block, closeInput must interrupt it on early stop; a plain io.Reader has
-// no cancellation mechanism, so a blocked read can outlive the stream otherwise.
+// processMapStream overlaps one input read with bounded evaluation. A blocked
+// read can be joined on early stop only when closeInput is guaranteed to
+// interrupt it; io.Reader and io.Closer alone provide no cancellation contract.
 func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer, reader *bufio.Reader, first []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator, closeInput func()) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

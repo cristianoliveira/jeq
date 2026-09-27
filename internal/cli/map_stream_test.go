@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -99,6 +100,16 @@ func (r *blockedPipeReader) Read(p []byte) (int, error) {
 	return r.PipeReader.Read(p)
 }
 
+func (*blockedPipeReader) InterruptsReadOnClose() {}
+
+type closeOnlyReader struct{ closed bool }
+
+func (*closeOnlyReader) Read([]byte) (int, error) { return 0, io.EOF }
+func (r *closeOnlyReader) Close() error {
+	r.closed = true
+	return nil
+}
+
 type closeableBlockedReader struct {
 	phase     int
 	blocked   chan struct{}
@@ -127,6 +138,7 @@ type externallyReleasedReader struct {
 	release     chan struct{}
 	readDone    chan struct{}
 	releaseOnce sync.Once
+	closeCalled bool
 }
 
 func (r *externallyReleasedReader) Read(p []byte) (int, error) {
@@ -138,6 +150,11 @@ func (r *externallyReleasedReader) Read(p []byte) (int, error) {
 	<-r.release
 	close(r.readDone)
 	return 0, io.EOF
+}
+
+func (r *externallyReleasedReader) Close() error {
+	r.closeCalled = true
+	return nil
 }
 
 func (r *externallyReleasedReader) allowReadToFinish() {
@@ -163,6 +180,24 @@ func mapStreamTestDeps(stdin io.Reader, client APIClient) AskDeps {
 			return ""
 		},
 	}
+}
+
+func TestInterruptibleInputCloseRequiresCloseGuarantee(t *testing.T) {
+	reader := &closeOnlyReader{}
+	assert.Nil(t, interruptibleInputClose(reader))
+	assert.False(t, reader.closed, "an arbitrary io.Closer may not interrupt Read")
+}
+
+func TestInterruptibleInputCloseRecognizesOSFile(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	defer func() { _ = writer.Close() }()
+	defer func() { _ = reader.Close() }()
+	closeInput := interruptibleInputClose(reader)
+	require.NotNil(t, closeInput)
+	closeInput()
+	_, err = reader.Read(make([]byte, 1))
+	assert.Error(t, err)
 }
 
 func TestRunMapCancellationClosesBlockedPipe(t *testing.T) {
@@ -253,7 +288,7 @@ func TestMapStreamCannotInterruptBlockedNonClosableRead(t *testing.T) {
 	cmd.SetOut(io.Discard)
 	done := make(chan error, 1)
 	go func() {
-		done <- processMapStream(ctx, cmd, streamRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &streamClient{}, nil)
+		done <- processMapStream(ctx, cmd, streamRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &streamClient{}, interruptibleInputClose(reader))
 	}()
 	<-reader.blocked
 	cancel()
@@ -268,6 +303,7 @@ func TestMapStreamCannotInterruptBlockedNonClosableRead(t *testing.T) {
 	var coded *jeq.Error
 	require.ErrorAs(t, err, &coded)
 	assert.Equal(t, jeq.CodeInterrupted, coded.Code)
+	assert.False(t, reader.closeCalled, "Close alone does not promise to unblock Read")
 	select {
 	case <-reader.readDone:
 		t.Fatal("the test reader unexpectedly finished without external release")
