@@ -118,15 +118,18 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	var inputDoc []byte
 	var readErr *jeq.Error
 	var stream *bufio.Reader
+	var closeInput func()
 	var firstRecord []byte
 	if f.input == "ndjson" {
 		stream = bufio.NewReader(deps.Stdin)
 		stopClose := make(chan struct{})
 		if closer, ok := deps.Stdin.(io.Closer); ok {
+			var closeOnce sync.Once
+			closeInput = func() { closeOnce.Do(func() { _ = closer.Close() }) }
 			go func() {
 				select {
 				case <-cmd.Context().Done():
-					_ = closer.Close()
+					closeInput()
 				case <-stopClose:
 				}
 			}()
@@ -195,7 +198,7 @@ func runMap(cmd *cobra.Command, deps AskDeps, f mapFlags) error {
 	attachTrace(cmd, client)
 	evaluator := client
 	if f.input == "ndjson" {
-		return processMapStream(cmd.Context(), cmd, deps.Renderer, stream, firstRecord, f, questions, extra, resolvedModel, evaluator)
+		return processMapStream(cmd.Context(), cmd, deps.Renderer, stream, firstRecord, f, questions, extra, resolvedModel, evaluator, closeInput)
 	}
 	if processErr := processMapInput(cmd.Context(), cmd, deps.Renderer, inputDoc, f, questions, extra, resolvedModel, evaluator, 0); processErr != nil {
 		return processErr
@@ -385,11 +388,21 @@ type mapResult struct {
 	err    error
 }
 
-func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer, reader *bufio.Reader, first []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator) error {
+type mapReadResult struct {
+	record []byte
+	eof    bool
+	err    *jeq.Error
+}
+
+// processMapStream overlaps one input read with bounded evaluation. If a read
+// can block, closeInput must interrupt it on early stop; a plain io.Reader has
+// no cancellation mechanism, so a blocked read can outlive the stream otherwise.
+func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer, reader *bufio.Reader, first []byte, f mapFlags, questions map[string]contract.Question, extra map[string]json.RawMessage, model string, evaluator pipeline.Evaluator, closeInput func()) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	jobs := make(chan mapJob, mapWorkerLimit)
 	results := make(chan mapResult, mapWorkerLimit)
+	readResults := make(chan mapReadResult, 1)
 	var workers sync.WaitGroup
 	for i := 0; i < mapWorkerLimit; i++ {
 		workers.Add(1)
@@ -405,7 +418,7 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 			}
 		}()
 	}
-	stop := func(err error) error { cancel(); close(jobs); workers.Wait(); return err }
+
 	pending, next, want := 0, 0, 0
 	seen, succeeded, emitted, failedCount := 0, 0, 0, 0
 	tr := trace.FromContext(ctx)
@@ -416,6 +429,10 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 		return err
 	}
 	failed := false
+	eof := false
+	readPending := false
+	var inputErr error
+	completed := make(map[int]mapResult, mapWorkerLimit)
 	dispatch := func(record []byte) {
 		index := next
 		jobs <- mapJob{index, record}
@@ -426,34 +443,77 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 			tr.EmitOperation(cmd.CommandPath(), "operation.started", "evaluation", "started", "", index+1, 0)
 		}
 	}
+	startRead := func() {
+		readPending = true
+		go func() {
+			record, done, err := readNDJSONRecord(reader)
+			readResults <- mapReadResult{record: record, eof: done, err: err}
+		}()
+	}
+	stop := func(err error) error {
+		cancel()
+		if readPending && closeInput != nil {
+			closeInput()
+			<-readResults
+			readPending = false
+		}
+		close(jobs)
+		workers.Wait()
+		return err
+	}
+
 	dispatch(first)
-	eof := false
-	var inputErr error
-	completed := make(map[int]mapResult, mapWorkerLimit)
-	for pending > 0 {
+	for pending > 0 || readPending || (!eof && !failed) {
 		if ctx.Err() != nil {
 			return finish(stop(jeq.NewError(jeq.CodeInterrupted, "map input cancelled")))
 		}
-		for !failed && !eof && pending < mapWorkerLimit {
-			record, done, err := readNDJSONRecord(reader)
-			if err != nil {
-				inputErr = err
-				eof = true
+		if !readPending && !eof && !failed && next-want < mapWorkerLimit {
+			startRead()
+		}
+
+		if pending == 0 && !readPending {
+			if inputErr != nil {
+				return finish(stop(inputErr))
+			}
+			if eof || failed {
 				break
 			}
-			if done {
-				eof = true
-				break
+			continue
+		}
+
+		var inputEvents <-chan mapReadResult
+		if readPending {
+			inputEvents = readResults
+		}
+		var resultEvents <-chan mapResult
+		if pending > 0 {
+			resultEvents = results
+		}
+		select {
+		case <-ctx.Done():
+			return finish(stop(jeq.NewError(jeq.CodeInterrupted, "map input cancelled")))
+		case read := <-inputEvents:
+			readPending = false
+			if !failed {
+				switch {
+				case read.err != nil:
+					inputErr = read.err
+					eof = true
+				case read.eof:
+					eof = true
+				default:
+					dispatch(read.record)
+				}
 			}
-			dispatch(record)
+		case result := <-resultEvents:
+			pending--
+			if result.err != nil {
+				failed = true
+				failedCount++
+			}
+			completed[result.index] = result
 		}
-		result := <-results
-		pending--
-		if result.err != nil {
-			failed = true
-			failedCount++
-		}
-		completed[result.index] = result
+
 		for {
 			ordered, ok := completed[want]
 			if !ok {
@@ -482,9 +542,9 @@ func processMapStream(ctx context.Context, cmd *cobra.Command, renderer Renderer
 			delete(completed, want)
 			want++
 		}
-		if pending == 0 && inputErr != nil {
-			return finish(stop(inputErr))
-		}
+	}
+	if inputErr != nil {
+		return finish(stop(inputErr))
 	}
 	close(jobs)
 	workers.Wait()

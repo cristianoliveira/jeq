@@ -42,21 +42,32 @@ func (c *cancelClient) Evaluate(ctx context.Context, _ contract.Request) (contra
 	return contract.Response{Model: "m"}, nil
 }
 
-type orderedReader struct {
-	phase   int
-	written <-chan struct{}
+type openProducerReader struct {
+	phase        int
+	eofRequested chan struct{}
+	releaseEOF   chan struct{}
+	releaseOnce  sync.Once
 }
 
-func (r *orderedReader) Read(p []byte) (int, error) {
+func (r *openProducerReader) Read(p []byte) (int, error) {
 	if r.phase == 0 {
 		r.phase = 1
 		return copy(p, []byte("{\"state\":\"first\"}\n")), nil
 	}
-	if r.phase == 2 {
-		return 0, io.EOF
+	if r.phase == 1 {
+		r.phase = 2
+		return copy(p, []byte("{\"state\":\"second\"}\n")), nil
 	}
-	r.phase = 2
-	return copy(p, []byte("{\"state\":\"second\"}\n")), nil
+	if r.phase == 2 {
+		close(r.eofRequested)
+		<-r.releaseEOF
+		r.phase = 3
+	}
+	return 0, io.EOF
+}
+
+func (r *openProducerReader) releaseProducerEOF() {
+	r.releaseOnce.Do(func() { close(r.releaseEOF) })
 }
 
 type orderedWriter struct {
@@ -86,6 +97,51 @@ func (r *blockedPipeReader) Read(p []byte) (int, error) {
 		close(r.blocked)
 	}
 	return r.PipeReader.Read(p)
+}
+
+type closeableBlockedReader struct {
+	phase     int
+	blocked   chan struct{}
+	closed    chan struct{}
+	closeOnce sync.Once
+}
+
+func (r *closeableBlockedReader) Read(p []byte) (int, error) {
+	if r.phase == 0 {
+		r.phase = 1
+		return copy(p, []byte("{\"state\":\"second\"}\n")), nil
+	}
+	close(r.blocked)
+	<-r.closed
+	return 0, errors.New("reader closed")
+}
+
+func (r *closeableBlockedReader) Close() error {
+	r.closeOnce.Do(func() { close(r.closed) })
+	return nil
+}
+
+type externallyReleasedReader struct {
+	phase       int
+	blocked     chan struct{}
+	release     chan struct{}
+	readDone    chan struct{}
+	releaseOnce sync.Once
+}
+
+func (r *externallyReleasedReader) Read(p []byte) (int, error) {
+	if r.phase == 0 {
+		r.phase = 1
+		return copy(p, []byte("{\"state\":\"second\"}\n")), nil
+	}
+	close(r.blocked)
+	<-r.release
+	close(r.readDone)
+	return 0, io.EOF
+}
+
+func (r *externallyReleasedReader) allowReadToFinish() {
+	r.releaseOnce.Do(func() { close(r.release) })
 }
 
 func mapStreamTestDeps(stdin io.Reader, client APIClient) AskDeps {
@@ -129,14 +185,131 @@ func TestRunMapCancellationClosesBlockedPipe(t *testing.T) {
 
 func TestMapNDJSONEmitsBeforeProducerEOF(t *testing.T) {
 	written := make(chan struct{})
-	var output bytes.Buffer
-	reader := &orderedReader{written: written}
+	var output, stderr bytes.Buffer
+	reader := &openProducerReader{eofRequested: make(chan struct{}), releaseEOF: make(chan struct{})}
+	t.Cleanup(reader.releaseProducerEOF)
 	client := &streamClient{}
 	deps := mapStreamTestDeps(reader, client)
-	code := RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, &orderedWriter{output: &output, written: written}, io.Discard, streamRenderer{}, deps)
-	assert.Equal(t, 0, code)
+	done := make(chan int, 1)
+	go func() {
+		done <- RunWithDeps([]string{"map", "--as", "x", "--input", "ndjson", "--questions", "q.json", "--model", "m"}, &orderedWriter{output: &output, written: written}, &stderr, streamRenderer{}, deps)
+	}()
+
+	select {
+	case <-reader.eofRequested:
+	case code := <-done:
+		t.Fatalf("command exited before the open producer reached EOF: %d", code)
+	case <-time.After(5 * time.Second):
+		reader.releaseProducerEOF()
+		<-done
+		t.Fatal("command did not request the producer's next record")
+	}
+	select {
+	case <-written:
+	case code := <-done:
+		t.Fatalf("command exited before writing output: %d, stderr=%q", code, stderr.String())
+	case <-time.After(5 * time.Second):
+		reader.releaseProducerEOF()
+		<-done
+		t.Fatal("command waited for producer EOF before writing the first result")
+	}
+
+	reader.releaseProducerEOF()
+	assert.Equal(t, 0, <-done, "stderr=%q", stderr.String())
 	assert.Equal(t, 2, client.calls)
 	assert.Contains(t, output.String(), "first")
+}
+
+func TestMapStreamClosesBlockedReadOnCancellation(t *testing.T) {
+	reader := &closeableBlockedReader{blocked: make(chan struct{}), closed: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetOut(io.Discard)
+	done := make(chan error, 1)
+	go func() {
+		done <- processMapStream(ctx, cmd, streamRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &streamClient{}, func() { _ = reader.Close() })
+	}()
+	<-reader.blocked
+	cancel()
+	err := <-done
+	var coded *jeq.Error
+	require.Error(t, err)
+	require.ErrorAs(t, err, &coded)
+	assert.Equal(t, jeq.CodeInterrupted, coded.Code)
+	select {
+	case <-reader.closed:
+	default:
+		t.Fatal("cancellation did not close the blocked input")
+	}
+}
+
+func TestMapStreamCannotInterruptBlockedNonClosableRead(t *testing.T) {
+	reader := &externallyReleasedReader{blocked: make(chan struct{}), release: make(chan struct{}), readDone: make(chan struct{})}
+	t.Cleanup(reader.allowReadToFinish)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetOut(io.Discard)
+	done := make(chan error, 1)
+	go func() {
+		done <- processMapStream(ctx, cmd, streamRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &streamClient{}, nil)
+	}()
+	<-reader.blocked
+	cancel()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(5 * time.Second):
+		reader.allowReadToFinish()
+		<-done
+		t.Fatal("cancellation waited for a non-closable blocked Read")
+	}
+	var coded *jeq.Error
+	require.ErrorAs(t, err, &coded)
+	assert.Equal(t, jeq.CodeInterrupted, coded.Code)
+	select {
+	case <-reader.readDone:
+		t.Fatal("the test reader unexpectedly finished without external release")
+	default:
+	}
+	reader.allowReadToFinish()
+	<-reader.readDone
+}
+
+func TestMapStreamClosesBlockedReadOnWorkerFailure(t *testing.T) {
+	reader := &closeableBlockedReader{blocked: make(chan struct{}), closed: make(chan struct{})}
+	cmd := &cobra.Command{}
+	cmd.SetOut(io.Discard)
+	done := make(chan error, 1)
+	go func() {
+		done <- processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &failingStreamClient{}, func() { _ = reader.Close() })
+	}()
+	<-reader.blocked
+	err := <-done
+	var coded *jeq.Error
+	require.ErrorAs(t, err, &coded)
+	assert.Equal(t, jeq.CodeServerError, coded.Code)
+	select {
+	case <-reader.closed:
+	default:
+		t.Fatal("worker failure did not close the blocked input")
+	}
+}
+
+func TestMapStreamClosesBlockedReadOnOutputFailure(t *testing.T) {
+	reader := &closeableBlockedReader{blocked: make(chan struct{}), closed: make(chan struct{})}
+	done := make(chan error, 1)
+	go func() {
+		done <- processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte(`{"state":"first"}`), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", &streamClient{}, func() { _ = reader.Close() })
+	}()
+	<-reader.blocked
+	require.Error(t, <-done)
+	select {
+	case <-reader.closed:
+	default:
+		t.Fatal("output failure did not close the blocked input")
+	}
 }
 
 func TestMapStreamEmitsBeforeReadError(t *testing.T) {
@@ -144,7 +317,7 @@ func TestMapStreamEmitsBeforeReadError(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	client := &streamClient{}
-	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(&readErrorAfterFirst{}), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", client)
+	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(&readErrorAfterFirst{}), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`"is it?"`)}}, nil, "m", client, func() {})
 	require.Error(t, err)
 	assert.Contains(t, out.String(), "first")
 }
@@ -154,7 +327,7 @@ func TestMapStreamDoesNotReadAfterEvaluationCancellation(t *testing.T) {
 	client := &cancelClient{cancel: cancel}
 	reads := 0
 	reader := &countingReader{reads: &reads}
-	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
+	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client, func() {})
 	require.Error(t, err)
 	assert.LessOrEqual(t, reads, 4)
 }
@@ -183,19 +356,25 @@ func TestMapStreamStopsBeforeReadingWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	client := &cancelClient{}
-	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(strings.NewReader("{\\\"state\\\":\\\"never\\\"}\\n")), []byte("{\\\"state\\\":\\\"first\\\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
+	err := processMapStream(ctx, &cobra.Command{}, streamRenderer{}, bufio.NewReader(strings.NewReader("{\\\"state\\\":\\\"never\\\"}\\n")), []byte("{\\\"state\\\":\\\"first\\\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client, func() {})
 	require.Error(t, err)
 	assert.Zero(t, client.calls)
 }
 
 type eofEvidenceReader struct {
-	output  *bytes.Buffer
-	eofSeen bool
+	eofSeen chan struct{}
 }
 
 func (r *eofEvidenceReader) Read([]byte) (int, error) {
-	r.eofSeen = true
+	close(r.eofSeen)
 	return 0, io.EOF
+}
+
+type eofWaitingClient struct{ eofSeen <-chan struct{} }
+
+func (c eofWaitingClient) Evaluate(context.Context, contract.Request) (contract.Response, *jeq.Error) {
+	<-c.eofSeen
+	return contract.Response{Model: "m"}, nil
 }
 
 type failingRenderer struct{}
@@ -209,21 +388,26 @@ func (failingRenderer) RenderRaw(io.Writer, []byte) error {
 	return errors.New("synthetic stdout failure")
 }
 
-func TestMapStreamRequestsEOFOnlyAfterFirstOutput(t *testing.T) {
+func TestMapStreamAcceptsFastEOF(t *testing.T) {
 	var out bytes.Buffer
-	reader := &eofEvidenceReader{output: &out}
+	reader := &eofEvidenceReader{eofSeen: make(chan struct{})}
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
-	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", &streamClient{})
+	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", eofWaitingClient{eofSeen: reader.eofSeen}, func() {})
 	require.NoError(t, err)
-	assert.True(t, reader.eofSeen)
+	select {
+	case <-reader.eofSeen:
+	default:
+		t.Fatal("reader did not reach EOF")
+	}
+	assert.Contains(t, out.String(), "first")
 }
 
 func TestMapStreamStopsOnOutputFailure(t *testing.T) {
 	reads := 0
 	reader := &countingDataReader{reads: &reads, data: []byte("{\"state\":\"second\"}\n")}
 	client := &streamClient{}
-	err := processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
+	err := processMapStream(context.Background(), &cobra.Command{}, failingRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client, func() {})
 	require.Error(t, err)
 	assert.LessOrEqual(t, reads, 4)
 	assert.LessOrEqual(t, client.calls, 4)
@@ -251,7 +435,7 @@ func TestMapStreamStopsOnProviderFailure(t *testing.T) {
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
-	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client)
+	err := processMapStream(context.Background(), cmd, streamRenderer{}, bufio.NewReader(reader), []byte("{\"state\":\"first\"}"), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", client, func() {})
 	require.Error(t, err)
 	assert.LessOrEqual(t, client.calls, 4)
 	assert.LessOrEqual(t, reads, 3)
@@ -275,7 +459,7 @@ func (c *failingStreamClient) Evaluate(_ context.Context, request contract.Reque
 
 func TestMapStreamRejectsMalformedAndNonObject(t *testing.T) {
 	for _, record := range []string{"not-json", "[]"} {
-		err := processMapStream(context.Background(), &cobra.Command{}, streamRenderer{}, bufio.NewReader(strings.NewReader("")), []byte(record), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", &streamClient{})
+		err := processMapStream(context.Background(), &cobra.Command{}, streamRenderer{}, bufio.NewReader(strings.NewReader("")), []byte(record), mapFlags{input: "ndjson", name: "x", statePointer: "/state"}, map[string]contract.Question{"q": {Type: contract.TypeNoul, Instructions: json.RawMessage(`\"is it?\"`)}}, nil, "m", &streamClient{}, func() {})
 		require.Error(t, err, "record %q accepted", record)
 	}
 }
